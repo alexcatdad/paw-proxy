@@ -47,11 +47,12 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-      - name: Create login keychain
+      - name: Setup login keychain
         run: |
-          security create-keychain -p "" ~/Library/Keychains/login.keychain-db
+          security create-keychain -p "" ~/Library/Keychains/login.keychain-db || true
           security default-keychain -s ~/Library/Keychains/login.keychain-db
           security unlock-keychain -p "" ~/Library/Keychains/login.keychain-db
+          security list-keychains -s ~/Library/Keychains/login.keychain-db
       - name: Build
         run: |
           go build -o paw-proxy ./cmd/paw-proxy
