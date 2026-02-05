@@ -1,3 +1,5 @@
+//go:build darwin
+
 // internal/setup/uninstall_darwin.go
 package setup
 

@@ -1,3 +1,5 @@
+//go:build darwin
+
 // internal/setup/setup_darwin.go
 package setup
 
