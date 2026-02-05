@@ -166,9 +166,11 @@ func (d *Daemon) serveHTTPS() error {
 	}
 
 	server := &http.Server{
-		Handler:      http.HandlerFunc(d.handleRequest),
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 60 * time.Second,
+		Handler:     http.HandlerFunc(d.handleRequest),
+		ReadTimeout: 30 * time.Second,
+		// WriteTimeout disabled (0) to support SSE connections (Vite HMR, Next.js Fast Refresh, etc.)
+		// SSE keeps connections open indefinitely, and a fixed timeout breaks hot reload.
+		WriteTimeout: 0,
 		IdleTimeout:  120 * time.Second,
 	}
 
