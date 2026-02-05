@@ -2,12 +2,15 @@
 package daemon
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/alexcatdad/paw-proxy/internal/api"
@@ -42,12 +45,14 @@ func DefaultConfig() *Config {
 }
 
 type Daemon struct {
-	config    *Config
-	dnsServer *dns.Server
-	registry  *api.RouteRegistry
-	apiServer *api.Server
-	certCache *ssl.CertCache
-	proxy     *proxy.Proxy
+	config      *Config
+	dnsServer   *dns.Server
+	registry    *api.RouteRegistry
+	apiServer   *api.Server
+	certCache   *ssl.CertCache
+	proxy       *proxy.Proxy
+	httpServer  *http.Server
+	httpsServer *http.Server
 }
 
 func New(config *Config) (*Daemon, error) {
@@ -93,6 +98,10 @@ func New(config *Config) (*Daemon, error) {
 }
 
 func (d *Daemon) Run() error {
+	// Create context with signal handling for graceful shutdown
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	// SECURITY: Critical component failures must crash the daemon
 	// Buffered channel allows all 4 goroutines to send errors without blocking
 	errCh := make(chan error, 4)
@@ -113,13 +122,13 @@ func (d *Daemon) Run() error {
 		}
 	}()
 
-	// Start cleanup routine
-	go d.cleanupRoutine()
+	// Start cleanup routine with context
+	go d.cleanupRoutine(ctx)
 
 	// Start HTTP redirect server
 	go func() {
 		log.Printf("HTTP redirect server listening on 127.0.0.1:%d", d.config.HTTPPort)
-		if err := d.serveHTTP(); err != nil {
+		if err := d.serveHTTP(); err != nil && err != http.ErrServerClosed {
 			errCh <- fmt.Errorf("HTTP server: %w", err)
 		}
 	}()
@@ -127,19 +136,82 @@ func (d *Daemon) Run() error {
 	// Start HTTPS server in goroutine
 	go func() {
 		log.Printf("HTTPS server listening on 127.0.0.1:%d", d.config.HTTPSPort)
-		if err := d.serveHTTPS(); err != nil {
+		if err := d.serveHTTPS(); err != nil && err != http.ErrServerClosed {
 			errCh <- fmt.Errorf("HTTPS server: %w", err)
 		}
 	}()
 
-	// Block until first critical failure
-	return <-errCh
+	// Block until signal or critical failure
+	select {
+	case <-ctx.Done():
+		log.Println("Received shutdown signal, gracefully stopping...")
+		return d.Shutdown()
+	case err := <-errCh:
+		return err
+	}
 }
 
-func (d *Daemon) cleanupRoutine() {
+// Shutdown performs graceful shutdown of all daemon components
+func (d *Daemon) Shutdown() error {
+	// Use 5-second timeout for connection draining
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var lastErr error
+
+	// Shutdown HTTP server
+	if d.httpServer != nil {
+		log.Println("Shutting down HTTP server...")
+		if err := d.httpServer.Shutdown(ctx); err != nil {
+			log.Printf("HTTP server shutdown error: %v", err)
+			lastErr = err
+		}
+	}
+
+	// Shutdown HTTPS server
+	if d.httpsServer != nil {
+		log.Println("Shutting down HTTPS server...")
+		if err := d.httpsServer.Shutdown(ctx); err != nil {
+			log.Printf("HTTPS server shutdown error: %v", err)
+			lastErr = err
+		}
+	}
+
+	// Stop API server (this removes the socket)
+	log.Println("Stopping API server...")
+	if err := d.apiServer.Stop(); err != nil {
+		log.Printf("API server stop error: %v", err)
+		lastErr = err
+	}
+
+	// Stop DNS server
+	log.Println("Stopping DNS server...")
+	if err := d.dnsServer.Stop(); err != nil {
+		log.Printf("DNS server stop error: %v", err)
+		lastErr = err
+	}
+
+	// SECURITY: Ensure unix socket is removed even if Stop() failed
+	if err := os.Remove(d.config.SocketPath); err != nil && !os.IsNotExist(err) {
+		log.Printf("Failed to remove socket: %v", err)
+		lastErr = err
+	}
+
+	log.Println("Shutdown complete")
+	return lastErr
+}
+
+func (d *Daemon) cleanupRoutine(ctx context.Context) {
 	ticker := time.NewTicker(10 * time.Second)
-	for range ticker.C {
-		d.registry.Cleanup()
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			d.registry.Cleanup()
+		}
 	}
 }
 
@@ -147,7 +219,7 @@ func (d *Daemon) serveHTTP() error {
 	// SECURITY: Bind to loopback only, not all interfaces
 	addr := fmt.Sprintf("127.0.0.1:%d", d.config.HTTPPort)
 
-	server := &http.Server{
+	d.httpServer = &http.Server{
 		Addr: addr,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			target := "https://" + r.Host + r.URL.RequestURI()
@@ -155,7 +227,7 @@ func (d *Daemon) serveHTTP() error {
 		}),
 	}
 
-	if err := server.ListenAndServe(); err != nil {
+	if err := d.httpServer.ListenAndServe(); err != nil {
 		return fmt.Errorf("listening on %s: %w", addr, err)
 	}
 	return nil
@@ -184,7 +256,7 @@ func (d *Daemon) serveHTTPS() error {
 		return fmt.Errorf("listening on %s: %w", addr, err)
 	}
 
-	server := &http.Server{
+	d.httpsServer = &http.Server{
 		Handler:     http.HandlerFunc(d.handleRequest),
 		ReadTimeout: 30 * time.Second,
 		// WriteTimeout disabled (0) to support SSE connections (Vite HMR, Next.js Fast Refresh, etc.)
@@ -193,7 +265,7 @@ func (d *Daemon) serveHTTPS() error {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	return server.Serve(listener)
+	return d.httpsServer.Serve(listener)
 }
 
 func (d *Daemon) handleRequest(w http.ResponseWriter, r *http.Request) {
