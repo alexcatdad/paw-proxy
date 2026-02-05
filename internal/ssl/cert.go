@@ -45,8 +45,12 @@ func (c *CertCache) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate
 			c.mu.RUnlock()
 			// Certificate expired, regenerate
 			c.mu.Lock()
-			delete(c.cache, name)
-			c.removeFromOrder(name)
+			// SECURITY: Re-check expiry after acquiring write lock to prevent TOCTOU race
+			// Another goroutine may have already deleted or regenerated this cert
+			if cert, ok := c.cache[name]; ok && cert.Leaf != nil && time.Now().After(cert.Leaf.NotAfter) {
+				delete(c.cache, name)
+				c.removeFromOrder(name)
+			}
 			c.mu.Unlock()
 		} else {
 			c.mu.RUnlock()
