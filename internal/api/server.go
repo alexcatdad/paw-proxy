@@ -78,6 +78,13 @@ func (s *Server) Stop() error {
 	return s.server.Shutdown(ctx)
 }
 
+// jsonError writes a JSON error response with consistent formatting
+func jsonError(w http.ResponseWriter, msg string, code int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+
 type RegisterRequest struct {
 	Name     string `json:"name"`
 	Upstream string `json:"upstream"`
@@ -141,21 +148,21 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		jsonError(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	// Validate all inputs
 	if err := validateRouteName(req.Name); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if err := validateUpstream(req.Upstream); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if err := validateDir(req.Dir); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -170,7 +177,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		http.Error(w, "registration failed", http.StatusInternalServerError)
+		jsonError(w, "registration failed", http.StatusInternalServerError)
 		return
 	}
 
@@ -181,14 +188,14 @@ func (s *Server) handleDeregister(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 
 	if err := validateRouteName(name); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if s.registry.Deregister(name) {
 		w.WriteHeader(http.StatusOK)
 	} else {
-		http.Error(w, "not found", http.StatusNotFound)
+		jsonError(w, "not found", http.StatusNotFound)
 	}
 }
 
@@ -196,12 +203,12 @@ func (s *Server) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 
 	if err := validateRouteName(name); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if err := s.registry.Heartbeat(name); err != nil {
-		http.Error(w, "not found", http.StatusNotFound)
+		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
 
