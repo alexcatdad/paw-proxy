@@ -1,0 +1,136 @@
+# .github/workflows/auto-update-pr.yml
+#
+# Auto-update the next eligible PR branch when main advances.
+#
+# PROBLEM:
+# With "Require branches to be up to date before merging" enabled,
+# merging one PR makes all others "behind main". This creates a tedious
+# manual loop when merging 8+ Renovate PRs in sequence.
+#
+# SOLUTION:
+# On push to main → find next eligible PR → update its branch →
+# dispatch CI via workflow_dispatch (exempt from GITHUB_TOKEN suppression)
+# → CI passes → auto-merge proceeds → cycle repeats.
+#
+# FALLBACK:
+# If workflow_dispatch-triggered check runs don't satisfy branch protection
+# (because GitHub puts them in a separate check suite context), switch to
+# the GitHub App approach:
+#   1. Create a free GitHub App with contents:write + pull-requests:write
+#   2. Install it on this repo
+#   3. Store App ID + private key as repo secrets
+#   4. Use actions/create-github-app-token to mint a token
+#   5. Use that token for gh pr update-branch (App tokens DO trigger CI)
+# See: https://github.com/orgs/community/discussions/26520
+
+name: Auto-update next PR
+
+on:
+  push:
+    branches: [main]
+
+# If two PRs merge in quick succession, let the latest run handle it.
+concurrency:
+  group: auto-update-pr
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  update-next-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find the next eligible PR
+        id: find-pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Query for open PRs targeting main with auto-merge enabled.
+          # We use GraphQL because REST doesn't expose autoMergeRequest.
+          PR_DATA=$(gh api graphql -f query='
+            query {
+              repository(owner: "${{ github.repository_owner }}", name: "${{ github.event.repository.name }}") {
+                pullRequests(
+                  baseRefName: "main",
+                  states: OPEN,
+                  first: 20,
+                  orderBy: { field: CREATED_AT, direction: ASC }
+                ) {
+                  nodes {
+                    number
+                    headRefName
+                    mergeable
+                    autoMergeRequest { mergeMethod }
+                  }
+                }
+              }
+            }
+          ')
+
+          # First PR that has auto-merge enabled AND no merge conflicts.
+          NEXT_PR=$(echo "$PR_DATA" | jq -r '
+            .data.repository.pullRequests.nodes
+            | map(select(.autoMergeRequest != null and .mergeable == "MERGEABLE"))
+            | first
+          ')
+
+          if [ "$NEXT_PR" = "null" ] || [ -z "$NEXT_PR" ]; then
+            echo "No eligible PRs found."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          PR_NUMBER=$(echo "$NEXT_PR" | jq -r '.number')
+          PR_BRANCH=$(echo "$NEXT_PR" | jq -r '.headRefName')
+
+          echo "→ PR #${PR_NUMBER} on branch '${PR_BRANCH}'"
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "pr_branch=$PR_BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Update PR branch
+        if: steps.find-pr.outputs.found == 'true'
+        id: update
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ steps.find-pr.outputs.pr_number }}
+          echo "Updating branch for PR #${PR_NUMBER}..."
+
+          # This merges main into the PR branch. The branch updates, but
+          # GITHUB_TOKEN suppresses push/synchronize events — CI won't run.
+          if gh pr update-branch "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"; then
+            echo "updated=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::update-branch failed (already up to date or conflict)"
+            echo "updated=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Wait for branch ref to settle
+        if: steps.update.outputs.updated == 'true'
+        run: sleep 10
+
+      - name: Trigger CI on the updated branch
+        if: steps.update.outputs.updated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_BRANCH=${{ steps.find-pr.outputs.pr_branch }}
+
+          # workflow_dispatch is exempt from GITHUB_TOKEN event suppression.
+          # The ref parameter targets the PR's branch, so the check runs
+          # attach to the correct HEAD SHA.
+          #
+          # This targets ci.yml which has 4 required jobs:
+          #   lint, test, build, integration
+          echo "Dispatching CI on branch '${PR_BRANCH}'..."
+
+          gh api \
+            --method POST \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/dispatches" \
+            -f ref="${PR_BRANCH}"
+
+          echo "Done. PR #${{ steps.find-pr.outputs.pr_number }} should now run checks."
