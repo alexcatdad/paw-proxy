@@ -50,8 +50,8 @@ func GenerateCA(certPath, keyPath string) error {
 		return fmt.Errorf("creating certificate: %w", err)
 	}
 
-	// Write cert
-	certOut, err := os.Create(certPath)
+	// Write cert with explicit permissions (not secret, but consistent with project conventions)
+	certOut, err := os.OpenFile(certPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("creating cert file: %w", err)
 	}
