@@ -97,8 +97,18 @@ func cmdSetup() {
 }
 
 func cmdUninstall() {
-	// Will implement in Task 10
-	fmt.Println("uninstall command - to be implemented")
+	brewFlag := false
+	for _, arg := range os.Args[2:] {
+		if arg == "--brew" {
+			brewFlag = true
+		}
+	}
+
+	config := daemon.DefaultConfig()
+	if err := setup.Uninstall(config.SupportDir, "test", brewFlag); err != nil {
+		fmt.Printf("Uninstall failed: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func cmdStatus() {
