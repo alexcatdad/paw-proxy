@@ -35,28 +35,26 @@ func NewCertCache(ca *tls.Certificate) *CertCache {
 func (c *CertCache) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	name := hello.ServerName
 
+	// SECURITY: Reject empty SNI to prevent serving a default cert for IP-based connections
+	if name == "" {
+		return nil, fmt.Errorf("SNI required: connect using hostname, not IP")
+	}
+
+	// Fast path: read lock for cache hit (non-expired)
 	c.mu.RLock()
 	if cert, ok := c.cache[name]; ok {
-		// SECURITY: Check certificate expiry
-		if cert.Leaf != nil && time.Now().After(cert.Leaf.NotAfter) {
-			c.mu.RUnlock()
-			// Certificate expired, regenerate
-			c.mu.Lock()
-			delete(c.cache, name)
-			c.removeFromOrder(name)
-			c.mu.Unlock()
-		} else {
+		if cert.Leaf == nil || time.Now().Before(cert.Leaf.NotAfter) {
 			c.mu.RUnlock()
 			return cert, nil
 		}
-	} else {
-		c.mu.RUnlock()
 	}
+	c.mu.RUnlock()
 
+	// Slow path: write lock for miss or expired
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Double-check after acquiring write lock
+	// Double-check after acquiring write lock (avoids TOCTOU race)
 	if cert, ok := c.cache[name]; ok {
 		if cert.Leaf == nil || time.Now().Before(cert.Leaf.NotAfter) {
 			return cert, nil
