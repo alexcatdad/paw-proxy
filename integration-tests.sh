@@ -11,10 +11,10 @@ echo "  ✓ Daemon is healthy"
 
 # Test 2: Register a route
 echo "[Test 2] Route registration..."
-curl -s --unix-socket ~/Library/Application\ Support/paw-proxy/paw-proxy.sock \
+curl -sf --unix-socket ~/Library/Application\ Support/paw-proxy/paw-proxy.sock \
   -X POST http://unix/routes \
   -H "Content-Type: application/json" \
-  -d '{"name":"integration-test","upstream":"localhost:9999","dir":"/tmp"}' | grep -q ""
+  -d '{"name":"integration-test","upstream":"localhost:9999","dir":"/tmp"}'
 echo "  ✓ Route registered"
 
 # Test 3: Route appears in list
@@ -34,14 +34,14 @@ echo "  ✓ Certificate issued for domain"
 
 # Test 6: Heartbeat
 echo "[Test 6] Heartbeat..."
-curl -s --unix-socket ~/Library/Application\ Support/paw-proxy/paw-proxy.sock \
-  -X POST http://unix/routes/integration-test/heartbeat | grep -q ""
+curl -sf --unix-socket ~/Library/Application\ Support/paw-proxy/paw-proxy.sock \
+  -X POST http://unix/routes/integration-test/heartbeat
 echo "  ✓ Heartbeat accepted"
 
 # Test 7: Deregister
 echo "[Test 7] Route deregistration..."
-curl -s --unix-socket ~/Library/Application\ Support/paw-proxy/paw-proxy.sock \
-  -X DELETE http://unix/routes/integration-test | grep -q ""
+curl -sf --unix-socket ~/Library/Application\ Support/paw-proxy/paw-proxy.sock \
+  -X DELETE http://unix/routes/integration-test
 echo "  ✓ Route deregistered"
 
 # Test 8: Route gone

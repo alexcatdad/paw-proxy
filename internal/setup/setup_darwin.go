@@ -85,19 +85,22 @@ func Run(config *Config) error {
 }
 
 func trustCA(certPath string) error {
-	// Get login keychain
-	out, err := exec.Command("security", "login-keychain").Output()
-	if err != nil {
-		return fmt.Errorf("finding login keychain: %w", err)
+	// Try login keychain first (works for normal user sessions)
+	if out, err := exec.Command("security", "login-keychain").Output(); err == nil {
+		keychain := strings.TrimSpace(strings.Trim(string(out), `"`))
+		cmd := exec.Command("security", "add-trusted-cert", "-k", keychain, certPath)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if cmd.Run() == nil {
+			return nil
+		}
 	}
 
-	keychain := strings.TrimSpace(strings.Trim(string(out), `"`))
-
-	// Add trusted cert
-	cmd := exec.Command("security", "add-trusted-cert", "-k", keychain, certPath)
+	// Fall back to System keychain (CI/headless/root environments)
+	cmd := exec.Command("security", "add-trusted-cert", "-d", "-r", "trustRoot",
+		"-k", "/Library/Keychains/System.keychain", certPath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-
 	return cmd.Run()
 }
 

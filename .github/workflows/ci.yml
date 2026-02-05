@@ -41,7 +41,6 @@ jobs:
 
   integration:
     runs-on: macos-14
-    if: github.event_name == 'pull_request'
     needs: [lint, test, build]
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +51,25 @@ jobs:
         run: |
           go build -o paw-proxy ./cmd/paw-proxy
           go build -o up ./cmd/up
-      - name: Setup
+      - name: Setup CA and resolver
         run: sudo ./paw-proxy setup
+      - name: Prepare for daemon
+        run: |
+          sudo chmod 755 "$HOME/Library/Application Support/paw-proxy"
+          launchctl unload ~/Library/LaunchAgents/dev.paw-proxy.plist 2>/dev/null || true
+      - name: Start daemon
+        run: |
+          sudo ./paw-proxy run &
+          sleep 2
+          sudo chmod 777 "$HOME/Library/Application Support/paw-proxy/paw-proxy.sock"
+      - name: Wait for daemon
+        run: |
+          for i in 1 2 3 4 5; do
+            if curl -sf --unix-socket "$HOME/Library/Application Support/paw-proxy/paw-proxy.sock" http://unix/health; then
+              echo "Daemon is ready"
+              break
+            fi
+            sleep 1
+          done
       - name: Integration Tests
         run: ./integration-tests.sh
