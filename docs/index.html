@@ -38,37 +38,40 @@
                         mono: ['JetBrains Mono', 'monospace'],
                     },
                     colors: {
-                        clay: {
-                            50: '#fefefe',
-                            100: '#f8f8f8',
-                            200: '#f0f0f0',
-                            300: '#e8e8e8',
-                            400: '#d4d4d4',
-                            500: '#a3a3a3',
-                            600: '#737373',
-                            700: '#404040',
-                            800: '#262626',
-                            850: '#1a1a1a',
-                            900: '#141414',
-                            950: '#0a0a0a',
+                        // Warm sand palette for light mode
+                        sand: {
+                            50: '#FDFBF7',
+                            100: '#FAF6EF',
+                            200: '#F3EBE0',
+                            300: '#E8DCC8',
+                            400: '#D4C4A8',
+                            500: '#B8A584',
+                            600: '#8C7A5E',
+                            700: '#5C5142',
+                            800: '#3D362D',
+                            900: '#252118',
+                        },
+                        // Cool slate-blue palette for dark mode
+                        slate: {
+                            750: '#1E2433',
+                            850: '#141926',
+                            925: '#0D1117',
+                            950: '#080B10',
                         },
                         accent: {
-                            light: '#f97316',
-                            DEFAULT: '#ea580c',
-                            dark: '#c2410c',
+                            light: '#FF8A4C',
+                            DEFAULT: '#F97316',
+                            dark: '#EA580C',
                         },
-                        success: {
-                            light: '#22c55e',
-                            DEFAULT: '#16a34a',
+                        mint: {
+                            light: '#6EE7B7',
+                            DEFAULT: '#34D399',
+                            dark: '#10B981',
                         }
                     },
-                    boxShadow: {
-                        'clay': '8px 8px 16px rgba(0,0,0,0.1), -4px -4px 12px rgba(255,255,255,0.9)',
-                        'clay-sm': '4px 4px 8px rgba(0,0,0,0.08), -2px -2px 6px rgba(255,255,255,0.9)',
-                        'clay-inset': 'inset 4px 4px 8px rgba(0,0,0,0.08), inset -2px -2px 6px rgba(255,255,255,0.9)',
-                        'clay-dark': '8px 8px 16px rgba(0,0,0,0.4), -4px -4px 12px rgba(255,255,255,0.03)',
-                        'clay-dark-sm': '4px 4px 8px rgba(0,0,0,0.3), -2px -2px 6px rgba(255,255,255,0.02)',
-                        'clay-dark-inset': 'inset 4px 4px 8px rgba(0,0,0,0.3), inset -2px -2px 6px rgba(255,255,255,0.02)',
+                    borderRadius: {
+                        '4xl': '2rem',
+                        '5xl': '2.5rem',
                     }
                 }
             }
@@ -81,61 +84,105 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
-        /* Clay aesthetic base styles */
-        .clay-card {
-            @apply bg-clay-100 dark:bg-clay-850 rounded-3xl;
-            box-shadow: 8px 8px 16px rgba(0,0,0,0.1), -4px -4px 12px rgba(255,255,255,0.9);
-        }
-        .dark .clay-card {
-            box-shadow: 8px 8px 16px rgba(0,0,0,0.4), -4px -4px 12px rgba(255,255,255,0.03);
+        /* Light mode - warm sand */
+        :root {
+            --bg-base: #FDFBF7;
+            --bg-surface: #FAF6EF;
+            --bg-elevated: #F3EBE0;
+            --bg-inset: #E8DCC8;
+            --text-primary: #3D362D;
+            --text-secondary: #5C5142;
+            --text-muted: #8C7A5E;
+            --border: #E8DCC8;
+            --shadow-light: rgba(255, 255, 255, 0.8);
+            --shadow-dark: rgba(0, 0, 0, 0.08);
         }
 
-        .clay-card-sm {
-            @apply bg-clay-100 dark:bg-clay-850 rounded-2xl;
-            box-shadow: 4px 4px 8px rgba(0,0,0,0.08), -2px -2px 6px rgba(255,255,255,0.9);
+        /* Dark mode - cool slate-blue */
+        .dark {
+            --bg-base: #080B10;
+            --bg-surface: #0D1117;
+            --bg-elevated: #141926;
+            --bg-inset: #1E2433;
+            --text-primary: #E6EDF3;
+            --text-secondary: #9CA3B0;
+            --text-muted: #636E7B;
+            --border: #2D3748;
+            --shadow-light: rgba(255, 255, 255, 0.02);
+            --shadow-dark: rgba(0, 0, 0, 0.4);
         }
-        .dark .clay-card-sm {
-            box-shadow: 4px 4px 8px rgba(0,0,0,0.3), -2px -2px 6px rgba(255,255,255,0.02);
+
+        body {
+            background: var(--bg-base);
+            color: var(--text-primary);
+        }
+
+        /* Clay card styles */
+        .clay {
+            background: var(--bg-surface);
+            border-radius: 1.75rem;
+            box-shadow:
+                12px 12px 24px var(--shadow-dark),
+                -8px -8px 20px var(--shadow-light);
+            border: 1px solid var(--border);
+        }
+
+        .clay-sm {
+            background: var(--bg-surface);
+            border-radius: 1.25rem;
+            box-shadow:
+                8px 8px 16px var(--shadow-dark),
+                -4px -4px 12px var(--shadow-light);
+            border: 1px solid var(--border);
         }
 
         .clay-inset {
-            @apply bg-clay-200 dark:bg-clay-900 rounded-xl;
-            box-shadow: inset 4px 4px 8px rgba(0,0,0,0.08), inset -2px -2px 6px rgba(255,255,255,0.7);
-        }
-        .dark .clay-inset {
-            box-shadow: inset 4px 4px 8px rgba(0,0,0,0.3), inset -2px -2px 6px rgba(255,255,255,0.02);
+            background: var(--bg-inset);
+            border-radius: 1rem;
+            box-shadow:
+                inset 4px 4px 8px var(--shadow-dark),
+                inset -2px -2px 6px var(--shadow-light);
         }
 
         .clay-btn {
-            @apply bg-clay-100 dark:bg-clay-800 rounded-xl px-4 py-2 font-medium transition-all duration-200;
-            box-shadow: 4px 4px 8px rgba(0,0,0,0.1), -2px -2px 6px rgba(255,255,255,0.9);
+            background: var(--bg-elevated);
+            border-radius: 0.875rem;
+            box-shadow:
+                6px 6px 12px var(--shadow-dark),
+                -3px -3px 8px var(--shadow-light);
+            border: 1px solid var(--border);
+            transition: all 0.15s ease;
         }
-        .dark .clay-btn {
-            box-shadow: 4px 4px 8px rgba(0,0,0,0.3), -2px -2px 6px rgba(255,255,255,0.02);
-        }
+
         .clay-btn:hover {
-            box-shadow: 2px 2px 4px rgba(0,0,0,0.1), -1px -1px 3px rgba(255,255,255,0.9);
+            box-shadow:
+                4px 4px 8px var(--shadow-dark),
+                -2px -2px 6px var(--shadow-light);
         }
-        .dark .clay-btn:hover {
-            box-shadow: 2px 2px 4px rgba(0,0,0,0.3), -1px -1px 3px rgba(255,255,255,0.02);
-        }
+
         .clay-btn:active {
-            box-shadow: inset 2px 2px 4px rgba(0,0,0,0.1), inset -1px -1px 3px rgba(255,255,255,0.7);
-        }
-        .dark .clay-btn:active {
-            box-shadow: inset 2px 2px 4px rgba(0,0,0,0.3), inset -1px -1px 3px rgba(255,255,255,0.02);
+            box-shadow:
+                inset 3px 3px 6px var(--shadow-dark),
+                inset -2px -2px 4px var(--shadow-light);
         }
 
         .clay-pill {
-            @apply inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium;
-            @apply bg-clay-100 dark:bg-clay-800 text-clay-600 dark:text-clay-400;
-            box-shadow: 3px 3px 6px rgba(0,0,0,0.08), -2px -2px 4px rgba(255,255,255,0.9);
-        }
-        .dark .clay-pill {
-            box-shadow: 3px 3px 6px rgba(0,0,0,0.3), -2px -2px 4px rgba(255,255,255,0.02);
+            background: var(--bg-elevated);
+            border-radius: 9999px;
+            box-shadow:
+                4px 4px 10px var(--shadow-dark),
+                -2px -2px 6px var(--shadow-light);
+            border: 1px solid var(--border);
         }
 
-        /* Cursor blink */
+        /* Terminal styling */
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        /* Animations */
         @keyframes blink {
             50% { opacity: 0; }
         }
@@ -143,117 +190,176 @@
             animation: blink 1s step-end infinite;
         }
 
-        /* Fade in animation */
         .fade-in {
             opacity: 0;
-            transform: translateY(20px);
-            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+            transform: translateY(24px);
+            transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
         }
         .fade-in.visible {
             opacity: 1;
             transform: translateY(0);
         }
 
-        /* Smooth theme transition */
-        * {
-            transition-property: background-color, border-color, box-shadow;
-            transition-duration: 200ms;
-            transition-timing-function: ease-out;
+        /* Smooth theme transitions */
+        body, .clay, .clay-sm, .clay-inset, .clay-btn, .clay-pill {
+            transition: background-color 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+
+        /* Custom scrollbar for dark mode */
+        .dark ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .dark ::-webkit-scrollbar-track {
+            background: var(--bg-surface);
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        /* Gradient text */
+        .gradient-text {
+            background: linear-gradient(135deg, #F97316 0%, #FF8A4C 50%, #FBBF24 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Feature card hover */
+        .feature-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .feature-card:hover {
+            transform: translateY(-4px);
         }
     </style>
 </head>
-<body class="bg-clay-50 dark:bg-clay-950 text-clay-800 dark:text-clay-200 font-sans min-h-screen">
+<body class="font-sans min-h-screen antialiased">
     <!-- Theme Toggle -->
     <div class="fixed top-6 right-6 z-50">
-        <button id="theme-toggle" class="clay-btn flex items-center gap-2 text-sm">
-            <svg class="w-5 h-5 hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+        <button id="theme-toggle" class="clay-btn p-3 flex items-center justify-center" aria-label="Toggle theme">
+            <svg class="w-5 h-5 hidden dark:block text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/>
             </svg>
-            <svg class="w-5 h-5 block dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            <svg class="w-5 h-5 block dark:hidden" style="color: var(--text-secondary)" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
             </svg>
         </button>
     </div>
 
-    <div class="max-w-4xl mx-auto px-6 py-16">
+    <div class="max-w-4xl mx-auto px-6 py-20">
         <!-- Header -->
-        <header class="text-center mb-20">
-            <div class="inline-flex items-center gap-3 mb-6">
-                <span class="text-5xl">🐾</span>
-                <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-accent-dark via-accent to-accent-light bg-clip-text text-transparent">
+        <header class="text-center mb-24">
+            <div class="inline-flex items-center gap-4 mb-8">
+                <span class="text-6xl drop-shadow-lg">🐾</span>
+                <h1 class="text-5xl md:text-6xl font-extrabold tracking-tight gradient-text">
                     paw-proxy
                 </h1>
             </div>
-            <p class="text-xl md:text-2xl text-clay-600 dark:text-clay-400 font-medium mb-8 max-w-xl mx-auto">
+            <p class="text-xl md:text-2xl font-medium mb-10 max-w-2xl mx-auto leading-relaxed" style="color: var(--text-secondary)">
                 Zero-config HTTPS for local macOS development.<br>
-                Get <span class="text-accent font-semibold">https://myapp.test</span> working in seconds.
+                Get <span class="text-accent font-bold">https://myapp.test</span> working in seconds.
             </p>
 
             <!-- Hero Terminal -->
-            <div class="clay-card p-2 max-w-lg mx-auto">
-                <div class="clay-inset p-1">
-                    <div class="flex items-center gap-2 px-3 py-2 border-b border-clay-300 dark:border-clay-700">
-                        <div class="flex gap-1.5">
-                            <div class="w-3 h-3 rounded-full bg-red-400"></div>
-                            <div class="w-3 h-3 rounded-full bg-yellow-400"></div>
-                            <div class="w-3 h-3 rounded-full bg-green-400"></div>
+            <div class="clay p-3 max-w-xl mx-auto">
+                <div class="clay-inset overflow-hidden">
+                    <div class="flex items-center gap-2.5 px-4 py-3" style="border-bottom: 1px solid var(--border)">
+                        <div class="flex gap-2">
+                            <div class="terminal-dot bg-red-400"></div>
+                            <div class="terminal-dot bg-amber-400"></div>
+                            <div class="terminal-dot bg-emerald-400"></div>
                         </div>
-                        <span class="flex-1 text-center text-xs font-mono text-clay-500">Terminal</span>
+                        <span class="flex-1 text-center text-xs font-mono font-medium" style="color: var(--text-muted)">~ terminal</span>
+                        <div class="w-12"></div>
                     </div>
-                    <div class="p-4 font-mono text-sm text-left">
-                        <div class="text-clay-500 dark:text-clay-500 mb-1"># Before: localhost headaches</div>
-                        <div class="mb-3"><span class="text-success-light">$</span> npm run dev</div>
-                        <div class="text-clay-500 dark:text-clay-500 mb-1"># After: just works</div>
-                        <div class="mb-1"><span class="text-success-light">$</span> up npm run dev</div>
-                        <div class="text-accent font-medium">→ https://myapp.test<span class="inline-block w-2 h-4 bg-accent ml-1 cursor-blink align-text-bottom"></span></div>
+                    <div class="p-5 font-mono text-sm text-left space-y-1">
+                        <div style="color: var(--text-muted)"># Before: localhost headaches</div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-emerald-500">❯</span>
+                            <span style="color: var(--text-primary)">npm run dev</span>
+                        </div>
+                        <div class="pt-3" style="color: var(--text-muted)"># After: just works</div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-emerald-500">❯</span>
+                            <span style="color: var(--text-primary)">up npm run dev</span>
+                        </div>
+                        <div class="flex items-center gap-2 pt-1">
+                            <span class="text-accent-light font-semibold">→ https://myapp.test</span>
+                            <span class="inline-block w-2.5 h-5 bg-accent rounded-sm cursor-blink"></span>
+                        </div>
                     </div>
                 </div>
             </div>
         </header>
 
         <!-- Why Section -->
-        <section class="mb-20 fade-in">
-            <div class="text-center mb-10">
-                <span class="clay-pill mb-4">💡 The Problem</span>
-                <h2 class="text-3xl font-bold mt-4">Local HTTPS is painful</h2>
+        <section class="mb-24 fade-in">
+            <div class="text-center mb-12">
+                <span class="clay-pill px-5 py-2.5 text-sm font-semibold inline-flex items-center gap-2" style="color: var(--text-secondary)">
+                    <span>💡</span> The Problem
+                </span>
+                <h2 class="text-3xl md:text-4xl font-bold mt-6" style="color: var(--text-primary)">Local HTTPS is painful</h2>
             </div>
 
-            <div class="grid gap-6">
-                <div class="clay-card p-6">
-                    <div class="flex items-start gap-4">
-                        <span class="text-3xl">😤</span>
+            <div class="space-y-5">
+                <div class="clay p-7">
+                    <div class="flex items-start gap-5">
+                        <span class="text-4xl">😤</span>
                         <div>
-                            <h3 class="text-lg font-bold mb-3">You need HTTPS locally for...</h3>
-                            <ul class="space-y-2 text-clay-600 dark:text-clay-400">
-                                <li class="flex items-center gap-2"><span class="text-accent">→</span> OAuth callbacks requiring HTTPS redirect URIs</li>
-                                <li class="flex items-center gap-2"><span class="text-accent">→</span> Secure cookies with SameSite=None or Secure flags</li>
-                                <li class="flex items-center gap-2"><span class="text-accent">→</span> Service workers that only work on secure origins</li>
-                                <li class="flex items-center gap-2"><span class="text-accent">→</span> Testing production behavior locally</li>
+                            <h3 class="text-xl font-bold mb-4" style="color: var(--text-primary)">You need HTTPS locally for...</h3>
+                            <ul class="space-y-3" style="color: var(--text-secondary)">
+                                <li class="flex items-start gap-3">
+                                    <span class="text-accent mt-0.5">→</span>
+                                    <span>OAuth callbacks requiring HTTPS redirect URIs</span>
+                                </li>
+                                <li class="flex items-start gap-3">
+                                    <span class="text-accent mt-0.5">→</span>
+                                    <span>Secure cookies with <code class="font-mono text-sm px-1.5 py-0.5 rounded" style="background: var(--bg-inset)">SameSite=None</code> or <code class="font-mono text-sm px-1.5 py-0.5 rounded" style="background: var(--bg-inset)">Secure</code></span>
+                                </li>
+                                <li class="flex items-start gap-3">
+                                    <span class="text-accent mt-0.5">→</span>
+                                    <span>Service workers that only work on secure origins</span>
+                                </li>
+                                <li class="flex items-start gap-3">
+                                    <span class="text-accent mt-0.5">→</span>
+                                    <span>Testing production behavior locally</span>
+                                </li>
                             </ul>
                         </div>
                     </div>
                 </div>
 
-                <div class="clay-card p-6">
-                    <div class="flex items-start gap-4">
-                        <span class="text-3xl">😩</span>
+                <div class="clay p-7">
+                    <div class="flex items-start gap-5">
+                        <span class="text-4xl">😩</span>
                         <div>
-                            <h3 class="text-lg font-bold mb-3">Existing solutions are frustrating</h3>
-                            <ul class="space-y-2 text-clay-600 dark:text-clay-400">
-                                <li class="flex items-center gap-2"><span class="text-clay-400">→</span> <strong>mkcert</strong> — Great certs, but still need nginx config per project</li>
-                                <li class="flex items-center gap-2"><span class="text-clay-400">→</span> <strong>ngrok/tunnels</strong> — External dependency, latency, rate limits</li>
-                                <li class="flex items-center gap-2"><span class="text-clay-400">→</span> <strong>Self-signed</strong> — Browser warnings, manual trust, breaks fetch</li>
+                            <h3 class="text-xl font-bold mb-4" style="color: var(--text-primary)">Existing solutions are frustrating</h3>
+                            <ul class="space-y-3" style="color: var(--text-secondary)">
+                                <li class="flex items-start gap-3">
+                                    <span style="color: var(--text-muted)" class="mt-0.5">→</span>
+                                    <span><strong class="font-semibold">mkcert</strong> — Great certs, but still need nginx/caddy config per project</span>
+                                </li>
+                                <li class="flex items-start gap-3">
+                                    <span style="color: var(--text-muted)" class="mt-0.5">→</span>
+                                    <span><strong class="font-semibold">ngrok/tunnels</strong> — External dependency, latency, rate limits</span>
+                                </li>
+                                <li class="flex items-start gap-3">
+                                    <span style="color: var(--text-muted)" class="mt-0.5">→</span>
+                                    <span><strong class="font-semibold">Self-signed</strong> — Browser warnings, manual trust, breaks fetch</span>
+                                </li>
                             </ul>
                         </div>
                     </div>
                 </div>
 
-                <div class="clay-card p-6 ring-2 ring-success-light/30 dark:ring-success-light/20">
-                    <div class="flex items-start gap-4">
-                        <span class="text-3xl">✨</span>
+                <div class="clay p-7" style="border: 2px solid rgba(16, 185, 129, 0.3);">
+                    <div class="flex items-start gap-5">
+                        <span class="text-4xl">✨</span>
                         <div>
-                            <h3 class="text-lg font-bold mb-2 text-success-light">paw-proxy: just prefix with "up"</h3>
-                            <p class="text-clay-600 dark:text-clay-400">One command. Zero config. Trusted HTTPS. Works with any dev server.</p>
+                            <h3 class="text-xl font-bold mb-2 text-emerald-500">paw-proxy: just prefix with "up"</h3>
+                            <p style="color: var(--text-secondary)" class="text-lg">One command. Zero config. Trusted HTTPS. Works with any dev server.</p>
                         </div>
                     </div>
                 </div>
@@ -261,61 +367,65 @@
         </section>
 
         <!-- Features -->
-        <section class="mb-20 fade-in">
-            <div class="text-center mb-10">
-                <span class="clay-pill mb-4">⚡ Features</span>
-                <h2 class="text-3xl font-bold mt-4">Everything you need</h2>
+        <section class="mb-24 fade-in">
+            <div class="text-center mb-12">
+                <span class="clay-pill px-5 py-2.5 text-sm font-semibold inline-flex items-center gap-2" style="color: var(--text-secondary)">
+                    <span>⚡</span> Features
+                </span>
+                <h2 class="text-3xl md:text-4xl font-bold mt-6" style="color: var(--text-primary)">Everything you need</h2>
             </div>
 
-            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div class="clay-card-sm p-5">
-                    <div class="text-2xl mb-3">⚡</div>
-                    <h3 class="font-bold mb-1">Zero Config</h3>
-                    <p class="text-sm text-clay-600 dark:text-clay-400">Just run "up bun dev" and get HTTPS</p>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div class="clay-sm feature-card p-6">
+                    <div class="text-3xl mb-4">⚡</div>
+                    <h3 class="text-lg font-bold mb-2" style="color: var(--text-primary)">Zero Config</h3>
+                    <p style="color: var(--text-secondary)">Just run "up bun dev" and get HTTPS instantly</p>
                 </div>
-                <div class="clay-card-sm p-5">
-                    <div class="text-2xl mb-3">🔐</div>
-                    <h3 class="font-bold mb-1">Auto SSL</h3>
-                    <p class="text-sm text-clay-600 dark:text-clay-400">Trusted certificates on-the-fly</p>
+                <div class="clay-sm feature-card p-6">
+                    <div class="text-3xl mb-4">🔐</div>
+                    <h3 class="text-lg font-bold mb-2" style="color: var(--text-primary)">Auto SSL</h3>
+                    <p style="color: var(--text-secondary)">Trusted certificates generated on-the-fly</p>
                 </div>
-                <div class="clay-card-sm p-5">
-                    <div class="text-2xl mb-3">🔄</div>
-                    <h3 class="font-bold mb-1">WebSocket Support</h3>
-                    <p class="text-sm text-clay-600 dark:text-clay-400">Hot reload just works</p>
+                <div class="clay-sm feature-card p-6">
+                    <div class="text-3xl mb-4">🔄</div>
+                    <h3 class="text-lg font-bold mb-2" style="color: var(--text-primary)">WebSocket Support</h3>
+                    <p style="color: var(--text-secondary)">Hot reload works out of the box</p>
                 </div>
-                <div class="clay-card-sm p-5">
-                    <div class="text-2xl mb-3">📦</div>
-                    <h3 class="font-bold mb-1">Smart Naming</h3>
-                    <p class="text-sm text-clay-600 dark:text-clay-400">Uses package.json or directory name</p>
+                <div class="clay-sm feature-card p-6">
+                    <div class="text-3xl mb-4">📦</div>
+                    <h3 class="text-lg font-bold mb-2" style="color: var(--text-primary)">Smart Naming</h3>
+                    <p style="color: var(--text-secondary)">Uses package.json or directory name</p>
                 </div>
-                <div class="clay-card-sm p-5">
-                    <div class="text-2xl mb-3">⚠️</div>
-                    <h3 class="font-bold mb-1">Conflict Detection</h3>
-                    <p class="text-sm text-clay-600 dark:text-clay-400">Warns about domain collisions</p>
+                <div class="clay-sm feature-card p-6">
+                    <div class="text-3xl mb-4">⚠️</div>
+                    <h3 class="text-lg font-bold mb-2" style="color: var(--text-primary)">Conflict Detection</h3>
+                    <p style="color: var(--text-secondary)">Warns about domain collisions</p>
                 </div>
-                <div class="clay-card-sm p-5">
-                    <div class="text-2xl mb-3">🛡️</div>
-                    <h3 class="font-bold mb-1">Security First</h3>
-                    <p class="text-sm text-clay-600 dark:text-clay-400">TLS 1.2+, localhost-only</p>
+                <div class="clay-sm feature-card p-6">
+                    <div class="text-3xl mb-4">🛡️</div>
+                    <h3 class="text-lg font-bold mb-2" style="color: var(--text-primary)">Security First</h3>
+                    <p style="color: var(--text-secondary)">TLS 1.2+, localhost-only binding</p>
                 </div>
             </div>
         </section>
 
         <!-- Install -->
-        <section class="mb-20 fade-in">
-            <div class="text-center mb-10">
-                <span class="clay-pill mb-4">🚀 Install</span>
-                <h2 class="text-3xl font-bold mt-4">Up and running in 30 seconds</h2>
+        <section class="mb-24 fade-in">
+            <div class="text-center mb-12">
+                <span class="clay-pill px-5 py-2.5 text-sm font-semibold inline-flex items-center gap-2" style="color: var(--text-secondary)">
+                    <span>🚀</span> Install
+                </span>
+                <h2 class="text-3xl md:text-4xl font-bold mt-6" style="color: var(--text-primary)">Up and running in 30 seconds</h2>
             </div>
 
-            <div class="space-y-4">
-                <div class="clay-card p-2">
-                    <div class="flex items-center justify-between px-4 py-2">
-                        <span class="text-sm font-medium text-clay-500">1. Download</span>
-                        <button class="copy-btn clay-btn text-xs py-1.5 px-3" data-code="curl -L https://github.com/alexcatdad/paw-proxy/releases/latest/download/paw-proxy-darwin-universal -o /usr/local/bin/paw-proxy && curl -L https://github.com/alexcatdad/paw-proxy/releases/latest/download/up-darwin-universal -o /usr/local/bin/up && chmod +x /usr/local/bin/paw-proxy /usr/local/bin/up">Copy</button>
+            <div class="space-y-5">
+                <div class="clay p-3">
+                    <div class="flex items-center justify-between px-4 py-3">
+                        <span class="text-sm font-bold" style="color: var(--text-muted)">1. Download</span>
+                        <button class="copy-btn clay-btn text-xs font-semibold py-2 px-4" style="color: var(--text-secondary)" data-code="curl -L https://github.com/alexcatdad/paw-proxy/releases/latest/download/paw-proxy-darwin-universal -o /usr/local/bin/paw-proxy && curl -L https://github.com/alexcatdad/paw-proxy/releases/latest/download/up-darwin-universal -o /usr/local/bin/up && chmod +x /usr/local/bin/paw-proxy /usr/local/bin/up">Copy</button>
                     </div>
-                    <div class="clay-inset p-4 font-mono text-xs sm:text-sm overflow-x-auto">
-<span class="text-clay-500"># Download binaries</span>
+                    <div class="clay-inset p-5 font-mono text-xs sm:text-sm overflow-x-auto" style="color: var(--text-primary)">
+<span style="color: var(--text-muted)"># Download binaries</span>
 curl -L https://github.com/alexcatdad/paw-proxy/releases/latest/download/paw-proxy-darwin-universal \
   -o /usr/local/bin/paw-proxy
 curl -L https://github.com/alexcatdad/paw-proxy/releases/latest/download/up-darwin-universal \
@@ -323,75 +433,79 @@ curl -L https://github.com/alexcatdad/paw-proxy/releases/latest/download/up-darw
 chmod +x /usr/local/bin/paw-proxy /usr/local/bin/up</div>
                 </div>
 
-                <div class="clay-card p-2">
-                    <div class="flex items-center justify-between px-4 py-2">
-                        <span class="text-sm font-medium text-clay-500">2. Setup (one time)</span>
-                        <button class="copy-btn clay-btn text-xs py-1.5 px-3" data-code="sudo paw-proxy setup">Copy</button>
+                <div class="clay p-3">
+                    <div class="flex items-center justify-between px-4 py-3">
+                        <span class="text-sm font-bold" style="color: var(--text-muted)">2. Setup (one time)</span>
+                        <button class="copy-btn clay-btn text-xs font-semibold py-2 px-4" style="color: var(--text-secondary)" data-code="sudo paw-proxy setup">Copy</button>
                     </div>
-                    <div class="clay-inset p-4 font-mono text-sm">
-<span class="text-clay-500"># Configure DNS, generate CA, install daemon</span>
+                    <div class="clay-inset p-5 font-mono text-sm" style="color: var(--text-primary)">
+<span style="color: var(--text-muted)"># Configure DNS, generate CA, install daemon</span>
 sudo paw-proxy setup</div>
                 </div>
 
-                <div class="clay-card p-2">
-                    <div class="flex items-center justify-between px-4 py-2">
-                        <span class="text-sm font-medium text-clay-500">3. Use it!</span>
-                        <button class="copy-btn clay-btn text-xs py-1.5 px-3" data-code="up npm run dev">Copy</button>
+                <div class="clay p-3">
+                    <div class="flex items-center justify-between px-4 py-3">
+                        <span class="text-sm font-bold" style="color: var(--text-muted)">3. Use it!</span>
+                        <button class="copy-btn clay-btn text-xs font-semibold py-2 px-4" style="color: var(--text-secondary)" data-code="up npm run dev">Copy</button>
                     </div>
-                    <div class="clay-inset p-4 font-mono text-sm">
-<span class="text-clay-500"># Wrap any dev command</span>
+                    <div class="clay-inset p-5 font-mono text-sm" style="color: var(--text-primary)">
+<span style="color: var(--text-muted)"># Wrap any dev command</span>
 up npm run dev
 up bun dev
-up -n myapp npm start  <span class="text-clay-500"># custom domain</span></div>
+up -n myapp npm start  <span style="color: var(--text-muted)"># custom domain</span></div>
                 </div>
             </div>
         </section>
 
         <!-- Architecture -->
-        <section class="mb-20 fade-in">
-            <div class="text-center mb-10">
-                <span class="clay-pill mb-4">🏗️ Architecture</span>
-                <h2 class="text-3xl font-bold mt-4">How it works</h2>
+        <section class="mb-24 fade-in">
+            <div class="text-center mb-12">
+                <span class="clay-pill px-5 py-2.5 text-sm font-semibold inline-flex items-center gap-2" style="color: var(--text-secondary)">
+                    <span>🏗️</span> Architecture
+                </span>
+                <h2 class="text-3xl md:text-4xl font-bold mt-6" style="color: var(--text-primary)">How it works</h2>
             </div>
 
-            <div class="clay-card p-2">
-                <div class="clay-inset p-6 font-mono text-xs sm:text-sm overflow-x-auto whitespace-pre text-clay-600 dark:text-clay-400">
+            <div class="clay p-3">
+                <div class="clay-inset p-6 md:p-8 font-mono text-xs sm:text-sm overflow-x-auto whitespace-pre leading-relaxed" style="color: var(--text-secondary)">
 ┌─────────────┐     ┌──────────────────┐     ┌─────────────┐
-│   <span class="text-accent font-semibold">Browser</span>   │────▶│   <span class="text-success-light font-semibold">paw-proxy</span>      │────▶│  Dev Server │
-│             │     │   <span class="text-clay-500">port 443</span>       │     │  <span class="text-clay-500">dynamic</span>   │
+│   <span class="text-accent font-bold">Browser</span>   │────▶│   <span class="text-emerald-500 font-bold">paw-proxy</span>      │────▶│  Dev Server │
+│             │     │   <span style="color: var(--text-muted)">port 443</span>       │     │  <span style="color: var(--text-muted)">dynamic</span>   │
 └─────────────┘     └──────────────────┘     └─────────────┘
        │                     │
        │              ┌──────┴──────┐
-       │              │  <span class="text-success-light font-semibold">DNS Server</span> │  *.test → 127.0.0.1
-       │              │  <span class="text-clay-500">port 9353</span>  │
+       │              │  <span class="text-emerald-500 font-bold">DNS Server</span> │  *.test → 127.0.0.1
+       │              │  <span style="color: var(--text-muted)">port 9353</span>  │
        │              └─────────────┘
        │
-       └──── <span class="text-accent font-semibold">https://myapp.test</span> ✓ Trusted SSL</div>
+       └──── <span class="text-accent font-bold">https://myapp.test</span> ✓ Trusted SSL</div>
             </div>
         </section>
 
         <!-- Credits -->
         <section class="mb-16 fade-in">
-            <div class="text-center mb-10">
-                <span class="clay-pill mb-4">🙏 Prior Art</span>
-                <h2 class="text-3xl font-bold mt-4">Standing on giants' shoulders</h2>
-                <p class="text-clay-600 dark:text-clay-400 mt-3">We modernized the wheel, didn't reinvent it.</p>
+            <div class="text-center mb-12">
+                <span class="clay-pill px-5 py-2.5 text-sm font-semibold inline-flex items-center gap-2" style="color: var(--text-secondary)">
+                    <span>🙏</span> Prior Art
+                </span>
+                <h2 class="text-3xl md:text-4xl font-bold mt-6" style="color: var(--text-primary)">Standing on giants' shoulders</h2>
+                <p class="mt-4 text-lg" style="color: var(--text-secondary)">We modernized the wheel, didn't reinvent it.</p>
             </div>
 
-            <div class="flex flex-wrap justify-center gap-3">
-                <a href="https://github.com/FiloSottile/mkcert" target="_blank" rel="noopener" class="clay-pill hover:text-accent transition-colors">
+            <div class="flex flex-wrap justify-center gap-4">
+                <a href="https://github.com/FiloSottile/mkcert" target="_blank" rel="noopener" class="clay-pill px-5 py-3 font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">
                     🔐 mkcert
                 </a>
-                <a href="https://github.com/puma/puma-dev" target="_blank" rel="noopener" class="clay-pill hover:text-accent transition-colors">
+                <a href="https://github.com/puma/puma-dev" target="_blank" rel="noopener" class="clay-pill px-5 py-3 font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">
                     🐆 puma-dev
                 </a>
-                <a href="http://pow.cx/" target="_blank" rel="noopener" class="clay-pill hover:text-accent transition-colors">
+                <a href="http://pow.cx/" target="_blank" rel="noopener" class="clay-pill px-5 py-3 font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">
                     ⚡ pow
                 </a>
-                <a href="https://github.com/typicode/hotel" target="_blank" rel="noopener" class="clay-pill hover:text-accent transition-colors">
+                <a href="https://github.com/typicode/hotel" target="_blank" rel="noopener" class="clay-pill px-5 py-3 font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">
                     🏨 hotel
                 </a>
-                <a href="https://caddyserver.com/" target="_blank" rel="noopener" class="clay-pill hover:text-accent transition-colors">
+                <a href="https://caddyserver.com/" target="_blank" rel="noopener" class="clay-pill px-5 py-3 font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">
                     🔷 caddy
                 </a>
             </div>
@@ -399,16 +513,16 @@ up -n myapp npm start  <span class="text-clay-500"># custom domain</span></div>
     </div>
 
     <!-- Footer -->
-    <footer class="border-t border-clay-200 dark:border-clay-800 py-10">
+    <footer class="py-12" style="border-top: 1px solid var(--border)">
         <div class="max-w-4xl mx-auto px-6 text-center">
-            <div class="flex flex-wrap justify-center gap-6 mb-6">
-                <a href="https://github.com/alexcatdad/paw-proxy" class="text-clay-600 dark:text-clay-400 hover:text-accent transition-colors font-medium">GitHub</a>
-                <a href="https://github.com/alexcatdad/paw-proxy/releases" class="text-clay-600 dark:text-clay-400 hover:text-accent transition-colors font-medium">Releases</a>
-                <a href="https://github.com/alexcatdad/paw-proxy/issues" class="text-clay-600 dark:text-clay-400 hover:text-accent transition-colors font-medium">Issues</a>
-                <a href="https://github.com/alexcatdad/paw-proxy/blob/main/LICENSE" class="text-clay-600 dark:text-clay-400 hover:text-accent transition-colors font-medium">MIT License</a>
+            <div class="flex flex-wrap justify-center gap-8 mb-8">
+                <a href="https://github.com/alexcatdad/paw-proxy" class="font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">GitHub</a>
+                <a href="https://github.com/alexcatdad/paw-proxy/releases" class="font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">Releases</a>
+                <a href="https://github.com/alexcatdad/paw-proxy/issues" class="font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">Issues</a>
+                <a href="https://github.com/alexcatdad/paw-proxy/blob/main/LICENSE" class="font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">MIT License</a>
             </div>
-            <p class="text-sm text-clay-500">
-                Built with 🐾 by <a href="https://github.com/alexcatdad" class="text-accent hover:underline">alexcatdad</a>
+            <p class="text-sm" style="color: var(--text-muted)">
+                Built with 🐾 by <a href="https://github.com/alexcatdad" class="text-accent hover:underline font-semibold">alexcatdad</a>
             </p>
         </div>
     </footer>
@@ -435,7 +549,7 @@ up -n myapp npm start  <span class="text-clay-500"># custom domain</span></div>
                     entry.target.classList.add('visible');
                 }
             });
-        }, { threshold: 0.1, rootMargin: '-50px' });
+        }, { threshold: 0.1, rootMargin: '-40px' });
 
         document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
 
@@ -446,10 +560,10 @@ up -n myapp npm start  <span class="text-clay-500"># custom domain</span></div>
                     await navigator.clipboard.writeText(btn.dataset.code);
                     const original = btn.textContent;
                     btn.textContent = 'Copied!';
-                    btn.classList.add('!bg-success-light', '!text-white');
+                    btn.style.color = '#10B981';
                     setTimeout(() => {
                         btn.textContent = original;
-                        btn.classList.remove('!bg-success-light', '!text-white');
+                        btn.style.color = '';
                     }, 2000);
                 } catch (err) {
                     console.error('Copy failed:', err);
