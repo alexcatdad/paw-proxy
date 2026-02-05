@@ -327,3 +327,42 @@ func TestAPIServer_RequestBodyLimit(t *testing.T) {
 		t.Errorf("expected 400 for oversized body, got %d", resp.StatusCode)
 	}
 }
+
+func TestAPIServer_SocketPermissions(t *testing.T) {
+	// Use /tmp directly to avoid socket path length limits
+	socketPath := filepath.Join("/tmp", fmt.Sprintf("paw-test-%d.sock", time.Now().UnixNano()))
+	defer os.Remove(socketPath)
+
+	registry := NewRouteRegistry(30 * time.Second)
+	srv := NewServer(socketPath, registry)
+
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- srv.Start()
+	}()
+	defer srv.Stop()
+
+	// Wait for server to start and socket to be created
+	for i := 0; i < 20; i++ {
+		select {
+		case err := <-errChan:
+			t.Fatalf("server failed to start: %v", err)
+		default:
+		}
+		if _, err := os.Stat(socketPath); err == nil {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	// Check socket permissions (issue #47)
+	info, err := os.Stat(socketPath)
+	if err != nil {
+		t.Fatalf("failed to stat socket: %v", err)
+	}
+
+	mode := info.Mode().Perm()
+	if mode != 0600 {
+		t.Errorf("socket permissions = %04o, want 0600", mode)
+	}
+}
