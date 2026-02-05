@@ -59,6 +59,21 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request, upstream strin
 	// Preserve original Host header for upstream virtual hosting (URL.Host is used for dialing)
 	outReq.RequestURI = ""
 
+	// SECURITY: Strip hop-by-hop headers (RFC 7230 §6.1)
+	// These are connection-specific and must not be forwarded to upstream
+	hopByHopHeaders := []string{
+		"Connection",
+		"Keep-Alive",
+		"Proxy-Authenticate",
+		"Proxy-Authorization",
+		"TE",
+		"Trailers",
+		"Transfer-Encoding",
+	}
+	for _, h := range hopByHopHeaders {
+		outReq.Header.Del(h)
+	}
+
 	// Set forwarding headers
 	if clientIP, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
 		outReq.Header.Set("X-Forwarded-For", clientIP)
