@@ -8,6 +8,29 @@ import (
 	"testing"
 )
 
+func TestProxy_PreservesHostHeader(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Host != "myapp.test" {
+			t.Errorf("expected Host header 'myapp.test', got %q", r.Host)
+		}
+		if r.Header.Get("X-Forwarded-Host") != "myapp.test" {
+			t.Errorf("expected X-Forwarded-Host 'myapp.test', got %q", r.Header.Get("X-Forwarded-Host"))
+		}
+		w.Write([]byte("ok"))
+	}))
+	defer upstream.Close()
+
+	p := New()
+	req := httptest.NewRequest("GET", "https://myapp.test/", nil)
+	w := httptest.NewRecorder()
+
+	p.ServeHTTP(w, req, upstream.URL[7:])
+
+	if w.Code != 200 {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+}
+
 func TestProxy_ForwardsRequest(t *testing.T) {
 	// Create upstream server
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

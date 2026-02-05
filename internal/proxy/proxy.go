@@ -56,7 +56,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request, upstream strin
 	outReq := r.Clone(r.Context())
 	outReq.URL.Scheme = "http"
 	outReq.URL.Host = upstream
-	outReq.Host = upstream
+	// Preserve original Host header for upstream virtual hosting (URL.Host is used for dialing)
 	outReq.RequestURI = ""
 
 	// Set forwarding headers
