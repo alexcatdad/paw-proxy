@@ -1,0 +1,6 @@
+title: paw-proxy
+description: Zero-config HTTPS proxy for local macOS development
+url: https://alexcatdad.github.io
+baseurl: /paw-proxy
+theme: null
+plugins: []
