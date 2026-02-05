@@ -49,16 +49,16 @@ jobs:
           go-version: '1.22'
       - name: Setup login keychain for root
         run: |
-          sudo security create-keychain -p "" /var/root/Library/Keychains/login.keychain-db || true
-          sudo security default-keychain -s /var/root/Library/Keychains/login.keychain-db
-          sudo security unlock-keychain -p "" /var/root/Library/Keychains/login.keychain-db
-          sudo security list-keychains -s /var/root/Library/Keychains/login.keychain-db
+          sudo -H security create-keychain -p "" /var/root/Library/Keychains/login.keychain-db || true
+          sudo -H security default-keychain -s /var/root/Library/Keychains/login.keychain-db
+          sudo -H security unlock-keychain -p "" /var/root/Library/Keychains/login.keychain-db
+          sudo -H security list-keychains -s /var/root/Library/Keychains/login.keychain-db
       - name: Build
         run: |
           go build -o paw-proxy ./cmd/paw-proxy
           go build -o up ./cmd/up
       - name: Setup paw-proxy
-        run: sudo ./paw-proxy setup
+        run: sudo -H ./paw-proxy setup
       - name: Wait for daemon
         run: sleep 2
       - name: Integration Tests
