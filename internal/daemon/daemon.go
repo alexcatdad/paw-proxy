@@ -127,7 +127,8 @@ func (d *Daemon) cleanupRoutine() {
 }
 
 func (d *Daemon) serveHTTP() {
-	addr := fmt.Sprintf(":%d", d.config.HTTPPort)
+	// SECURITY: bind to loopback only to prevent exposure on shared networks
+	addr := fmt.Sprintf("127.0.0.1:%d", d.config.HTTPPort)
 	log.Printf("HTTP redirect server listening on %s", addr)
 
 	server := &http.Server{
@@ -144,7 +145,8 @@ func (d *Daemon) serveHTTP() {
 }
 
 func (d *Daemon) serveHTTPS() error {
-	addr := fmt.Sprintf(":%d", d.config.HTTPSPort)
+	// SECURITY: bind to loopback only to prevent exposure on shared networks
+	addr := fmt.Sprintf("127.0.0.1:%d", d.config.HTTPSPort)
 	log.Printf("HTTPS server listening on %s", addr)
 
 	// SECURITY: TLS hardening - minimum TLS 1.2, secure cipher suites
