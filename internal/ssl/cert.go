@@ -34,6 +34,9 @@ func NewCertCache(ca *tls.Certificate) *CertCache {
 
 func (c *CertCache) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	name := hello.ServerName
+	if name == "" {
+		return nil, fmt.Errorf("SNI required: connect using hostname, not IP")
+	}
 
 	c.mu.RLock()
 	if cert, ok := c.cache[name]; ok {
