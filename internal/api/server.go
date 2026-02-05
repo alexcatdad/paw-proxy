@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"syscall"
 	"time"
 )
 
@@ -51,14 +52,22 @@ func (s *Server) Start() error {
 	// Remove existing socket
 	os.Remove(s.socketPath)
 
+	// SECURITY: Set umask to 0077 before creating socket to prevent TOCTOU race (issue #47)
+	// This creates the socket with 0700 permissions, then we chmod to 0600
+	// The TOCTOU window is reduced from 0755→0600 to 0700→0600
+	oldMask := syscall.Umask(0077)
 	var err error
 	s.listener, err = net.Listen("unix", s.socketPath)
+	syscall.Umask(oldMask) // Restore original umask
 	if err != nil {
 		return err
 	}
 
-	// SECURITY: Owner-only access to prevent privilege escalation
-	os.Chmod(s.socketPath, 0600)
+	// Further restrict to 0600 (no execute bit)
+	if err := os.Chmod(s.socketPath, 0600); err != nil {
+		s.listener.Close()
+		return fmt.Errorf("failed to set socket permissions: %w", err)
+	}
 
 	return s.server.Serve(s.listener)
 }
