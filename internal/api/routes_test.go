@@ -225,3 +225,63 @@ func TestRouteRegistry_ConcurrentAccess(t *testing.T) {
 	close(done)
 	wg.Wait()
 }
+
+// TestCleanupDuringHeartbeat registers a route, starts cleanup, and simultaneously
+// sends heartbeats. The route should survive if heartbeats keep it recent.
+func TestCleanupDuringHeartbeat(t *testing.T) {
+	// Use a short timeout so cleanup would expire routes quickly
+	r := NewRouteRegistry(200 * time.Millisecond)
+
+	err := r.Register("keepalive", "localhost:3000", "/path/keepalive")
+	if err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+
+	// Run heartbeats and cleanups concurrently for a period longer than the timeout
+	var wg sync.WaitGroup
+	stop := make(chan struct{})
+
+	// Goroutine 1: Send heartbeats frequently
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				r.Heartbeat("keepalive")
+				time.Sleep(50 * time.Millisecond)
+			}
+		}
+	}()
+
+	// Goroutine 2: Run cleanup frequently
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				r.Cleanup()
+				time.Sleep(30 * time.Millisecond)
+			}
+		}
+	}()
+
+	// Let them race for longer than the timeout
+	time.Sleep(500 * time.Millisecond)
+	close(stop)
+	wg.Wait()
+
+	// Route should still be alive because heartbeats kept it fresh
+	route, ok := r.Lookup("keepalive")
+	if !ok {
+		t.Fatal("expected route 'keepalive' to survive, but it was cleaned up")
+	}
+	if route.Name != "keepalive" {
+		t.Errorf("expected 'keepalive', got %q", route.Name)
+	}
+}

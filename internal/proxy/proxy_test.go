@@ -429,3 +429,4 @@ func TestWebSocket_BothGoroutinesComplete(t *testing.T) {
 		}
 	}
 }
+
