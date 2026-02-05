@@ -41,7 +41,6 @@ jobs:
 
   integration:
     runs-on: macos-14
-    if: github.event_name == 'pull_request'
     needs: [lint, test, build]
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +51,9 @@ jobs:
         run: |
           go build -o paw-proxy ./cmd/paw-proxy
           go build -o up ./cmd/up
-      - name: Setup
+      - name: Setup paw-proxy
         run: sudo ./paw-proxy setup
+      - name: Wait for daemon
+        run: sleep 2
       - name: Integration Tests
         run: ./integration-tests.sh
