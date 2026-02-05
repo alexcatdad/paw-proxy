@@ -60,9 +60,17 @@ jobs:
       - name: Start daemon
         run: |
           SOCK="$HOME/Library/Application Support/paw-proxy/paw-proxy.sock"
-          sudo touch /tmp/daemon.log
-          sudo chmod 666 /tmp/daemon.log
-          sudo ./paw-proxy run >> /tmp/daemon.log 2>&1 &
+          # Debug: verify binary and environment
+          ls -la ./paw-proxy
+          echo "Support dir:"
+          ls -la "$HOME/Library/Application Support/paw-proxy/"
+          # Start daemon with explicit error capture
+          sudo ./paw-proxy run > /tmp/daemon.log 2>&1 &
+          sleep 1
+          echo "=== Early daemon log ==="
+          cat /tmp/daemon.log || true
+          echo "=== Daemon alive? ==="
+          ps aux | grep paw-proxy | grep -v grep || echo "NOT RUNNING"
           # Wait for socket to appear (up to 10s)
           for i in $(seq 1 20); do
             if [ -S "$SOCK" ]; then
