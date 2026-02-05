@@ -128,6 +128,14 @@ func TestValidateUpstream(t *testing.T) {
 		{"port-1", "localhost:1", false},
 		{"port-max", "localhost:65535", false},
 
+		// Valid: IPv6 loopback variants (issue #46)
+		{"ipv6-expanded-loopback", "[0:0:0:0:0:0:0:1]:3000", false},
+		{"ipv6-mapped-ipv4", "[::ffff:127.0.0.1]:3000", false},
+		{"ipv6-mapped-ipv4-hex", "[::ffff:7f00:1]:3000", false},
+
+		// Valid: 127.0.0.0/8 range is all loopback (RFC 1122, issue #46)
+		{"localhost-127-other", "127.0.0.2:3000", false},
+
 		// Invalid: SSRF attempts - external hosts
 		{"external-ip", "192.168.1.1:80", true},
 		{"external-ip-10", "10.0.0.1:80", true},
@@ -138,7 +146,6 @@ func TestValidateUpstream(t *testing.T) {
 
 		// Invalid: SSRF attempts - localhost bypass attempts
 		{"localhost-variant-0", "0.0.0.0:3000", true},
-		{"localhost-variant-127-1", "127.0.0.2:3000", true},
 		{"localhost-hex", "0x7f000001:3000", true},
 		{"localhost-octal", "0177.0.0.1:3000", true},
 		{"localhost-decimal", "2130706433:3000", true},

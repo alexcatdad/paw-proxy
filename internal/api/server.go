@@ -91,8 +91,12 @@ func validateUpstream(upstream string) error {
 	}
 
 	// SECURITY: Only allow localhost/loopback to prevent SSRF
-	if host != "localhost" && host != "127.0.0.1" && host != "::1" {
-		return fmt.Errorf("upstream must be localhost, 127.0.0.1, or ::1")
+	// Accept "localhost" literal or any IP that parses as a loopback address
+	if host != "localhost" {
+		ip := net.ParseIP(host)
+		if ip == nil || !ip.IsLoopback() {
+			return fmt.Errorf("upstream must be localhost or loopback address")
+		}
 	}
 
 	// Validate port is numeric and in valid range
