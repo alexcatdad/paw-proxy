@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -97,7 +98,10 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request, upstream strin
 	}
 
 	w.WriteHeader(resp.StatusCode)
-	io.Copy(w, resp.Body)
+	if _, err := io.Copy(w, resp.Body); err != nil {
+		// Note: Headers already sent, cannot return error to client
+		fmt.Fprintf(os.Stderr, "proxy: response copy error: %v\n", err)
+	}
 }
 
 func isWebSocket(r *http.Request) bool {
@@ -165,12 +169,16 @@ func (p *Proxy) handleWebSocket(w http.ResponseWriter, r *http.Request, upstream
 	done := make(chan struct{}, 2)
 
 	go func() {
-		io.Copy(upstreamIdle, clientIdle)
+		if _, err := io.Copy(upstreamIdle, clientIdle); err != nil {
+			fmt.Fprintf(os.Stderr, "proxy: websocket client->upstream error: %v\n", err)
+		}
 		done <- struct{}{}
 	}()
 
 	go func() {
-		io.Copy(clientIdle, upstreamIdle)
+		if _, err := io.Copy(clientIdle, upstreamIdle); err != nil {
+			fmt.Fprintf(os.Stderr, "proxy: websocket upstream->client error: %v\n", err)
+		}
 		done <- struct{}{}
 	}()
 

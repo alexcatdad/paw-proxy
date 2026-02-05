@@ -243,7 +243,13 @@ func registerRoute(client *http.Client, name, upstream, dir string) error {
 
 func deregisterRoute(client *http.Client, name string) {
 	req, _ := http.NewRequest("DELETE", fmt.Sprintf("http://unix/routes/%s", name), nil)
-	client.Do(req)
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "deregister route error: %v\n", err)
+	}
+	if resp != nil {
+		resp.Body.Close()
+	}
 }
 
 func heartbeat(ctx context.Context, client *http.Client, name string) {
@@ -256,7 +262,13 @@ func heartbeat(ctx context.Context, client *http.Client, name string) {
 			return
 		case <-ticker.C:
 			req, _ := http.NewRequest("POST", fmt.Sprintf("http://unix/routes/%s/heartbeat", name), nil)
-			client.Do(req)
+			resp, err := client.Do(req)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "heartbeat failed: %v\n", err)
+			}
+			if resp != nil {
+				resp.Body.Close()
+			}
 		}
 	}
 }

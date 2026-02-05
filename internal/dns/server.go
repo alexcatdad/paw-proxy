@@ -2,7 +2,9 @@
 package dns
 
 import (
+	"fmt"
 	"net"
+	"os"
 	"strings"
 
 	"github.com/miekg/dns"
@@ -74,5 +76,7 @@ func (s *Server) handleRequest(w dns.ResponseWriter, r *dns.Msg) {
 		}
 	}
 
-	w.WriteMsg(m)
+	if err := w.WriteMsg(m); err != nil {
+		fmt.Fprintf(os.Stderr, "dns: write response error: %v\n", err)
+	}
 }
