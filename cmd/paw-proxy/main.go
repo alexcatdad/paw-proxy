@@ -2,9 +2,17 @@
 package main
 
 import (
+	"context"
+	"crypto/x509"
+	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"log"
+	"net"
+	"net/http"
 	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/alexcatdad/paw-proxy/internal/daemon"
 	"github.com/alexcatdad/paw-proxy/internal/setup"
@@ -94,6 +102,75 @@ func cmdUninstall() {
 }
 
 func cmdStatus() {
-	// Will implement in Task 9
-	fmt.Println("status command - to be implemented")
+	homeDir, _ := os.UserHomeDir()
+	socketPath := filepath.Join(homeDir, "Library", "Application Support", "paw-proxy", "paw-proxy.sock")
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return net.Dial("unix", socketPath)
+			},
+		},
+		Timeout: 2 * time.Second,
+	}
+
+	// Check health
+	resp, err := client.Get("http://unix/health")
+	if err != nil {
+		fmt.Println("Status: ❌ Daemon not running")
+		fmt.Println("")
+		fmt.Println("Run: sudo paw-proxy setup")
+		return
+	}
+	defer resp.Body.Close()
+
+	var health struct {
+		Status  string `json:"status"`
+		Version string `json:"version"`
+		Uptime  string `json:"uptime"`
+	}
+	json.NewDecoder(resp.Body).Decode(&health)
+
+	fmt.Printf("Status: ✅ Running (v%s, up %s)\n", health.Version, health.Uptime)
+	fmt.Println("")
+
+	// Get routes
+	resp, err = client.Get("http://unix/routes")
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	var routes []struct {
+		Name          string    `json:"name"`
+		Upstream      string    `json:"upstream"`
+		Dir           string    `json:"dir"`
+		Registered    time.Time `json:"registered"`
+		LastHeartbeat time.Time `json:"lastHeartbeat"`
+	}
+	json.NewDecoder(resp.Body).Decode(&routes)
+
+	if len(routes) == 0 {
+		fmt.Println("Routes: (none)")
+	} else {
+		fmt.Println("Routes:")
+		for _, r := range routes {
+			age := time.Since(r.Registered).Round(time.Second)
+			fmt.Printf("  • %s.test -> %s (%s)\n", r.Name, r.Upstream, age)
+			fmt.Printf("    Dir: %s\n", r.Dir)
+		}
+	}
+
+	// CA info
+	certPath := filepath.Join(homeDir, "Library", "Application Support", "paw-proxy", "ca.crt")
+	if certData, err := os.ReadFile(certPath); err == nil {
+		block, _ := pem.Decode(certData)
+		if block != nil {
+			cert, _ := x509.ParseCertificate(block.Bytes)
+			if cert != nil {
+				fmt.Println("")
+				fmt.Printf("CA Expires: %s\n", cert.NotAfter.Format("2006-01-02"))
+			}
+		}
+	}
 }
