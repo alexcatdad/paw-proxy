@@ -15,6 +15,9 @@ import (
 	"time"
 )
 
+// Version is set via -ldflags at build time; defaults to "dev" for local builds.
+var Version = "dev"
+
 // Max request body size (1MB)
 const maxRequestBodySize = 1024 * 1024
 
@@ -221,7 +224,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":  "ok",
-		"version": "1.0.0",
+		"version": Version,
 		"uptime":  uptime.String(),
 	})
 }
