@@ -10,6 +10,7 @@ import (
 	"crypto/x509/pkix"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 )
@@ -19,14 +20,16 @@ const maxCacheSize = 1000
 
 type CertCache struct {
 	ca    *tls.Certificate
+	tld   string
 	cache map[string]*tls.Certificate
 	order []string // Track insertion order for LRU eviction
 	mu    sync.RWMutex
 }
 
-func NewCertCache(ca *tls.Certificate) *CertCache {
+func NewCertCache(ca *tls.Certificate, tld string) *CertCache {
 	return &CertCache{
 		ca:    ca,
+		tld:   tld,
 		cache: make(map[string]*tls.Certificate),
 		order: make([]string, 0, maxCacheSize),
 	}
@@ -40,9 +43,13 @@ func (c *CertCache) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate
 		return nil, fmt.Errorf("SNI required: connect using hostname, not IP")
 	}
 
+	// Use wildcard cert for all domains under the configured TLD.
+	// *.test covers myapp.test, api.test, etc.
+	wildcardName := "*." + c.tld
+
 	// Fast path: read lock for cache hit (non-expired)
 	c.mu.RLock()
-	if cert, ok := c.cache[name]; ok {
+	if cert, ok := c.cache[wildcardName]; ok {
 		if cert.Leaf == nil || time.Now().Before(cert.Leaf.NotAfter) {
 			c.mu.RUnlock()
 			return cert, nil
@@ -55,16 +62,16 @@ func (c *CertCache) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate
 	defer c.mu.Unlock()
 
 	// Double-check after acquiring write lock (avoids TOCTOU race)
-	if cert, ok := c.cache[name]; ok {
+	if cert, ok := c.cache[wildcardName]; ok {
 		if cert.Leaf == nil || time.Now().Before(cert.Leaf.NotAfter) {
 			return cert, nil
 		}
 		// Expired, remove and regenerate
-		delete(c.cache, name)
-		c.removeFromOrder(name)
+		delete(c.cache, wildcardName)
+		c.removeFromOrder(wildcardName)
 	}
 
-	cert, err := c.generateCert(name)
+	cert, err := c.generateCert(wildcardName)
 	if err != nil {
 		return nil, err
 	}
@@ -76,8 +83,8 @@ func (c *CertCache) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate
 		c.order = c.order[1:]
 	}
 
-	c.cache[name] = cert
-	c.order = append(c.order, name)
+	c.cache[wildcardName] = cert
+	c.order = append(c.order, wildcardName)
 	return cert, nil
 }
 
@@ -104,6 +111,12 @@ func (c *CertCache) generateCert(name string) (*tls.Certificate, error) {
 		return nil, fmt.Errorf("generating serial: %w", err)
 	}
 
+	dnsNames := []string{name}
+	// For wildcard certs, also include the bare TLD domain
+	if strings.HasPrefix(name, "*.") {
+		dnsNames = append(dnsNames, strings.TrimPrefix(name, "*."))
+	}
+
 	template := &x509.Certificate{
 		SerialNumber: serialNumber,
 		Subject: pkix.Name{
@@ -114,7 +127,7 @@ func (c *CertCache) generateCert(name string) (*tls.Certificate, error) {
 		NotAfter:    notAfter,
 		KeyUsage:    x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		DNSNames:    []string{name},
+		DNSNames:    dnsNames,
 	}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, template, c.ca.Leaf, priv.Public(), c.ca.PrivateKey)
