@@ -53,28 +53,23 @@ jobs:
           go build -o up ./cmd/up
       - name: Setup CA and resolver
         run: sudo ./paw-proxy setup
-      - name: Kill LaunchAgent daemon
+      - name: Prepare for daemon
         run: |
+          sudo chmod 755 "$HOME/Library/Application Support/paw-proxy"
           launchctl unload ~/Library/LaunchAgents/dev.paw-proxy.plist 2>/dev/null || true
-          sleep 1
       - name: Start daemon
         run: |
-          sudo ./paw-proxy run > /tmp/paw-proxy-stdout.log 2>&1 &
-          echo "Daemon PID: $!"
+          sudo ./paw-proxy run &
+          sleep 2
+          sudo chmod 777 "$HOME/Library/Application Support/paw-proxy/paw-proxy.sock"
       - name: Wait for daemon
         run: |
-          for i in 1 2 3 4 5 6 7 8 9 10; do
-            echo "Attempt $i..."
+          for i in 1 2 3 4 5; do
             if curl -sf --unix-socket "$HOME/Library/Application Support/paw-proxy/paw-proxy.sock" http://unix/health; then
-              echo "Daemon is ready!"
+              echo "Daemon is ready"
               break
             fi
             sleep 1
           done
-          echo "=== Debug info ==="
-          ls -la "$HOME/Library/Application Support/paw-proxy/" || echo "Support dir missing"
-          ps aux | grep paw-proxy | grep -v grep || echo "No paw-proxy process"
-          cat /tmp/paw-proxy-stdout.log 2>/dev/null || echo "No stdout log"
-          cat "$HOME/Library/Logs/paw-proxy.log" 2>/dev/null || echo "No daemon log"
       - name: Integration Tests
         run: ./integration-tests.sh
