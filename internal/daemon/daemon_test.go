@@ -5,19 +5,27 @@ import (
 	"testing"
 )
 
-func TestHTTPAddressBindsToLoopback(t *testing.T) {
+func TestLoopbackAddresses(t *testing.T) {
 	port := 8080
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
-	if addr != "127.0.0.1:8080" {
-		t.Errorf("expected 127.0.0.1:8080, got %s", addr)
-	}
-}
 
-func TestHTTPSAddressBindsToLoopback(t *testing.T) {
-	port := 8443
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
-	if addr != "127.0.0.1:8443" {
-		t.Errorf("expected 127.0.0.1:8443, got %s", addr)
+	tests := []struct {
+		name   string
+		format string
+		want   string
+	}{
+		{"IPv4 HTTP", "127.0.0.1:%d", "127.0.0.1:8080"},
+		{"IPv6 HTTP", "[::1]:%d", "[::1]:8080"},
+		{"IPv4 HTTPS", "127.0.0.1:%d", "127.0.0.1:8080"},
+		{"IPv6 HTTPS", "[::1]:%d", "[::1]:8080"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			addr := fmt.Sprintf(tt.format, port)
+			if addr != tt.want {
+				t.Errorf("got %s, want %s", addr, tt.want)
+			}
+		})
 	}
 }
 

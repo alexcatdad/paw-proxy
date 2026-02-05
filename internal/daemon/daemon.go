@@ -128,26 +128,36 @@ func (d *Daemon) cleanupRoutine() {
 
 func (d *Daemon) serveHTTP() {
 	// SECURITY: bind to loopback only to prevent exposure on shared networks
-	addr := fmt.Sprintf("127.0.0.1:%d", d.config.HTTPPort)
-	log.Printf("HTTP redirect server listening on %s", addr)
+	addr4 := fmt.Sprintf("127.0.0.1:%d", d.config.HTTPPort)
+	addr6 := fmt.Sprintf("[::1]:%d", d.config.HTTPPort)
+	log.Printf("HTTP redirect server listening on %s and %s", addr4, addr6)
 
-	server := &http.Server{
-		Addr: addr,
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			target := "https://" + r.Host + r.URL.Path
-			if r.URL.RawQuery != "" {
-				target += "?" + r.URL.RawQuery
-			}
-			http.Redirect(w, r, target, http.StatusMovedPermanently)
-		}),
-	}
-	server.ListenAndServe()
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		target := "https://" + r.Host + r.URL.Path
+		if r.URL.RawQuery != "" {
+			target += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, target, http.StatusMovedPermanently)
+	})
+
+	// Listen on IPv6 loopback (best-effort; not all systems have IPv6)
+	go func() {
+		srv6 := &http.Server{Addr: addr6, Handler: handler}
+		if err := srv6.ListenAndServe(); err != nil {
+			log.Printf("HTTP IPv6 listener: %v", err)
+		}
+	}()
+
+	// Listen on IPv4 loopback
+	srv4 := &http.Server{Addr: addr4, Handler: handler}
+	srv4.ListenAndServe()
 }
 
 func (d *Daemon) serveHTTPS() error {
 	// SECURITY: bind to loopback only to prevent exposure on shared networks
-	addr := fmt.Sprintf("127.0.0.1:%d", d.config.HTTPSPort)
-	log.Printf("HTTPS server listening on %s", addr)
+	addr4 := fmt.Sprintf("127.0.0.1:%d", d.config.HTTPSPort)
+	addr6 := fmt.Sprintf("[::1]:%d", d.config.HTTPSPort)
+	log.Printf("HTTPS server listening on %s and %s", addr4, addr6)
 
 	// SECURITY: TLS hardening - minimum TLS 1.2, secure cipher suites
 	tlsConfig := &tls.Config{
@@ -163,9 +173,28 @@ func (d *Daemon) serveHTTPS() error {
 		},
 	}
 
-	listener, err := tls.Listen("tcp", addr, tlsConfig)
+	// Listen on IPv6 loopback (best-effort; not all systems have IPv6)
+	listener6, err := tls.Listen("tcp", addr6, tlsConfig)
 	if err != nil {
-		return fmt.Errorf("listening on %s: %w", addr, err)
+		log.Printf("HTTPS IPv6 listener: %v", err)
+	} else {
+		go func() {
+			srv6 := &http.Server{
+				Handler:      http.HandlerFunc(d.handleRequest),
+				ReadTimeout:  30 * time.Second,
+				WriteTimeout: 60 * time.Second,
+				IdleTimeout:  120 * time.Second,
+			}
+			if err := srv6.Serve(listener6); err != nil {
+				log.Printf("HTTPS IPv6 server: %v", err)
+			}
+		}()
+	}
+
+	// Listen on IPv4 loopback
+	listener4, err := tls.Listen("tcp", addr4, tlsConfig)
+	if err != nil {
+		return fmt.Errorf("listening on %s: %w", addr4, err)
 	}
 
 	server := &http.Server{
@@ -175,7 +204,7 @@ func (d *Daemon) serveHTTPS() error {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	return server.Serve(listener)
+	return server.Serve(listener4)
 }
 
 func (d *Daemon) handleRequest(w http.ResponseWriter, r *http.Request) {
