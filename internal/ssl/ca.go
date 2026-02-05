@@ -38,10 +38,11 @@ func GenerateCA(certPath, keyPath string) error {
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,
 		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  true,
-		MaxPathLen:            1,
+		// SECURITY: MaxPathLen=0 prevents this CA from signing intermediate CAs
+		MaxPathLen:     0,
+		MaxPathLenZero: true,
 	}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, template, template, priv.Public(), priv)
@@ -49,21 +50,25 @@ func GenerateCA(certPath, keyPath string) error {
 		return fmt.Errorf("creating certificate: %w", err)
 	}
 
-	// Write cert
-	certOut, err := os.Create(certPath)
+	// SECURITY: Write cert with explicit 0644 permissions (public cert, readable by all)
+	certOut, err := os.OpenFile(certPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("creating cert file: %w", err)
 	}
 	defer certOut.Close()
-	pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	if err := pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
+		return fmt.Errorf("encoding certificate: %w", err)
+	}
 
-	// Write key
+	// SECURITY: Write key with 0600 permissions (private key, owner-only)
 	keyOut, err := os.OpenFile(keyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return fmt.Errorf("creating key file: %w", err)
 	}
 	defer keyOut.Close()
-	pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
+	if err := pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)}); err != nil {
+		return fmt.Errorf("encoding private key: %w", err)
+	}
 
 	return nil
 }
