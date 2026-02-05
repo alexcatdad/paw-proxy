@@ -1,6 +1,6 @@
-# Binaries
-paw-proxy
-up
+# Binaries (at root only)
+/paw-proxy
+/up
 *.exe
 dist/
 
