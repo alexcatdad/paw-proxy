@@ -26,8 +26,11 @@ type Config struct {
 	LogPath    string
 }
 
-func DefaultConfig() *Config {
-	homeDir, _ := os.UserHomeDir()
+func DefaultConfig() (*Config, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("cannot determine home directory: %w", err)
+	}
 	supportDir := filepath.Join(homeDir, "Library", "Application Support", "paw-proxy")
 
 	return &Config{
@@ -38,7 +41,7 @@ func DefaultConfig() *Config {
 		SupportDir: supportDir,
 		SocketPath: filepath.Join(supportDir, "paw-proxy.sock"),
 		LogPath:    filepath.Join(homeDir, "Library", "Logs", "paw-proxy.log"),
-	}
+	}, nil
 }
 
 type Daemon struct {
