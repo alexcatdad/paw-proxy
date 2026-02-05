@@ -5,6 +5,7 @@ package setup
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -20,29 +21,38 @@ func Uninstall(supportDir, tld string, fromBrew bool) error {
 	plistPath := filepath.Join(homeDir, "Library", "LaunchAgents", "dev.paw-proxy.plist")
 	resolverPath := filepath.Join("/etc/resolver", tld)
 
-	var errs []string
+	var errs []error
 
 	fmt.Println("paw-proxy uninstall")
 	fmt.Println("===================")
 
 	// 1. Stop and remove LaunchAgent
 	fmt.Printf("\n[1/3] Removing daemon...\n")
+	// SECURITY: Use exec.Command with explicit args (no shell) to prevent injection via plistPath.
 	if err := exec.Command("launchctl", "unload", plistPath).Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "  warning: could not unload LaunchAgent: %v\n", err)
 		// Not fatal — agent may not be loaded
 	}
-	if err := os.Remove(plistPath); err != nil && !os.IsNotExist(err) {
-		errs = append(errs, fmt.Sprintf("removing LaunchAgent plist: %v", err))
-		fmt.Fprintf(os.Stderr, "  warning: could not remove plist: %v\n", err)
+	if err := os.Remove(plistPath); err != nil {
+		if os.IsNotExist(err) {
+			fmt.Printf("  LaunchAgent not found (already removed)\n")
+		} else {
+			errs = append(errs, fmt.Errorf("removing LaunchAgent plist: %w", err))
+			fmt.Fprintf(os.Stderr, "  warning: could not remove plist: %v\n", err)
+		}
 	} else {
 		fmt.Printf("  LaunchAgent removed\n")
 	}
 
 	// 2. Remove resolver
 	fmt.Printf("\n[2/3] Removing DNS resolver...\n")
-	if err := os.Remove(resolverPath); err != nil && !os.IsNotExist(err) {
-		errs = append(errs, fmt.Sprintf("removing resolver file: %v", err))
-		fmt.Fprintf(os.Stderr, "  warning: could not remove /etc/resolver/%s: %v\n", tld, err)
+	if err := os.Remove(resolverPath); err != nil {
+		if os.IsNotExist(err) {
+			fmt.Printf("  /etc/resolver/%s not found (already removed)\n", tld)
+		} else {
+			errs = append(errs, fmt.Errorf("removing resolver file: %w", err))
+			fmt.Fprintf(os.Stderr, "  warning: could not remove /etc/resolver/%s: %v\n", tld, err)
+		}
 	} else {
 		fmt.Printf("  /etc/resolver/%s removed\n", tld)
 	}
@@ -59,10 +69,17 @@ func Uninstall(supportDir, tld string, fromBrew bool) error {
 	if removeCA {
 		// SECURITY: Use explicit exec.Command args instead of sh -c to prevent shell injection
 		keychainPath := filepath.Join(homeDir, "Library", "Keychains", "login.keychain-db")
-		out, err := exec.Command("security", "find-certificate", "-a", "-c", "paw-proxy CA", "-Z", keychainPath).Output()
+		out, err := exec.Command("security", "find-certificate", "-a", "-c", "paw-proxy CA", "-Z", keychainPath).CombinedOutput()
 		if err != nil {
-			// No certs found is not an error — may have been removed already
-			fmt.Println("  No CA certificates found in keychain")
+			// SECURITY: Exit code 44 = errSecItemNotFound (macOS OSStatus -25300).
+			// Only treat this specific code as "not found"; other errors (permission
+			// denied, keychain locked/corrupted) are real failures.
+			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 44 {
+				fmt.Println("  No CA certificates found in keychain")
+			} else {
+				errs = append(errs, fmt.Errorf("finding CA certificates: %w", err))
+				fmt.Fprintf(os.Stderr, "  warning: security find-certificate failed: %s\n", strings.TrimSpace(string(out)))
+			}
 		} else {
 			// Parse SHA-1 hashes from output
 			for _, line := range strings.Split(string(out), "\n") {
@@ -70,11 +87,15 @@ func Uninstall(supportDir, tld string, fromBrew bool) error {
 				if strings.HasPrefix(line, "SHA-1 hash:") {
 					sha := strings.TrimSpace(strings.TrimPrefix(line, "SHA-1 hash:"))
 					if sha != "" {
+						short := sha
+						if len(short) > 8 {
+							short = short[:8]
+						}
 						if err := exec.Command("security", "delete-certificate", "-Z", sha, keychainPath).Run(); err != nil {
-							errs = append(errs, fmt.Sprintf("removing cert %s: %v", sha[:8], err))
-							fmt.Fprintf(os.Stderr, "  warning: could not remove certificate %s: %v\n", sha[:8], err)
+							errs = append(errs, fmt.Errorf("removing cert %s: %w", short, err))
+							fmt.Fprintf(os.Stderr, "  warning: could not remove certificate %s: %v\n", short, err)
 						} else {
-							fmt.Printf("  Removed certificate %s\n", sha[:8])
+							fmt.Printf("  Removed certificate %s\n", short)
 						}
 					}
 				}
@@ -83,7 +104,7 @@ func Uninstall(supportDir, tld string, fromBrew bool) error {
 
 		// Remove support directory
 		if err := os.RemoveAll(supportDir); err != nil {
-			errs = append(errs, fmt.Sprintf("removing support directory: %v", err))
+			errs = append(errs, fmt.Errorf("removing support directory: %w", err))
 			fmt.Fprintf(os.Stderr, "  warning: could not remove support directory: %v\n", err)
 		} else {
 			fmt.Printf("  Support directory removed\n")
@@ -96,7 +117,7 @@ func Uninstall(supportDir, tld string, fromBrew bool) error {
 
 	if len(errs) > 0 {
 		fmt.Println("Uninstall completed with errors.")
-		return fmt.Errorf("uninstall completed with errors: %s", strings.Join(errs, "; "))
+		return fmt.Errorf("uninstall completed with errors: %w", errors.Join(errs...))
 	}
 
 	fmt.Println("Uninstall complete!")
