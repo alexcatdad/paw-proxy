@@ -107,6 +107,30 @@ func isWebSocket(r *http.Request) bool {
 // WebSocket idle timeout (1 hour max for dev servers)
 const wsIdleTimeout = 1 * time.Hour
 
+// idleTimeoutConn wraps a net.Conn to reset the deadline on each Read/Write operation.
+// This enables idle-based timeouts instead of absolute deadlines, keeping active connections
+// alive indefinitely while closing idle ones.
+type idleTimeoutConn struct {
+	net.Conn
+	timeout time.Duration
+}
+
+func (c *idleTimeoutConn) Read(b []byte) (int, error) {
+	// SECURITY: Reset deadline on each read to prevent zombie connections while allowing active ones
+	if err := c.Conn.SetDeadline(time.Now().Add(c.timeout)); err != nil {
+		return 0, fmt.Errorf("failed to set read deadline: %w", err)
+	}
+	return c.Conn.Read(b)
+}
+
+func (c *idleTimeoutConn) Write(b []byte) (int, error) {
+	// SECURITY: Reset deadline on each write to prevent zombie connections while allowing active ones
+	if err := c.Conn.SetDeadline(time.Now().Add(c.timeout)); err != nil {
+		return 0, fmt.Errorf("failed to set write deadline: %w", err)
+	}
+	return c.Conn.Write(b)
+}
+
 func (p *Proxy) handleWebSocket(w http.ResponseWriter, r *http.Request, upstream string) {
 	// Hijack the connection
 	hijacker, ok := w.(http.Hijacker)
@@ -130,24 +154,23 @@ func (p *Proxy) handleWebSocket(w http.ResponseWriter, r *http.Request, upstream
 	}
 	defer upstreamConn.Close()
 
-	// SECURITY: Set deadline to prevent zombie connections
-	deadline := time.Now().Add(wsIdleTimeout)
-	clientConn.SetDeadline(deadline)
-	upstreamConn.SetDeadline(deadline)
+	// Wrap connections with idle timeout that resets on each Read/Write
+	clientIdle := &idleTimeoutConn{Conn: clientConn, timeout: wsIdleTimeout}
+	upstreamIdle := &idleTimeoutConn{Conn: upstreamConn, timeout: wsIdleTimeout}
 
 	// Forward the original request
-	r.Write(upstreamConn)
+	r.Write(upstreamIdle)
 
 	// Bidirectional copy
 	done := make(chan struct{}, 2)
 
 	go func() {
-		io.Copy(upstreamConn, clientConn)
+		io.Copy(upstreamIdle, clientIdle)
 		done <- struct{}{}
 	}()
 
 	go func() {
-		io.Copy(clientConn, upstreamConn)
+		io.Copy(clientIdle, upstreamIdle)
 		done <- struct{}{}
 	}()
 
