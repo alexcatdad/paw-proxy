@@ -47,12 +47,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-      - name: Setup login keychain for root
-        run: |
-          sudo -H security create-keychain -p "" /var/root/Library/Keychains/login.keychain-db || true
-          sudo -H security default-keychain -s /var/root/Library/Keychains/login.keychain-db
-          sudo -H security unlock-keychain -p "" /var/root/Library/Keychains/login.keychain-db
-          sudo -H security list-keychains -s /var/root/Library/Keychains/login.keychain-db
       - name: Build
         run: |
           go build -o paw-proxy ./cmd/paw-proxy
