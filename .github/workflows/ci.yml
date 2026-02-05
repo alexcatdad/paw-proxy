@@ -60,7 +60,9 @@ jobs:
       - name: Start daemon
         run: |
           SOCK="$HOME/Library/Application Support/paw-proxy/paw-proxy.sock"
-          sudo bash -c './paw-proxy run > /tmp/daemon.log 2>&1 &'
+          sudo touch /tmp/daemon.log
+          sudo chmod 666 /tmp/daemon.log
+          sudo ./paw-proxy run >> /tmp/daemon.log 2>&1 &
           # Wait for socket to appear (up to 10s)
           for i in $(seq 1 20); do
             if [ -S "$SOCK" ]; then
@@ -68,29 +70,29 @@ jobs:
               sudo chmod 777 "$SOCK"
               break
             fi
-            # Check if daemon process exists
-            if ! sudo pgrep -f "paw-proxy run" > /dev/null; then
-              echo "Daemon crashed! Logs:"
-              sudo cat /tmp/daemon.log
-              exit 1
-            fi
             sleep 0.5
           done
           if [ ! -S "$SOCK" ]; then
-            echo "Socket never appeared. Logs:"
-            sudo cat /tmp/daemon.log
+            echo "Socket never appeared. Daemon logs:"
+            cat /tmp/daemon.log
+            echo "Daemon process:"
+            ps aux | grep paw-proxy || true
             exit 1
           fi
       - name: Wait for daemon
         run: |
+          SOCK="$HOME/Library/Application Support/paw-proxy/paw-proxy.sock"
           for i in 1 2 3 4 5; do
-            if curl -sf --unix-socket "$HOME/Library/Application Support/paw-proxy/paw-proxy.sock" http://unix/health; then
-              echo "Daemon is ready"
-              break
-            fi
+            echo "Health check attempt $i..."
+            curl -v --unix-socket "$SOCK" http://unix/health 2>&1 && break
             if [ "$i" -eq 5 ]; then
-              echo "Daemon never became healthy. Logs:"
-              sudo cat /tmp/daemon.log
+              echo "Daemon never became healthy."
+              echo "=== Daemon logs ==="
+              cat /tmp/daemon.log
+              echo "=== Socket info ==="
+              ls -la "$SOCK"
+              echo "=== Daemon process ==="
+              ps aux | grep paw-proxy || true
               exit 1
             fi
             sleep 1
