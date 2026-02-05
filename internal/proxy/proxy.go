@@ -20,30 +20,46 @@ func New() *Proxy {
 	return &Proxy{
 		transport: &http.Transport{
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				// Try IPv4 first, then IPv6 (Happy Eyeballs)
 				host, port, err := net.SplitHostPort(addr)
 				if err != nil {
 					return nil, err
 				}
 
-				// If host is "localhost", try both
-				if host == "localhost" {
-					// Try IPv4
-					conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", port), 2*time.Second)
-					if err == nil {
-						return conn, nil
-					}
-					// Try IPv6
-					return net.DialTimeout("tcp", net.JoinHostPort("::1", port), 2*time.Second)
+				// SECURITY: Defense-in-depth — reject non-loopback addresses even though
+				// the API layer already validates upstream to localhost-only.
+				ip := net.ParseIP(host)
+				if host != "localhost" && (ip == nil || !ip.IsLoopback()) {
+					return nil, fmt.Errorf("proxy: refusing connection to non-local host %s", host)
 				}
 
-				return net.DialTimeout("tcp", addr, 5*time.Second)
+				// Try IPv4 first, then IPv6 — report both errors on failure
+				conn, ipv4Err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", port), 2*time.Second)
+				if ipv4Err == nil {
+					return conn, nil
+				}
+				conn, ipv6Err := net.DialTimeout("tcp", net.JoinHostPort("::1", port), 2*time.Second)
+				if ipv6Err == nil {
+					return conn, nil
+				}
+				return nil, fmt.Errorf("upstream unreachable: IPv4: %v, IPv6: %v", ipv4Err, ipv6Err)
 			},
 			MaxIdleConns:       100,
 			IdleConnTimeout:    90 * time.Second,
 			DisableCompression: true,
 		},
 	}
+}
+
+// hopByHopHeaders are headers that apply to a single transport-level connection
+// and must not be forwarded by proxies (RFC 2616 Section 13.5.1).
+var hopByHopHeaders = []string{
+	"Connection",
+	"Keep-Alive",
+	"Proxy-Authenticate",
+	"Proxy-Authorization",
+	"TE",
+	"Trailers",
+	"Transfer-Encoding",
 }
 
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request, upstream string) {
@@ -57,8 +73,22 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request, upstream strin
 	outReq := r.Clone(r.Context())
 	outReq.URL.Scheme = "http"
 	outReq.URL.Host = upstream
-	outReq.Host = upstream
 	outReq.RequestURI = ""
+	// NOTE: We intentionally do NOT set outReq.Host = upstream.
+	// The original Host header from the client is preserved so upstream
+	// servers see the expected hostname (e.g. "myapp.test").
+
+	// Strip hop-by-hop headers before forwarding
+	toRemove := make([]string, len(hopByHopHeaders))
+	copy(toRemove, hopByHopHeaders)
+	if connHeader := outReq.Header.Get("Connection"); connHeader != "" {
+		for _, h := range strings.Split(connHeader, ",") {
+			toRemove = append(toRemove, strings.TrimSpace(h))
+		}
+	}
+	for _, h := range toRemove {
+		outReq.Header.Del(h)
+	}
 
 	// Set forwarding headers
 	if clientIP, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
@@ -83,11 +113,14 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request, upstream strin
 	}
 
 	w.WriteHeader(resp.StatusCode)
-	io.Copy(w, resp.Body)
+	if _, err := io.Copy(w, resp.Body); err != nil {
+		log.Printf("proxy: response copy: %v", err)
+	}
 }
 
 func isWebSocket(r *http.Request) bool {
-	return strings.ToLower(r.Header.Get("Upgrade")) == "websocket"
+	return strings.ToLower(r.Header.Get("Upgrade")) == "websocket" &&
+		strings.Contains(strings.ToLower(r.Header.Get("Connection")), "upgrade")
 }
 
 // SECURITY: wsIdleTimeout limits how long an idle WebSocket connection can
@@ -118,6 +151,12 @@ func (c *idleTimeoutConn) Write(b []byte) (int, error) {
 }
 
 func (p *Proxy) handleWebSocket(w http.ResponseWriter, r *http.Request, upstream string) {
+	// SECURITY: Validate WebSocket upgrade request per RFC 6455 Section 4.1
+	if r.Header.Get("Sec-WebSocket-Key") == "" || r.Header.Get("Sec-WebSocket-Version") != "13" {
+		http.Error(w, "invalid WebSocket upgrade request", http.StatusBadRequest)
+		return
+	}
+
 	// Hijack the connection
 	hijacker, ok := w.(http.Hijacker)
 	if !ok {
