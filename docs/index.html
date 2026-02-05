@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,6 +10,7 @@
     <meta name="keywords" content="HTTPS, local development, macOS, proxy, SSL, TLS, localhost, dev server, mkcert alternative">
     <meta name="author" content="alexcatdad">
     <meta name="robots" content="index, follow">
+    <meta name="color-scheme" content="light dark">
 
     <!-- Open Graph -->
     <meta property="og:title" content="paw-proxy — Zero-config HTTPS for Local Development">
@@ -25,688 +26,296 @@
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
 
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Nunito', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        clay: {
+                            50: '#fefefe',
+                            100: '#f8f8f8',
+                            200: '#f0f0f0',
+                            300: '#e8e8e8',
+                            400: '#d4d4d4',
+                            500: '#a3a3a3',
+                            600: '#737373',
+                            700: '#404040',
+                            800: '#262626',
+                            850: '#1a1a1a',
+                            900: '#141414',
+                            950: '#0a0a0a',
+                        },
+                        accent: {
+                            light: '#f97316',
+                            DEFAULT: '#ea580c',
+                            dark: '#c2410c',
+                        },
+                        success: {
+                            light: '#22c55e',
+                            DEFAULT: '#16a34a',
+                        }
+                    },
+                    boxShadow: {
+                        'clay': '8px 8px 16px rgba(0,0,0,0.1), -4px -4px 12px rgba(255,255,255,0.9)',
+                        'clay-sm': '4px 4px 8px rgba(0,0,0,0.08), -2px -2px 6px rgba(255,255,255,0.9)',
+                        'clay-inset': 'inset 4px 4px 8px rgba(0,0,0,0.08), inset -2px -2px 6px rgba(255,255,255,0.9)',
+                        'clay-dark': '8px 8px 16px rgba(0,0,0,0.4), -4px -4px 12px rgba(255,255,255,0.03)',
+                        'clay-dark-sm': '4px 4px 8px rgba(0,0,0,0.3), -2px -2px 6px rgba(255,255,255,0.02)',
+                        'clay-dark-inset': 'inset 4px 4px 8px rgba(0,0,0,0.3), inset -2px -2px 6px rgba(255,255,255,0.02)',
+                    }
+                }
+            }
+        }
+    </script>
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
-        :root {
-            --bg-deep: #0a0a0b;
-            --bg-surface: #111113;
-            --bg-elevated: #1a1a1d;
-            --bg-hover: #222226;
-            --text-primary: #f4f4f5;
-            --text-secondary: #a1a1aa;
-            --text-muted: #71717a;
-            --accent: #f59e0b;
-            --accent-dim: #d97706;
-            --accent-glow: rgba(245, 158, 11, 0.15);
-            --green: #22c55e;
-            --green-dim: #16a34a;
-            --border: #27272a;
-            --font-mono: 'JetBrains Mono', monospace;
-            --font-sans: 'Outfit', -apple-system, sans-serif;
+        /* Clay aesthetic base styles */
+        .clay-card {
+            @apply bg-clay-100 dark:bg-clay-850 rounded-3xl;
+            box-shadow: 8px 8px 16px rgba(0,0,0,0.1), -4px -4px 12px rgba(255,255,255,0.9);
+        }
+        .dark .clay-card {
+            box-shadow: 8px 8px 16px rgba(0,0,0,0.4), -4px -4px 12px rgba(255,255,255,0.03);
         }
 
-        *, *::before, *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
+        .clay-card-sm {
+            @apply bg-clay-100 dark:bg-clay-850 rounded-2xl;
+            box-shadow: 4px 4px 8px rgba(0,0,0,0.08), -2px -2px 6px rgba(255,255,255,0.9);
+        }
+        .dark .clay-card-sm {
+            box-shadow: 4px 4px 8px rgba(0,0,0,0.3), -2px -2px 6px rgba(255,255,255,0.02);
         }
 
-        html {
-            scroll-behavior: smooth;
+        .clay-inset {
+            @apply bg-clay-200 dark:bg-clay-900 rounded-xl;
+            box-shadow: inset 4px 4px 8px rgba(0,0,0,0.08), inset -2px -2px 6px rgba(255,255,255,0.7);
+        }
+        .dark .clay-inset {
+            box-shadow: inset 4px 4px 8px rgba(0,0,0,0.3), inset -2px -2px 6px rgba(255,255,255,0.02);
         }
 
-        body {
-            font-family: var(--font-sans);
-            background: var(--bg-deep);
-            color: var(--text-primary);
-            line-height: 1.6;
-            min-height: 100vh;
-            overflow-x: hidden;
+        .clay-btn {
+            @apply bg-clay-100 dark:bg-clay-800 rounded-xl px-4 py-2 font-medium transition-all duration-200;
+            box-shadow: 4px 4px 8px rgba(0,0,0,0.1), -2px -2px 6px rgba(255,255,255,0.9);
+        }
+        .dark .clay-btn {
+            box-shadow: 4px 4px 8px rgba(0,0,0,0.3), -2px -2px 6px rgba(255,255,255,0.02);
+        }
+        .clay-btn:hover {
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.1), -1px -1px 3px rgba(255,255,255,0.9);
+        }
+        .dark .clay-btn:hover {
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.3), -1px -1px 3px rgba(255,255,255,0.02);
+        }
+        .clay-btn:active {
+            box-shadow: inset 2px 2px 4px rgba(0,0,0,0.1), inset -1px -1px 3px rgba(255,255,255,0.7);
+        }
+        .dark .clay-btn:active {
+            box-shadow: inset 2px 2px 4px rgba(0,0,0,0.3), inset -1px -1px 3px rgba(255,255,255,0.02);
         }
 
-        /* Subtle noise texture */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-            opacity: 0.03;
-            pointer-events: none;
-            z-index: 0;
+        .clay-pill {
+            @apply inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium;
+            @apply bg-clay-100 dark:bg-clay-800 text-clay-600 dark:text-clay-400;
+            box-shadow: 3px 3px 6px rgba(0,0,0,0.08), -2px -2px 4px rgba(255,255,255,0.9);
+        }
+        .dark .clay-pill {
+            box-shadow: 3px 3px 6px rgba(0,0,0,0.3), -2px -2px 4px rgba(255,255,255,0.02);
         }
 
-        /* Layout */
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 0 24px;
-            position: relative;
-            z-index: 1;
-        }
-
-        /* Header */
-        header {
-            padding: 80px 0 60px;
-            text-align: center;
-            position: relative;
-        }
-
-        .logo {
-            display: inline-flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 24px;
-            animation: fadeInDown 0.6s ease-out;
-        }
-
-        .paw-icon {
-            font-size: 42px;
-            filter: drop-shadow(0 0 20px var(--accent-glow));
-        }
-
-        .logo-text {
-            font-family: var(--font-mono);
-            font-size: 32px;
-            font-weight: 600;
-            letter-spacing: -0.5px;
-            background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .tagline {
-            font-size: 20px;
-            color: var(--text-secondary);
-            font-weight: 300;
-            margin-bottom: 32px;
-            animation: fadeInUp 0.6s ease-out 0.1s both;
-        }
-
-        .tagline strong {
-            color: var(--accent);
-            font-weight: 500;
-        }
-
-        /* Hero terminal */
-        .hero-terminal {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            text-align: left;
-            max-width: 520px;
-            margin: 0 auto;
-            animation: fadeInUp 0.6s ease-out 0.2s both;
-            box-shadow:
-                0 4px 6px -1px rgba(0, 0, 0, 0.3),
-                0 20px 40px -10px rgba(0, 0, 0, 0.4),
-                inset 0 1px 0 rgba(255, 255, 255, 0.03);
-        }
-
-        .terminal-bar {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 16px;
-            background: var(--bg-elevated);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .terminal-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: var(--border);
-        }
-
-        .terminal-dot.red { background: #ef4444; }
-        .terminal-dot.yellow { background: #eab308; }
-        .terminal-dot.green { background: #22c55e; }
-
-        .terminal-title {
-            flex: 1;
-            text-align: center;
-            font-family: var(--font-mono);
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-right: 52px;
-        }
-
-        .terminal-body {
-            padding: 20px;
-            font-family: var(--font-mono);
-            font-size: 14px;
-        }
-
-        .terminal-line {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 8px;
-        }
-
-        .terminal-line:last-child {
-            margin-bottom: 0;
-        }
-
-        .prompt {
-            color: var(--green);
-        }
-
-        .command {
-            color: var(--text-primary);
-        }
-
-        .comment {
-            color: var(--text-muted);
-            font-style: italic;
-        }
-
-        .url {
-            color: var(--accent);
-        }
-
-        .cursor {
-            display: inline-block;
-            width: 8px;
-            height: 18px;
-            background: var(--accent);
-            animation: blink 1s step-end infinite;
-            vertical-align: text-bottom;
-            margin-left: 2px;
-        }
-
+        /* Cursor blink */
         @keyframes blink {
             50% { opacity: 0; }
         }
-
-        /* Sections */
-        section {
-            padding: 80px 0;
-            border-top: 1px solid var(--border);
+        .cursor-blink {
+            animation: blink 1s step-end infinite;
         }
 
-        section:first-of-type {
-            border-top: none;
-        }
-
-        .section-header {
-            margin-bottom: 40px;
-        }
-
-        h2 {
-            font-family: var(--font-mono);
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--accent);
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            margin-bottom: 12px;
-        }
-
-        h3 {
-            font-size: 28px;
-            font-weight: 500;
-            color: var(--text-primary);
-            line-height: 1.3;
-        }
-
-        /* Why section - problem/solution */
-        .problem-solution {
-            display: grid;
-            gap: 24px;
-        }
-
-        .card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 28px;
-            transition: all 0.2s ease;
-        }
-
-        .card:hover {
-            border-color: var(--accent-dim);
-            box-shadow: 0 0 30px var(--accent-glow);
-        }
-
-        .card-icon {
-            font-size: 24px;
-            margin-bottom: 16px;
-        }
-
-        .card h4 {
-            font-size: 18px;
-            font-weight: 500;
-            margin-bottom: 12px;
-            color: var(--text-primary);
-        }
-
-        .card p {
-            color: var(--text-secondary);
-            font-size: 15px;
-        }
-
-        .card ul {
-            list-style: none;
-            margin-top: 16px;
-        }
-
-        .card li {
-            position: relative;
-            padding-left: 20px;
-            color: var(--text-secondary);
-            font-size: 14px;
-            margin-bottom: 8px;
-        }
-
-        .card li::before {
-            content: '→';
-            position: absolute;
-            left: 0;
-            color: var(--text-muted);
-        }
-
-        .card.solution {
-            border-color: var(--green-dim);
-            background: linear-gradient(135deg, var(--bg-surface) 0%, rgba(34, 197, 94, 0.05) 100%);
-        }
-
-        .card.solution:hover {
-            border-color: var(--green);
-            box-shadow: 0 0 30px rgba(34, 197, 94, 0.15);
-        }
-
-        /* Features */
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 20px;
-        }
-
-        .feature {
-            padding: 24px;
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            transition: all 0.2s ease;
-        }
-
-        .feature:hover {
-            background: var(--bg-elevated);
-            transform: translateY(-2px);
-        }
-
-        .feature-icon {
-            font-size: 20px;
-            margin-bottom: 12px;
-        }
-
-        .feature h4 {
-            font-size: 16px;
-            font-weight: 500;
-            margin-bottom: 8px;
-        }
-
-        .feature p {
-            font-size: 14px;
-            color: var(--text-secondary);
-        }
-
-        /* Install */
-        .install-steps {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .code-block {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        .code-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 16px;
-            background: var(--bg-elevated);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .code-label {
-            font-family: var(--font-mono);
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-
-        .copy-btn {
-            font-family: var(--font-mono);
-            font-size: 11px;
-            padding: 4px 10px;
-            background: var(--bg-hover);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-
-        .copy-btn:hover {
-            background: var(--accent);
-            border-color: var(--accent);
-            color: var(--bg-deep);
-        }
-
-        .copy-btn.copied {
-            background: var(--green);
-            border-color: var(--green);
-            color: var(--bg-deep);
-        }
-
-        .code-content {
-            padding: 16px 20px;
-            font-family: var(--font-mono);
-            font-size: 13px;
-            line-height: 1.7;
-            overflow-x: auto;
-        }
-
-        .code-content .dim {
-            color: var(--text-muted);
-        }
-
-        /* Architecture */
-        .architecture {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 32px;
-            font-family: var(--font-mono);
-            font-size: 13px;
-            line-height: 1.8;
-            overflow-x: auto;
-            white-space: pre;
-            color: var(--text-secondary);
-        }
-
-        .architecture .highlight {
-            color: var(--accent);
-        }
-
-        .architecture .green {
-            color: var(--green);
-        }
-
-        /* Credits */
-        .credits-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-
-        .credit {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 16px;
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 14px;
-            color: var(--text-secondary);
-            text-decoration: none;
-            transition: all 0.15s ease;
-        }
-
-        .credit:hover {
-            border-color: var(--accent-dim);
-            color: var(--text-primary);
-            background: var(--bg-elevated);
-        }
-
-        .credit-icon {
-            font-size: 16px;
-        }
-
-        /* Footer */
-        footer {
-            padding: 40px 0;
-            text-align: center;
-            border-top: 1px solid var(--border);
-        }
-
-        .footer-links {
-            display: flex;
-            justify-content: center;
-            gap: 24px;
-            margin-bottom: 20px;
-        }
-
-        .footer-links a {
-            font-family: var(--font-mono);
-            font-size: 13px;
-            color: var(--text-secondary);
-            text-decoration: none;
-            transition: color 0.15s ease;
-        }
-
-        .footer-links a:hover {
-            color: var(--accent);
-        }
-
-        .copyright {
-            font-size: 13px;
-            color: var(--text-muted);
-        }
-
-        /* Animations */
-        @keyframes fadeInDown {
-            from {
-                opacity: 0;
-                transform: translateY(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
+        /* Fade in animation */
         .fade-in {
             opacity: 0;
             transform: translateY(20px);
-            transition: all 0.5s ease-out;
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
         }
-
         .fade-in.visible {
             opacity: 1;
             transform: translateY(0);
         }
 
-        /* Responsive */
-        @media (max-width: 640px) {
-            header {
-                padding: 60px 0 40px;
-            }
-
-            .logo-text {
-                font-size: 26px;
-            }
-
-            .tagline {
-                font-size: 17px;
-            }
-
-            .terminal-body {
-                font-size: 12px;
-                padding: 16px;
-            }
-
-            section {
-                padding: 60px 0;
-            }
-
-            h3 {
-                font-size: 24px;
-            }
-
-            .architecture {
-                font-size: 11px;
-                padding: 20px;
-            }
+        /* Smooth theme transition */
+        * {
+            transition-property: background-color, border-color, box-shadow;
+            transition-duration: 200ms;
+            transition-timing-function: ease-out;
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <div class="logo">
-                <span class="paw-icon">🐾</span>
-                <span class="logo-text">paw-proxy</span>
-            </div>
-            <p class="tagline">Zero-config HTTPS for local macOS development.<br>Get <strong>https://myapp.test</strong> working in seconds.</p>
+<body class="bg-clay-50 dark:bg-clay-950 text-clay-800 dark:text-clay-200 font-sans min-h-screen">
+    <!-- Theme Toggle -->
+    <div class="fixed top-6 right-6 z-50">
+        <button id="theme-toggle" class="clay-btn flex items-center gap-2 text-sm">
+            <svg class="w-5 h-5 hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            <svg class="w-5 h-5 block dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+        </button>
+    </div>
 
-            <div class="hero-terminal">
-                <div class="terminal-bar">
-                    <span class="terminal-dot red"></span>
-                    <span class="terminal-dot yellow"></span>
-                    <span class="terminal-dot green"></span>
-                    <span class="terminal-title">Terminal</span>
-                </div>
-                <div class="terminal-body">
-                    <div class="terminal-line">
-                        <span class="comment"># Before: localhost headaches</span>
+    <div class="max-w-4xl mx-auto px-6 py-16">
+        <!-- Header -->
+        <header class="text-center mb-20">
+            <div class="inline-flex items-center gap-3 mb-6">
+                <span class="text-5xl">🐾</span>
+                <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-accent-dark via-accent to-accent-light bg-clip-text text-transparent">
+                    paw-proxy
+                </h1>
+            </div>
+            <p class="text-xl md:text-2xl text-clay-600 dark:text-clay-400 font-medium mb-8 max-w-xl mx-auto">
+                Zero-config HTTPS for local macOS development.<br>
+                Get <span class="text-accent font-semibold">https://myapp.test</span> working in seconds.
+            </p>
+
+            <!-- Hero Terminal -->
+            <div class="clay-card p-2 max-w-lg mx-auto">
+                <div class="clay-inset p-1">
+                    <div class="flex items-center gap-2 px-3 py-2 border-b border-clay-300 dark:border-clay-700">
+                        <div class="flex gap-1.5">
+                            <div class="w-3 h-3 rounded-full bg-red-400"></div>
+                            <div class="w-3 h-3 rounded-full bg-yellow-400"></div>
+                            <div class="w-3 h-3 rounded-full bg-green-400"></div>
+                        </div>
+                        <span class="flex-1 text-center text-xs font-mono text-clay-500">Terminal</span>
                     </div>
-                    <div class="terminal-line">
-                        <span class="prompt">$</span>
-                        <span class="command">npm run dev</span>
-                    </div>
-                    <div class="terminal-line" style="margin-top: 16px;">
-                        <span class="comment"># After: just works</span>
-                    </div>
-                    <div class="terminal-line">
-                        <span class="prompt">$</span>
-                        <span class="command">up npm run dev</span>
-                    </div>
-                    <div class="terminal-line">
-                        <span class="url">→ https://myapp.test</span><span class="cursor"></span>
+                    <div class="p-4 font-mono text-sm text-left">
+                        <div class="text-clay-500 dark:text-clay-500 mb-1"># Before: localhost headaches</div>
+                        <div class="mb-3"><span class="text-success-light">$</span> npm run dev</div>
+                        <div class="text-clay-500 dark:text-clay-500 mb-1"># After: just works</div>
+                        <div class="mb-1"><span class="text-success-light">$</span> up npm run dev</div>
+                        <div class="text-accent font-medium">→ https://myapp.test<span class="inline-block w-2 h-4 bg-accent ml-1 cursor-blink align-text-bottom"></span></div>
                     </div>
                 </div>
             </div>
         </header>
 
-        <section class="fade-in">
-            <div class="section-header">
-                <h2>The Problem</h2>
-                <h3>Local HTTPS is painful</h3>
+        <!-- Why Section -->
+        <section class="mb-20 fade-in">
+            <div class="text-center mb-10">
+                <span class="clay-pill mb-4">💡 The Problem</span>
+                <h2 class="text-3xl font-bold mt-4">Local HTTPS is painful</h2>
             </div>
 
-            <div class="problem-solution">
-                <div class="card">
-                    <div class="card-icon">😤</div>
-                    <h4>You need HTTPS locally for...</h4>
-                    <ul>
-                        <li>OAuth callbacks requiring HTTPS redirect URIs</li>
-                        <li>Secure cookies with SameSite=None or Secure flags</li>
-                        <li>Service workers that only work on secure origins</li>
-                        <li>Mixed content when your API is HTTPS but dev is HTTP</li>
-                        <li>Testing how your app actually behaves in production</li>
-                    </ul>
-                </div>
-
-                <div class="card">
-                    <div class="card-icon">😩</div>
-                    <h4>Existing solutions are frustrating</h4>
-                    <ul>
-                        <li><strong>mkcert</strong> — Great for certs, but you still need nginx/caddy config per project</li>
-                        <li><strong>ngrok/tunnels</strong> — External dependency, latency, rate limits</li>
-                        <li><strong>Self-signed certs</strong> — Browser warnings, manual trust, breaks fetch/curl</li>
-                    </ul>
-                </div>
-
-                <div class="card solution">
-                    <div class="card-icon">✨</div>
-                    <h4>paw-proxy: just prefix with "up"</h4>
-                    <p>One command. Zero config. Trusted HTTPS. Works with any dev server.</p>
-                </div>
-            </div>
-        </section>
-
-        <section class="fade-in">
-            <div class="section-header">
-                <h2>Features</h2>
-                <h3>Everything you need, nothing you don't</h3>
-            </div>
-
-            <div class="features-grid">
-                <div class="feature">
-                    <div class="feature-icon">⚡</div>
-                    <h4>Zero Config</h4>
-                    <p>Just run "up bun dev" and get HTTPS. No nginx, no config files.</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">🔐</div>
-                    <h4>Auto SSL</h4>
-                    <p>Generates trusted certificates on-the-fly. No browser warnings.</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">🔄</div>
-                    <h4>WebSocket Support</h4>
-                    <p>Hot reload works out of the box. Vite, Next, you name it.</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">📦</div>
-                    <h4>Smart Naming</h4>
-                    <p>Uses package.json name or directory name. Or specify your own.</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">⚠️</div>
-                    <h4>Conflict Detection</h4>
-                    <p>Warns when a domain is already in use by another project.</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">🛡️</div>
-                    <h4>Security First</h4>
-                    <p>TLS 1.2+, localhost-only binding, input validation throughout.</p>
-                </div>
-            </div>
-        </section>
-
-        <section class="fade-in">
-            <div class="section-header">
-                <h2>Install</h2>
-                <h3>Up and running in 30 seconds</h3>
-            </div>
-
-            <div class="install-steps">
-                <div class="code-block">
-                    <div class="code-header">
-                        <span class="code-label">1. Download</span>
-                        <button class="copy-btn" data-code="curl -L https://github.com/alexcatdad/paw-proxy/releases/latest/download/paw-proxy-darwin-universal -o /usr/local/bin/paw-proxy && curl -L https://github.com/alexcatdad/paw-proxy/releases/latest/download/up-darwin-universal -o /usr/local/bin/up && chmod +x /usr/local/bin/paw-proxy /usr/local/bin/up">Copy</button>
+            <div class="grid gap-6">
+                <div class="clay-card p-6">
+                    <div class="flex items-start gap-4">
+                        <span class="text-3xl">😤</span>
+                        <div>
+                            <h3 class="text-lg font-bold mb-3">You need HTTPS locally for...</h3>
+                            <ul class="space-y-2 text-clay-600 dark:text-clay-400">
+                                <li class="flex items-center gap-2"><span class="text-accent">→</span> OAuth callbacks requiring HTTPS redirect URIs</li>
+                                <li class="flex items-center gap-2"><span class="text-accent">→</span> Secure cookies with SameSite=None or Secure flags</li>
+                                <li class="flex items-center gap-2"><span class="text-accent">→</span> Service workers that only work on secure origins</li>
+                                <li class="flex items-center gap-2"><span class="text-accent">→</span> Testing production behavior locally</li>
+                            </ul>
+                        </div>
                     </div>
-                    <div class="code-content">
-<span class="dim"># Download binaries</span>
+                </div>
+
+                <div class="clay-card p-6">
+                    <div class="flex items-start gap-4">
+                        <span class="text-3xl">😩</span>
+                        <div>
+                            <h3 class="text-lg font-bold mb-3">Existing solutions are frustrating</h3>
+                            <ul class="space-y-2 text-clay-600 dark:text-clay-400">
+                                <li class="flex items-center gap-2"><span class="text-clay-400">→</span> <strong>mkcert</strong> — Great certs, but still need nginx config per project</li>
+                                <li class="flex items-center gap-2"><span class="text-clay-400">→</span> <strong>ngrok/tunnels</strong> — External dependency, latency, rate limits</li>
+                                <li class="flex items-center gap-2"><span class="text-clay-400">→</span> <strong>Self-signed</strong> — Browser warnings, manual trust, breaks fetch</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="clay-card p-6 ring-2 ring-success-light/30 dark:ring-success-light/20">
+                    <div class="flex items-start gap-4">
+                        <span class="text-3xl">✨</span>
+                        <div>
+                            <h3 class="text-lg font-bold mb-2 text-success-light">paw-proxy: just prefix with "up"</h3>
+                            <p class="text-clay-600 dark:text-clay-400">One command. Zero config. Trusted HTTPS. Works with any dev server.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features -->
+        <section class="mb-20 fade-in">
+            <div class="text-center mb-10">
+                <span class="clay-pill mb-4">⚡ Features</span>
+                <h2 class="text-3xl font-bold mt-4">Everything you need</h2>
+            </div>
+
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="clay-card-sm p-5">
+                    <div class="text-2xl mb-3">⚡</div>
+                    <h3 class="font-bold mb-1">Zero Config</h3>
+                    <p class="text-sm text-clay-600 dark:text-clay-400">Just run "up bun dev" and get HTTPS</p>
+                </div>
+                <div class="clay-card-sm p-5">
+                    <div class="text-2xl mb-3">🔐</div>
+                    <h3 class="font-bold mb-1">Auto SSL</h3>
+                    <p class="text-sm text-clay-600 dark:text-clay-400">Trusted certificates on-the-fly</p>
+                </div>
+                <div class="clay-card-sm p-5">
+                    <div class="text-2xl mb-3">🔄</div>
+                    <h3 class="font-bold mb-1">WebSocket Support</h3>
+                    <p class="text-sm text-clay-600 dark:text-clay-400">Hot reload just works</p>
+                </div>
+                <div class="clay-card-sm p-5">
+                    <div class="text-2xl mb-3">📦</div>
+                    <h3 class="font-bold mb-1">Smart Naming</h3>
+                    <p class="text-sm text-clay-600 dark:text-clay-400">Uses package.json or directory name</p>
+                </div>
+                <div class="clay-card-sm p-5">
+                    <div class="text-2xl mb-3">⚠️</div>
+                    <h3 class="font-bold mb-1">Conflict Detection</h3>
+                    <p class="text-sm text-clay-600 dark:text-clay-400">Warns about domain collisions</p>
+                </div>
+                <div class="clay-card-sm p-5">
+                    <div class="text-2xl mb-3">🛡️</div>
+                    <h3 class="font-bold mb-1">Security First</h3>
+                    <p class="text-sm text-clay-600 dark:text-clay-400">TLS 1.2+, localhost-only</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Install -->
+        <section class="mb-20 fade-in">
+            <div class="text-center mb-10">
+                <span class="clay-pill mb-4">🚀 Install</span>
+                <h2 class="text-3xl font-bold mt-4">Up and running in 30 seconds</h2>
+            </div>
+
+            <div class="space-y-4">
+                <div class="clay-card p-2">
+                    <div class="flex items-center justify-between px-4 py-2">
+                        <span class="text-sm font-medium text-clay-500">1. Download</span>
+                        <button class="copy-btn clay-btn text-xs py-1.5 px-3" data-code="curl -L https://github.com/alexcatdad/paw-proxy/releases/latest/download/paw-proxy-darwin-universal -o /usr/local/bin/paw-proxy && curl -L https://github.com/alexcatdad/paw-proxy/releases/latest/download/up-darwin-universal -o /usr/local/bin/up && chmod +x /usr/local/bin/paw-proxy /usr/local/bin/up">Copy</button>
+                    </div>
+                    <div class="clay-inset p-4 font-mono text-xs sm:text-sm overflow-x-auto">
+<span class="text-clay-500"># Download binaries</span>
 curl -L https://github.com/alexcatdad/paw-proxy/releases/latest/download/paw-proxy-darwin-universal \
   -o /usr/local/bin/paw-proxy
 curl -L https://github.com/alexcatdad/paw-proxy/releases/latest/download/up-darwin-universal \
@@ -714,123 +323,133 @@ curl -L https://github.com/alexcatdad/paw-proxy/releases/latest/download/up-darw
 chmod +x /usr/local/bin/paw-proxy /usr/local/bin/up</div>
                 </div>
 
-                <div class="code-block">
-                    <div class="code-header">
-                        <span class="code-label">2. Setup (one time)</span>
-                        <button class="copy-btn" data-code="sudo paw-proxy setup">Copy</button>
+                <div class="clay-card p-2">
+                    <div class="flex items-center justify-between px-4 py-2">
+                        <span class="text-sm font-medium text-clay-500">2. Setup (one time)</span>
+                        <button class="copy-btn clay-btn text-xs py-1.5 px-3" data-code="sudo paw-proxy setup">Copy</button>
                     </div>
-                    <div class="code-content">
-<span class="dim"># Configure DNS, generate CA, install daemon</span>
+                    <div class="clay-inset p-4 font-mono text-sm">
+<span class="text-clay-500"># Configure DNS, generate CA, install daemon</span>
 sudo paw-proxy setup</div>
                 </div>
 
-                <div class="code-block">
-                    <div class="code-header">
-                        <span class="code-label">3. Use it</span>
-                        <button class="copy-btn" data-code="up npm run dev">Copy</button>
+                <div class="clay-card p-2">
+                    <div class="flex items-center justify-between px-4 py-2">
+                        <span class="text-sm font-medium text-clay-500">3. Use it!</span>
+                        <button class="copy-btn clay-btn text-xs py-1.5 px-3" data-code="up npm run dev">Copy</button>
                     </div>
-                    <div class="code-content">
-<span class="dim"># Wrap any dev command</span>
+                    <div class="clay-inset p-4 font-mono text-sm">
+<span class="text-clay-500"># Wrap any dev command</span>
 up npm run dev
 up bun dev
-up yarn dev
-up -n myapp npm start  <span class="dim"># custom domain</span></div>
+up -n myapp npm start  <span class="text-clay-500"># custom domain</span></div>
                 </div>
             </div>
         </section>
 
-        <section class="fade-in">
-            <div class="section-header">
-                <h2>How It Works</h2>
-                <h3>Simple architecture, powerful result</h3>
+        <!-- Architecture -->
+        <section class="mb-20 fade-in">
+            <div class="text-center mb-10">
+                <span class="clay-pill mb-4">🏗️ Architecture</span>
+                <h2 class="text-3xl font-bold mt-4">How it works</h2>
             </div>
 
-            <div class="architecture">┌─────────────┐     ┌──────────────────┐     ┌─────────────┐
-│   <span class="highlight">Browser</span>   │────▶│   <span class="green">paw-proxy</span>      │────▶│  Dev Server │
-│             │     │   <span class="dim">port 443</span>       │     │  <span class="dim">dynamic</span>   │
+            <div class="clay-card p-2">
+                <div class="clay-inset p-6 font-mono text-xs sm:text-sm overflow-x-auto whitespace-pre text-clay-600 dark:text-clay-400">
+┌─────────────┐     ┌──────────────────┐     ┌─────────────┐
+│   <span class="text-accent font-semibold">Browser</span>   │────▶│   <span class="text-success-light font-semibold">paw-proxy</span>      │────▶│  Dev Server │
+│             │     │   <span class="text-clay-500">port 443</span>       │     │  <span class="text-clay-500">dynamic</span>   │
 └─────────────┘     └──────────────────┘     └─────────────┘
        │                     │
        │              ┌──────┴──────┐
-       │              │  <span class="green">DNS Server</span> │  *.test → 127.0.0.1
-       │              │  <span class="dim">port 9353</span>  │
+       │              │  <span class="text-success-light font-semibold">DNS Server</span> │  *.test → 127.0.0.1
+       │              │  <span class="text-clay-500">port 9353</span>  │
        │              └─────────────┘
        │
-       └──── <span class="highlight">https://myapp.test</span> ✓ Trusted SSL</div>
+       └──── <span class="text-accent font-semibold">https://myapp.test</span> ✓ Trusted SSL</div>
+            </div>
         </section>
 
-        <section class="fade-in">
-            <div class="section-header">
-                <h2>Prior Art</h2>
-                <h3>Standing on the shoulders of giants</h3>
+        <!-- Credits -->
+        <section class="mb-16 fade-in">
+            <div class="text-center mb-10">
+                <span class="clay-pill mb-4">🙏 Prior Art</span>
+                <h2 class="text-3xl font-bold mt-4">Standing on giants' shoulders</h2>
+                <p class="text-clay-600 dark:text-clay-400 mt-3">We modernized the wheel, didn't reinvent it.</p>
             </div>
 
-            <p style="color: var(--text-secondary); margin-bottom: 24px; font-size: 15px;">
-                We didn't reinvent the wheel — we modernized it for 2024+ dev workflows.
-            </p>
-
-            <div class="credits-list">
-                <a href="https://github.com/FiloSottile/mkcert" class="credit" target="_blank" rel="noopener">
-                    <span class="credit-icon">🔐</span>
-                    mkcert
+            <div class="flex flex-wrap justify-center gap-3">
+                <a href="https://github.com/FiloSottile/mkcert" target="_blank" rel="noopener" class="clay-pill hover:text-accent transition-colors">
+                    🔐 mkcert
                 </a>
-                <a href="https://github.com/puma/puma-dev" class="credit" target="_blank" rel="noopener">
-                    <span class="credit-icon">🐆</span>
-                    puma-dev
+                <a href="https://github.com/puma/puma-dev" target="_blank" rel="noopener" class="clay-pill hover:text-accent transition-colors">
+                    🐆 puma-dev
                 </a>
-                <a href="http://pow.cx/" class="credit" target="_blank" rel="noopener">
-                    <span class="credit-icon">⚡</span>
-                    pow
+                <a href="http://pow.cx/" target="_blank" rel="noopener" class="clay-pill hover:text-accent transition-colors">
+                    ⚡ pow
                 </a>
-                <a href="https://github.com/typicode/hotel" class="credit" target="_blank" rel="noopener">
-                    <span class="credit-icon">🏨</span>
-                    hotel
+                <a href="https://github.com/typicode/hotel" target="_blank" rel="noopener" class="clay-pill hover:text-accent transition-colors">
+                    🏨 hotel
                 </a>
-                <a href="https://caddyserver.com/" class="credit" target="_blank" rel="noopener">
-                    <span class="credit-icon">🔷</span>
-                    caddy
+                <a href="https://caddyserver.com/" target="_blank" rel="noopener" class="clay-pill hover:text-accent transition-colors">
+                    🔷 caddy
                 </a>
             </div>
         </section>
     </div>
 
-    <footer>
-        <div class="container">
-            <div class="footer-links">
-                <a href="https://github.com/alexcatdad/paw-proxy">GitHub</a>
-                <a href="https://github.com/alexcatdad/paw-proxy/releases">Releases</a>
-                <a href="https://github.com/alexcatdad/paw-proxy/issues">Issues</a>
-                <a href="https://github.com/alexcatdad/paw-proxy/blob/main/LICENSE">MIT License</a>
+    <!-- Footer -->
+    <footer class="border-t border-clay-200 dark:border-clay-800 py-10">
+        <div class="max-w-4xl mx-auto px-6 text-center">
+            <div class="flex flex-wrap justify-center gap-6 mb-6">
+                <a href="https://github.com/alexcatdad/paw-proxy" class="text-clay-600 dark:text-clay-400 hover:text-accent transition-colors font-medium">GitHub</a>
+                <a href="https://github.com/alexcatdad/paw-proxy/releases" class="text-clay-600 dark:text-clay-400 hover:text-accent transition-colors font-medium">Releases</a>
+                <a href="https://github.com/alexcatdad/paw-proxy/issues" class="text-clay-600 dark:text-clay-400 hover:text-accent transition-colors font-medium">Issues</a>
+                <a href="https://github.com/alexcatdad/paw-proxy/blob/main/LICENSE" class="text-clay-600 dark:text-clay-400 hover:text-accent transition-colors font-medium">MIT License</a>
             </div>
-            <p class="copyright">Built with 🐾 by <a href="https://github.com/alexcatdad" style="color: var(--accent); text-decoration: none;">alexcatdad</a></p>
+            <p class="text-sm text-clay-500">
+                Built with 🐾 by <a href="https://github.com/alexcatdad" class="text-accent hover:underline">alexcatdad</a>
+            </p>
         </div>
     </footer>
 
     <script>
-        // Intersection Observer for fade-in animations
+        // Theme toggle
+        const toggle = document.getElementById('theme-toggle');
+        const html = document.documentElement;
+
+        // Check for saved preference or system preference
+        if (localStorage.theme === 'dark' || (!localStorage.theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            html.classList.add('dark');
+        }
+
+        toggle.addEventListener('click', () => {
+            html.classList.toggle('dark');
+            localStorage.theme = html.classList.contains('dark') ? 'dark' : 'light';
+        });
+
+        // Fade-in observer
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
                     entry.target.classList.add('visible');
                 }
             });
-        }, {
-            threshold: 0.1,
-            rootMargin: '0px 0px -50px 0px'
-        });
+        }, { threshold: 0.1, rootMargin: '-50px' });
 
         document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
 
         // Copy buttons
         document.querySelectorAll('.copy-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
-                const code = btn.dataset.code;
                 try {
-                    await navigator.clipboard.writeText(code);
+                    await navigator.clipboard.writeText(btn.dataset.code);
+                    const original = btn.textContent;
                     btn.textContent = 'Copied!';
-                    btn.classList.add('copied');
+                    btn.classList.add('!bg-success-light', '!text-white');
                     setTimeout(() => {
-                        btn.textContent = 'Copy';
-                        btn.classList.remove('copied');
+                        btn.textContent = original;
+                        btn.classList.remove('!bg-success-light', '!text-white');
                     }, 2000);
                 } catch (err) {
                     console.error('Copy failed:', err);
