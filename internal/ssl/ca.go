@@ -56,7 +56,9 @@ func GenerateCA(certPath, keyPath string) error {
 		return fmt.Errorf("creating cert file: %w", err)
 	}
 	defer certOut.Close()
-	pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	if err := pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
+		return fmt.Errorf("encoding certificate: %w", err)
+	}
 
 	// Write key
 	keyOut, err := os.OpenFile(keyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
@@ -64,7 +66,9 @@ func GenerateCA(certPath, keyPath string) error {
 		return fmt.Errorf("creating key file: %w", err)
 	}
 	defer keyOut.Close()
-	pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
+	if err := pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)}); err != nil {
+		return fmt.Errorf("encoding private key: %w", err)
+	}
 
 	return nil
 }
