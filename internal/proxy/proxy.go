@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"strings"
@@ -89,8 +90,32 @@ func isWebSocket(r *http.Request) bool {
 	return strings.ToLower(r.Header.Get("Upgrade")) == "websocket"
 }
 
-// WebSocket idle timeout (1 hour max for dev servers)
+// SECURITY: wsIdleTimeout limits how long an idle WebSocket connection can
+// remain open. This prevents zombie connections from accumulating when
+// clients disconnect without a proper close handshake.
 const wsIdleTimeout = 1 * time.Hour
+
+// idleTimeoutConn wraps a net.Conn and resets the deadline on every Read
+// or Write. This converts an absolute deadline into an idle timeout: the
+// connection only expires if no data flows for the timeout duration.
+type idleTimeoutConn struct {
+	net.Conn
+	timeout time.Duration
+}
+
+func (c *idleTimeoutConn) Read(b []byte) (int, error) {
+	if err := c.Conn.SetDeadline(time.Now().Add(c.timeout)); err != nil {
+		return 0, fmt.Errorf("set read deadline: %w", err)
+	}
+	return c.Conn.Read(b)
+}
+
+func (c *idleTimeoutConn) Write(b []byte) (int, error) {
+	if err := c.Conn.SetDeadline(time.Now().Add(c.timeout)); err != nil {
+		return 0, fmt.Errorf("set write deadline: %w", err)
+	}
+	return c.Conn.Write(b)
+}
 
 func (p *Proxy) handleWebSocket(w http.ResponseWriter, r *http.Request, upstream string) {
 	// Hijack the connection
@@ -115,26 +140,41 @@ func (p *Proxy) handleWebSocket(w http.ResponseWriter, r *http.Request, upstream
 	}
 	defer upstreamConn.Close()
 
-	// SECURITY: Set deadline to prevent zombie connections
-	deadline := time.Now().Add(wsIdleTimeout)
-	clientConn.SetDeadline(deadline)
-	upstreamConn.SetDeadline(deadline)
+	// Wrap connections with idle timeout instead of absolute deadline.
+	// Each Read/Write resets the deadline, so the connection stays open
+	// as long as data is flowing and only times out after inactivity.
+	clientIdle := &idleTimeoutConn{Conn: clientConn, timeout: wsIdleTimeout}
+	upstreamIdle := &idleTimeoutConn{Conn: upstreamConn, timeout: wsIdleTimeout}
 
 	// Forward the original request
 	r.Write(upstreamConn)
 
-	// Bidirectional copy
+	// Bidirectional copy — wait for BOTH goroutines to finish to avoid
+	// goroutine leaks. When one direction's io.Copy returns (client
+	// disconnected or upstream closed), we close the write side of the
+	// other connection to unblock the other io.Copy.
 	done := make(chan struct{}, 2)
 
 	go func() {
-		io.Copy(upstreamConn, clientConn)
+		if _, err := io.Copy(upstreamIdle, clientIdle); err != nil {
+			log.Printf("websocket: client->upstream copy: %v", err)
+		}
+		if tc, ok := upstreamConn.(*net.TCPConn); ok {
+			tc.CloseWrite()
+		}
 		done <- struct{}{}
 	}()
 
 	go func() {
-		io.Copy(clientConn, upstreamConn)
+		if _, err := io.Copy(clientIdle, upstreamIdle); err != nil {
+			log.Printf("websocket: upstream->client copy: %v", err)
+		}
+		if tc, ok := clientConn.(*net.TCPConn); ok {
+			tc.CloseWrite()
+		}
 		done <- struct{}{}
 	}()
 
+	<-done
 	<-done
 }
