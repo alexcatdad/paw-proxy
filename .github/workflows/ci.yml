@@ -1,0 +1,58 @@
+# .github/workflows/ci.yml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - uses: golangci/golangci-lint-action@v4
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - run: go test -v -race ./...
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - run: |
+          GOOS=darwin GOARCH=arm64 go build -o paw-proxy-arm64 ./cmd/paw-proxy
+          GOOS=darwin GOARCH=amd64 go build -o paw-proxy-amd64 ./cmd/paw-proxy
+          GOOS=darwin GOARCH=arm64 go build -o up-arm64 ./cmd/up
+          GOOS=darwin GOARCH=amd64 go build -o up-amd64 ./cmd/up
+
+  integration:
+    runs-on: macos-14
+    if: github.event_name == 'pull_request'
+    needs: [lint, test, build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Build
+        run: |
+          go build -o paw-proxy ./cmd/paw-proxy
+          go build -o up ./cmd/up
+      - name: Setup
+        run: sudo ./paw-proxy setup
+      - name: Integration Tests
+        run: ./integration-tests.sh
