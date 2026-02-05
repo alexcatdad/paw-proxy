@@ -87,11 +87,15 @@ func Uninstall(supportDir, tld string, fromBrew bool) error {
 				if strings.HasPrefix(line, "SHA-1 hash:") {
 					sha := strings.TrimSpace(strings.TrimPrefix(line, "SHA-1 hash:"))
 					if sha != "" {
+						short := sha
+						if len(short) > 8 {
+							short = short[:8]
+						}
 						if err := exec.Command("security", "delete-certificate", "-Z", sha, keychainPath).Run(); err != nil {
-							errs = append(errs, fmt.Errorf("removing cert %s: %w", sha[:8], err))
-							fmt.Fprintf(os.Stderr, "  warning: could not remove certificate %s: %v\n", sha[:8], err)
+							errs = append(errs, fmt.Errorf("removing cert %s: %w", short, err))
+							fmt.Fprintf(os.Stderr, "  warning: could not remove certificate %s: %v\n", short, err)
 						} else {
-							fmt.Printf("  Removed certificate %s\n", sha[:8])
+							fmt.Printf("  Removed certificate %s\n", short)
 						}
 					}
 				}
