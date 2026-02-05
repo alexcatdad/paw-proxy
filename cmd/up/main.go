@@ -112,6 +112,9 @@ func main() {
 		"HTTPS=true",
 		fmt.Sprintf("NODE_EXTRA_CA_CERTS=%s", caPath),
 	)
+	// SECURITY: Create new process group so we can signal all child processes
+	// Prevents orphaned processes when wrapping tools like npm/bun that spawn children
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	// Start command
 	if err := cmd.Start(); err != nil {
@@ -129,13 +132,15 @@ func main() {
 	var exitCode int
 	select {
 	case sig := <-sigCh:
-		// Forward signal to child
-		cmd.Process.Signal(sig)
+		// Forward signal to entire process group (negative PID)
+		// This ensures child processes (e.g., node spawned by npm) also receive the signal
+		syscall.Kill(-cmd.Process.Pid, sig.(syscall.Signal))
 		// Wait for child with timeout
 		select {
 		case <-doneCh:
 		case <-time.After(5 * time.Second):
-			cmd.Process.Kill()
+			// Kill entire process group on timeout
+			syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 		}
 	case err := <-doneCh:
 		if exitErr, ok := err.(*exec.ExitError); ok {
