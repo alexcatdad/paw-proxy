@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/alexcatdad/paw-proxy/internal/daemon"
+	"github.com/alexcatdad/paw-proxy/internal/setup"
 )
 
 func main() {
@@ -66,8 +67,25 @@ func cmdRun() {
 }
 
 func cmdSetup() {
-	// Will implement in Task 7
-	fmt.Println("setup command - to be implemented")
+	// Check for root/sudo
+	if os.Geteuid() != 0 {
+		fmt.Println("Error: setup requires sudo")
+		fmt.Println("Run: sudo paw-proxy setup")
+		os.Exit(1)
+	}
+
+	exe, _ := os.Executable()
+	config := &setup.Config{
+		SupportDir: daemon.DefaultConfig().SupportDir,
+		BinaryPath: exe,
+		DNSPort:    9353,
+		TLD:        "test",
+	}
+
+	if err := setup.Run(config); err != nil {
+		fmt.Printf("Setup failed: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func cmdUninstall() {
