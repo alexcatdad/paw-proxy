@@ -37,4 +37,10 @@ func TestGenerateCA(t *testing.T) {
 	if ca.Leaf.Subject.CommonName != "paw-proxy CA" {
 		t.Errorf("unexpected CN: %s", ca.Leaf.Subject.CommonName)
 	}
+	if ca.Leaf.MaxPathLen != 0 {
+		t.Errorf("expected MaxPathLen 0, got %d", ca.Leaf.MaxPathLen)
+	}
+	if !ca.Leaf.MaxPathLenZero {
+		t.Error("MaxPathLenZero should be true")
+	}
 }

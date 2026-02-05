@@ -41,7 +41,9 @@ func GenerateCA(certPath, keyPath string) error {
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  true,
-		MaxPathLen:            1,
+		// SECURITY: MaxPathLen 0 prevents signing intermediate CAs
+		MaxPathLen:     0,
+		MaxPathLenZero: true,
 	}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, template, template, priv.Public(), priv)
