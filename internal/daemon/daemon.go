@@ -184,18 +184,9 @@ func (d *Daemon) handleRequest(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusBadGateway)
-		fmt.Fprintf(w, "No app registered for %s\n\nRun: up -n %s <your-dev-command>\n", r.Host, extractName(r.Host))
+		fmt.Fprintf(w, "No app registered for %s\n\nRun: up -n %s <your-dev-command>\n", r.Host, api.ExtractName(r.Host))
 		return
 	}
 
 	d.proxy.ServeHTTP(w, r, route.Upstream)
-}
-
-func extractName(host string) string {
-	for i, c := range host {
-		if c == '.' || c == ':' {
-			return host[:i]
-		}
-	}
-	return host
 }

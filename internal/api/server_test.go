@@ -136,9 +136,10 @@ func TestValidateUpstream(t *testing.T) {
 		{"metadata-gcp", "metadata.google.internal:80", true},
 		{"internal-hostname", "internal-service:8080", true},
 
-		// Invalid: SSRF attempts - localhost bypass attempts
+		// SSRF: non-loopback addresses that look like localhost
 		{"localhost-variant-0", "0.0.0.0:3000", true},
-		{"localhost-variant-127-1", "127.0.0.2:3000", true},
+		// 127.0.0.2 is a valid loopback address (127.0.0.0/8), accepted by IsLoopback
+		{"localhost-variant-127-2", "127.0.0.2:3000", false},
 		{"localhost-hex", "0x7f000001:3000", true},
 		{"localhost-octal", "0177.0.0.1:3000", true},
 		{"localhost-decimal", "2130706433:3000", true},
@@ -283,6 +284,97 @@ func TestAPIServer_ValidationRejection(t *testing.T) {
 				t.Errorf("expected %d, got %d", tt.wantCode, resp.StatusCode)
 			}
 		})
+	}
+}
+
+func TestValidateUpstreamIPv6Loopback(t *testing.T) {
+	// Explicitly test that IPv6 loopback is accepted (fixes #46)
+	if err := validateUpstream("[::1]:3000"); err != nil {
+		t.Errorf("expected [::1]:3000 to be accepted, got error: %v", err)
+	}
+	if err := validateUpstream("[::1]:8080"); err != nil {
+		t.Errorf("expected [::1]:8080 to be accepted, got error: %v", err)
+	}
+	// Non-loopback IPv6 must be rejected
+	if err := validateUpstream("[::2]:3000"); err == nil {
+		t.Error("expected [::2]:3000 to be rejected")
+	}
+	// Non-loopback private IPv4 must be rejected
+	if err := validateUpstream("192.168.1.1:3000"); err == nil {
+		t.Error("expected 192.168.1.1:3000 to be rejected")
+	}
+}
+
+func TestExtractName(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"myapp.test:443", "myapp"},
+		{"myapp.test", "myapp"},
+		{"myapp:443", "myapp"},
+		{"myapp", "myapp"},
+		{"a.b.c", "a"},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := ExtractName(tt.input)
+			if got != tt.want {
+				t.Errorf("ExtractName(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAPIServer_JSONErrorFormat(t *testing.T) {
+	// Use /tmp directly to avoid socket path length limits
+	socketPath := filepath.Join("/tmp", fmt.Sprintf("paw-test-json-%d.sock", time.Now().UnixNano()))
+	defer os.Remove(socketPath)
+
+	registry := NewRouteRegistry(30 * time.Second)
+	srv := NewServer(socketPath, registry)
+
+	go srv.Start()
+	defer srv.Stop()
+
+	time.Sleep(50 * time.Millisecond)
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return net.Dial("unix", socketPath)
+			},
+		},
+	}
+
+	// Send invalid request to trigger JSON error
+	body, _ := json.Marshal(map[string]string{
+		"name":     "my;app", // invalid name
+		"upstream": "localhost:3000",
+		"dir":      "/path/to/project",
+	})
+
+	resp, err := client.Post("http://unix/routes", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST /routes failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Verify Content-Type is JSON
+	ct := resp.Header.Get("Content-Type")
+	if ct != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %q", ct)
+	}
+
+	// Verify body is valid JSON with "error" field
+	var errResp map[string]string
+	if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
+		t.Fatalf("failed to decode JSON error response: %v", err)
+	}
+	if errResp["error"] == "" {
+		t.Error("expected non-empty 'error' field in JSON response")
 	}
 }
 
