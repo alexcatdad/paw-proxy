@@ -137,4 +137,5 @@ func (p *Proxy) handleWebSocket(w http.ResponseWriter, r *http.Request, upstream
 	}()
 
 	<-done
+	<-done // Wait for both goroutines to complete
 }
