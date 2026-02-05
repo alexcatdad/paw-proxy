@@ -40,7 +40,11 @@ func main() {
 	}
 
 	// Get socket path
-	homeDir, _ := os.UserHomeDir()
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Printf("Error: cannot determine home directory: %v\n", err)
+		os.Exit(1)
+	}
 	socketPath := filepath.Join(homeDir, "Library", "Application Support", "paw-proxy", "paw-proxy.sock")
 	caPath := filepath.Join(homeDir, "Library", "Application Support", "paw-proxy", "ca.crt")
 

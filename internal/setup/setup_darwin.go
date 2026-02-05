@@ -153,7 +153,10 @@ var launchAgentTemplate = `<?xml version="1.0" encoding="UTF-8"?>
 `
 
 func installLaunchAgent(config *Config) error {
-	homeDir, _ := os.UserHomeDir()
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("cannot determine home directory: %w", err)
+	}
 	plistDir := filepath.Join(homeDir, "Library", "LaunchAgents")
 	plistPath := filepath.Join(plistDir, "dev.paw-proxy.plist")
 
