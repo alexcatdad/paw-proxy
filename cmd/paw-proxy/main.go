@@ -53,7 +53,11 @@ func main() {
 }
 
 func cmdRun() {
-	config := daemon.DefaultConfig()
+	config, err := daemon.DefaultConfig()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
 
 	// SECURITY: Owner-only log file permissions
 	logFile, err := os.OpenFile(config.LogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
@@ -82,9 +86,20 @@ func cmdSetup() {
 		os.Exit(1)
 	}
 
-	exe, _ := os.Executable()
+	exe, err := os.Executable()
+	if err != nil {
+		fmt.Printf("Error: cannot determine binary path: %v\n", err)
+		os.Exit(1)
+	}
+
+	defaultCfg, err := daemon.DefaultConfig()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
 	config := &setup.Config{
-		SupportDir: daemon.DefaultConfig().SupportDir,
+		SupportDir: defaultCfg.SupportDir,
 		BinaryPath: exe,
 		DNSPort:    9353,
 		TLD:        "test",
@@ -104,7 +119,11 @@ func cmdUninstall() {
 		}
 	}
 
-	config := daemon.DefaultConfig()
+	config, err := daemon.DefaultConfig()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
 	if err := setup.Uninstall(config.SupportDir, "test", brewFlag); err != nil {
 		fmt.Printf("Uninstall failed: %v\n", err)
 		os.Exit(1)
@@ -112,7 +131,11 @@ func cmdUninstall() {
 }
 
 func cmdStatus() {
-	homeDir, _ := os.UserHomeDir()
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Printf("Error: cannot determine home directory: %v\n", err)
+		os.Exit(1)
+	}
 	socketPath := filepath.Join(homeDir, "Library", "Application Support", "paw-proxy", "paw-proxy.sock")
 
 	client := &http.Client{

@@ -13,7 +13,10 @@ import (
 )
 
 func Uninstall(supportDir, tld string, fromBrew bool) error {
-	homeDir, _ := os.UserHomeDir()
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("cannot determine home directory: %w", err)
+	}
 	plistPath := filepath.Join(homeDir, "Library", "LaunchAgents", "dev.paw-proxy.plist")
 	resolverPath := filepath.Join("/etc/resolver", tld)
 
