@@ -133,11 +133,8 @@ func (d *Daemon) serveHTTP() {
 	server := &http.Server{
 		Addr: addr,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			target := "https://" + r.Host + r.URL.Path
-			if r.URL.RawQuery != "" {
-				target += "?" + r.URL.RawQuery
-			}
-			http.Redirect(w, r, target, http.StatusMovedPermanently)
+			target := "https://" + r.Host + r.URL.RequestURI()
+			http.Redirect(w, r, target, http.StatusPermanentRedirect)
 		}),
 	}
 	server.ListenAndServe()
