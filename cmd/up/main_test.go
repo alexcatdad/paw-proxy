@@ -5,6 +5,62 @@ import (
 	"testing"
 )
 
+func TestExtractConflictDir(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected string
+	}{
+		{
+			name:     "conflict error with directory",
+			err:      &conflictError{dir: "/path/to/existing/project"},
+			expected: "/path/to/existing/project",
+		},
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: "",
+		},
+		{
+			name:     "other error type",
+			err:      &testError{msg: "some other error"},
+			expected: "",
+		},
+		{
+			name:     "conflict error with empty directory",
+			err:      &conflictError{dir: ""},
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractConflictDir(tt.err)
+			if result != tt.expected {
+				t.Errorf("extractConflictDir() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestConflictError(t *testing.T) {
+	err := &conflictError{dir: "/Users/test/myproject"}
+	expected := "conflict: route already registered from /Users/test/myproject"
+
+	if err.Error() != expected {
+		t.Errorf("conflictError.Error() = %q, want %q", err.Error(), expected)
+	}
+}
+
+// testError is a mock error type for testing
+type testError struct {
+	msg string
+}
+
+func (e *testError) Error() string {
+	return e.msg
+}
+
 func TestSanitizeName(t *testing.T) {
 	tests := []struct {
 		name     string

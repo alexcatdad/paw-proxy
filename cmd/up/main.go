@@ -214,6 +214,14 @@ func socketClient(socketPath string) *http.Client {
 	}
 }
 
+type conflictError struct {
+	dir string
+}
+
+func (e *conflictError) Error() string {
+	return fmt.Sprintf("conflict: route already registered from %s", e.dir)
+}
+
 func registerRoute(client *http.Client, name, upstream, dir string) error {
 	body, _ := json.Marshal(map[string]string{
 		"name":     name,
@@ -230,6 +238,12 @@ func registerRoute(client *http.Client, name, upstream, dir string) error {
 	if resp.StatusCode != http.StatusOK {
 		var errResp map[string]string
 		json.NewDecoder(resp.Body).Decode(&errResp)
+
+		// Check for conflict response with existingDir field
+		if resp.StatusCode == http.StatusConflict && errResp["existingDir"] != "" {
+			return &conflictError{dir: errResp["existingDir"]}
+		}
+
 		return fmt.Errorf("%s: %s", resp.Status, errResp["error"])
 	}
 
@@ -257,7 +271,8 @@ func heartbeat(ctx context.Context, client *http.Client, name string) {
 }
 
 func extractConflictDir(err error) string {
-	// Parse error message for conflict info
-	// This is a simplification - real impl would parse JSON response
+	if conflictErr, ok := err.(*conflictError); ok {
+		return conflictErr.dir
+	}
 	return ""
 }
