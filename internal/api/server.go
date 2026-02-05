@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"syscall"
 	"time"
 )
 
@@ -51,14 +52,16 @@ func (s *Server) Start() error {
 	// Remove existing socket
 	os.Remove(s.socketPath)
 
+	// SECURITY: Set umask before creating socket so it is born with 0600
+	// permissions. This avoids the TOCTOU race between Listen and Chmod
+	// where another process could connect during the gap.
+	oldMask := syscall.Umask(0077)
 	var err error
 	s.listener, err = net.Listen("unix", s.socketPath)
+	syscall.Umask(oldMask)
 	if err != nil {
 		return err
 	}
-
-	// SECURITY: Owner-only access to prevent privilege escalation
-	os.Chmod(s.socketPath, 0600)
 
 	return s.server.Serve(s.listener)
 }
@@ -90,9 +93,12 @@ func validateUpstream(upstream string) error {
 		return fmt.Errorf("invalid upstream format: expected host:port")
 	}
 
-	// SECURITY: Only allow localhost/loopback to prevent SSRF
-	if host != "localhost" && host != "127.0.0.1" && host != "::1" {
-		return fmt.Errorf("upstream must be localhost, 127.0.0.1, or ::1")
+	// SECURITY: Only allow localhost/loopback to prevent SSRF.
+	// Use net.ParseIP to correctly handle all loopback representations
+	// including IPv6 (::1) and IPv4 (127.0.0.1).
+	ip := net.ParseIP(host)
+	if host != "localhost" && (ip == nil || !ip.IsLoopback()) {
+		return fmt.Errorf("upstream must be localhost or loopback address")
 	}
 
 	// Validate port is numeric and in valid range
@@ -124,27 +130,34 @@ func validateDir(dir string) error {
 	return nil
 }
 
+// jsonError writes a JSON-formatted error response with the given status code.
+func jsonError(w http.ResponseWriter, msg string, code int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	// Limit request body size
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
 
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		jsonError(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	// Validate all inputs
 	if err := validateRouteName(req.Name); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if err := validateUpstream(req.Upstream); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if err := validateDir(req.Dir); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -159,7 +172,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		http.Error(w, "registration failed", http.StatusInternalServerError)
+		jsonError(w, "registration failed", http.StatusInternalServerError)
 		return
 	}
 
@@ -170,14 +183,14 @@ func (s *Server) handleDeregister(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 
 	if err := validateRouteName(name); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if s.registry.Deregister(name) {
 		w.WriteHeader(http.StatusOK)
 	} else {
-		http.Error(w, "not found", http.StatusNotFound)
+		jsonError(w, "not found", http.StatusNotFound)
 	}
 }
 
@@ -185,12 +198,12 @@ func (s *Server) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 
 	if err := validateRouteName(name); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if err := s.registry.Heartbeat(name); err != nil {
-		http.Error(w, "not found", http.StatusNotFound)
+		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
 
