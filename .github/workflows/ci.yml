@@ -52,7 +52,7 @@ jobs:
           go build -o paw-proxy ./cmd/paw-proxy
           go build -o up ./cmd/up
       - name: Setup paw-proxy
-        run: sudo -H ./paw-proxy setup
+        run: sudo ./paw-proxy setup
       - name: Wait for daemon
         run: sleep 2
       - name: Integration Tests
