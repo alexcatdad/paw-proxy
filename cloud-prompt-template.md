@@ -14,7 +14,7 @@ Fix GitHub issue #{N} in this repository.
 1. Read CLAUDE.md first — it contains the full architecture, conventions, and code locations.
 2. Read the issue details: use WebFetch on https://github.com/alexcatdad/paw-proxy/issues/{N}
 3. Read the "Cloud Session Notes" section of CLAUDE.md for environment constraints.
-4. Implement the fix following the coding conventions in CLAUDE.md.
+4. Implement the MINIMAL fix — only change what the issue asks for. Do not add IPv6 support, extra features, or refactoring beyond scope. A 2-line issue should be a 2-line fix.
 5. Run `go test -v -race ./...` and `go vet ./...` — both must pass.
 6. If the issue adds new behavior, add tests.
 7. Commit to a new branch named `fix/issue-{N}` (or `feat/issue-{N}` for features).
