@@ -71,26 +71,33 @@ func (r *RouteRegistry) Deregister(name string) bool {
 	return false
 }
 
-func (r *RouteRegistry) Lookup(name string) (*Route, bool) {
+// Lookup returns a copy of the route with the given name.
+// Returning a copy prevents callers from mutating registry-owned data.
+func (r *RouteRegistry) Lookup(name string) (Route, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	route, ok := r.routes[name]
-	return route, ok
+	if !ok {
+		return Route{}, false
+	}
+	return *route, true
 }
 
-func (r *RouteRegistry) LookupByHost(host string) (*Route, bool) {
-	// host is like "myapp.test" or "myapp.test:443"
-	// Extract just the name part
-	name := host
+// ExtractName extracts the route name from a host string like
+// "myapp.test" or "myapp.test:443", returning just "myapp".
+func ExtractName(host string) string {
 	for i, c := range host {
 		if c == '.' || c == ':' {
-			name = host[:i]
-			break
+			return host[:i]
 		}
 	}
+	return host
+}
 
-	return r.Lookup(name)
+// LookupByHost extracts the route name from a host string and looks it up.
+func (r *RouteRegistry) LookupByHost(host string) (Route, bool) {
+	return r.Lookup(ExtractName(host))
 }
 
 func (r *RouteRegistry) Heartbeat(name string) error {
@@ -106,25 +113,43 @@ func (r *RouteRegistry) Heartbeat(name string) error {
 	return nil
 }
 
+// Cleanup removes routes whose heartbeat has expired. It uses a read-lock
+// to scan for expired routes, then upgrades to a write-lock only if
+// deletions are needed, reducing contention on the hot path.
 func (r *RouteRegistry) Cleanup() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
+	r.mu.RLock()
 	cutoff := time.Now().Add(-r.timeout)
+	var expired []string
 	for name, route := range r.routes {
 		if route.LastHeartbeat.Before(cutoff) {
+			expired = append(expired, name)
+		}
+	}
+	r.mu.RUnlock()
+
+	if len(expired) == 0 {
+		return
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, name := range expired {
+		// Re-check under write lock in case a heartbeat arrived between
+		// releasing the read lock and acquiring the write lock.
+		if route, ok := r.routes[name]; ok && route.LastHeartbeat.Before(cutoff) {
 			delete(r.routes, name)
 		}
 	}
 }
 
-func (r *RouteRegistry) List() []*Route {
+// List returns copies of all registered routes.
+func (r *RouteRegistry) List() []Route {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	routes := make([]*Route, 0, len(r.routes))
+	routes := make([]Route, 0, len(r.routes))
 	for _, route := range r.routes {
-		routes = append(routes, route)
+		routes = append(routes, *route)
 	}
 	return routes
 }
