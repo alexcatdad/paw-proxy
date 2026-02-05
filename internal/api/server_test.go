@@ -136,9 +136,17 @@ func TestValidateUpstream(t *testing.T) {
 		{"metadata-gcp", "metadata.google.internal:80", true},
 		{"internal-hostname", "internal-service:8080", true},
 
+		// Valid: Additional IPv6 loopback representations (issue #46)
+		{"ipv6-expanded-loopback", "[0:0:0:0:0:0:0:1]:3000", false},
+		{"ipv6-mapped-ipv4-decimal", "[::ffff:127.0.0.1]:3000", false},
+		{"ipv6-mapped-ipv4-hex", "[::ffff:7f00:1]:3000", false},
+
+		// Valid: Full 127.0.0.0/8 loopback range
+		{"localhost-variant-127-2", "127.0.0.2:3000", false},
+		{"localhost-variant-127-max", "127.255.255.255:3000", false},
+
 		// Invalid: SSRF attempts - localhost bypass attempts
 		{"localhost-variant-0", "0.0.0.0:3000", true},
-		{"localhost-variant-127-1", "127.0.0.2:3000", true},
 		{"localhost-hex", "0x7f000001:3000", true},
 		{"localhost-octal", "0177.0.0.1:3000", true},
 		{"localhost-decimal", "2130706433:3000", true},
