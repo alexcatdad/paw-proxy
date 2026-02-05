@@ -18,6 +18,9 @@ import (
 	"github.com/alexcatdad/paw-proxy/internal/setup"
 )
 
+// version is set via -ldflags at build time; defaults to "dev" for local builds.
+var version = "dev"
+
 func main() {
 	// Subcommands
 	if len(os.Args) > 1 {
@@ -35,7 +38,7 @@ func main() {
 			cmdRun()
 			return
 		case "version":
-			fmt.Println("paw-proxy version 1.0.0")
+			fmt.Printf("paw-proxy version %s\n", version)
 			return
 		}
 	}
