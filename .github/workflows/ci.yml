@@ -51,9 +51,15 @@ jobs:
         run: |
           go build -o paw-proxy ./cmd/paw-proxy
           go build -o up ./cmd/up
-      - name: Setup paw-proxy
+      - name: Setup CA and resolver
         run: sudo ./paw-proxy setup
+      - name: Start daemon
+        run: sudo ./paw-proxy run &
       - name: Wait for daemon
-        run: sleep 2
+        run: |
+          for i in 1 2 3 4 5; do
+            curl -sf --unix-socket ~/Library/Application\ Support/paw-proxy/paw-proxy.sock http://unix/health && break
+            sleep 1
+          done
       - name: Integration Tests
         run: ./integration-tests.sh
