@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -177,17 +178,29 @@ func determineName(explicit string) string {
 }
 
 func sanitizeName(name string) string {
+	// Import strings package at top if not already imported
+	name = strings.ToLower(name)
+
 	// Replace non-alphanumeric with dashes
 	result := make([]byte, 0, len(name))
 	for i := 0; i < len(name); i++ {
 		c := name[i]
-		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' {
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' {
 			result = append(result, c)
 		} else {
 			result = append(result, '-')
 		}
 	}
-	return string(result)
+
+	// Trim leading and trailing dashes
+	sanitized := strings.Trim(string(result), "-")
+
+	// Fallback to "app" if empty
+	if sanitized == "" {
+		return "app"
+	}
+
+	return sanitized
 }
 
 func socketClient(socketPath string) *http.Client {
