@@ -93,11 +93,15 @@ func New(config *Config) (*Daemon, error) {
 }
 
 func (d *Daemon) Run() error {
+	// SECURITY: Critical component failures must crash the daemon
+	// Buffered channel allows all 4 goroutines to send errors without blocking
+	errCh := make(chan error, 4)
+
 	// Start DNS server
 	go func() {
 		log.Printf("DNS server listening on 127.0.0.1:%d", d.config.DNSPort)
 		if err := d.dnsServer.Start(); err != nil {
-			log.Printf("DNS server error: %v", err)
+			errCh <- fmt.Errorf("DNS server: %w", err)
 		}
 	}()
 
@@ -105,7 +109,7 @@ func (d *Daemon) Run() error {
 	go func() {
 		log.Printf("API server listening on %s", d.config.SocketPath)
 		if err := d.apiServer.Start(); err != nil {
-			log.Printf("API server error: %v", err)
+			errCh <- fmt.Errorf("API server: %w", err)
 		}
 	}()
 
@@ -113,10 +117,23 @@ func (d *Daemon) Run() error {
 	go d.cleanupRoutine()
 
 	// Start HTTP redirect server
-	go d.serveHTTP()
+	go func() {
+		log.Printf("HTTP redirect server listening on 127.0.0.1:%d", d.config.HTTPPort)
+		if err := d.serveHTTP(); err != nil {
+			errCh <- fmt.Errorf("HTTP server: %w", err)
+		}
+	}()
 
-	// Start HTTPS server
-	return d.serveHTTPS()
+	// Start HTTPS server in goroutine
+	go func() {
+		log.Printf("HTTPS server listening on 127.0.0.1:%d", d.config.HTTPSPort)
+		if err := d.serveHTTPS(); err != nil {
+			errCh <- fmt.Errorf("HTTPS server: %w", err)
+		}
+	}()
+
+	// Block until first critical failure
+	return <-errCh
 }
 
 func (d *Daemon) cleanupRoutine() {
@@ -126,10 +143,9 @@ func (d *Daemon) cleanupRoutine() {
 	}
 }
 
-func (d *Daemon) serveHTTP() {
+func (d *Daemon) serveHTTP() error {
 	// SECURITY: Bind to loopback only, not all interfaces
 	addr := fmt.Sprintf("127.0.0.1:%d", d.config.HTTPPort)
-	log.Printf("HTTP redirect server listening on %s", addr)
 
 	server := &http.Server{
 		Addr: addr,
@@ -138,13 +154,16 @@ func (d *Daemon) serveHTTP() {
 			http.Redirect(w, r, target, http.StatusPermanentRedirect)
 		}),
 	}
-	server.ListenAndServe()
+
+	if err := server.ListenAndServe(); err != nil {
+		return fmt.Errorf("listening on %s: %w", addr, err)
+	}
+	return nil
 }
 
 func (d *Daemon) serveHTTPS() error {
 	// SECURITY: Bind to loopback only, not all interfaces
 	addr := fmt.Sprintf("127.0.0.1:%d", d.config.HTTPSPort)
-	log.Printf("HTTPS server listening on %s", addr)
 
 	// SECURITY: TLS hardening - minimum TLS 1.2, secure cipher suites
 	tlsConfig := &tls.Config{
