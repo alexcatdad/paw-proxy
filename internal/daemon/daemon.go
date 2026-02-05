@@ -2,12 +2,17 @@
 package daemon
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/alexcatdad/paw-proxy/internal/api"
@@ -72,6 +77,14 @@ func New(config *Config) (*Daemon, error) {
 		return nil, fmt.Errorf("loading CA: %w", err)
 	}
 
+	// Warn if CA certificate is near expiry
+	if ca.Leaf != nil {
+		daysLeft := int(time.Until(ca.Leaf.NotAfter).Hours() / 24)
+		if daysLeft < 30 {
+			log.Printf("WARNING: CA certificate expires in %d days - re-run 'paw-proxy setup'", daysLeft)
+		}
+	}
+
 	// Create DNS server
 	dnsAddr := fmt.Sprintf("127.0.0.1:%d", config.DNSPort)
 	dnsServer, err := dns.NewServer(dnsAddr, config.TLD)
@@ -96,59 +109,177 @@ func New(config *Config) (*Daemon, error) {
 }
 
 func (d *Daemon) Run() error {
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
+
+	errCh := make(chan error, 4)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var wg sync.WaitGroup
+
 	// Start DNS server
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		log.Printf("DNS server listening on 127.0.0.1:%d", d.config.DNSPort)
 		if err := d.dnsServer.Start(); err != nil {
-			log.Printf("DNS server error: %v", err)
+			errCh <- fmt.Errorf("DNS server: %w", err)
 		}
 	}()
 
 	// Start API server
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		log.Printf("API server listening on %s", d.config.SocketPath)
 		if err := d.apiServer.Start(); err != nil {
-			log.Printf("API server error: %v", err)
+			// http.ErrServerClosed is expected during graceful shutdown
+			if err != http.ErrServerClosed {
+				errCh <- fmt.Errorf("API server: %w", err)
+			}
 		}
 	}()
 
 	// Start cleanup routine
-	go d.cleanupRoutine()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		d.cleanupRoutine(ctx)
+	}()
 
 	// Start HTTP redirect server
-	go d.serveHTTP()
+	httpServer, httpListener, err := d.createHTTPServer()
+	if err != nil {
+		cancel()
+		return fmt.Errorf("creating HTTP server: %w", err)
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		log.Printf("HTTP redirect server listening on %s", httpListener.Addr())
+		if err := httpServer.Serve(httpListener); err != nil && err != http.ErrServerClosed {
+			errCh <- fmt.Errorf("HTTP server: %w", err)
+		}
+	}()
 
 	// Start HTTPS server
-	return d.serveHTTPS()
+	httpsServer, httpsListener, err := d.createHTTPSServer()
+	if err != nil {
+		cancel()
+		return fmt.Errorf("creating HTTPS server: %w", err)
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		log.Printf("HTTPS server listening on %s", httpsListener.Addr())
+		if err := httpsServer.Serve(httpsListener); err != nil && err != http.ErrServerClosed {
+			errCh <- fmt.Errorf("HTTPS server: %w", err)
+		}
+	}()
+
+	// Wait for signal or component failure
+	select {
+	case sig := <-sigCh:
+		log.Printf("Received %s, shutting down...", sig)
+	case err := <-errCh:
+		log.Printf("Component failure: %v, shutting down...", err)
+	}
+
+	// Begin graceful shutdown
+	cancel() // stop cleanup routine
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+
+	// Shut down all servers concurrently
+	var shutdownWg sync.WaitGroup
+
+	shutdownWg.Add(1)
+	go func() {
+		defer shutdownWg.Done()
+		if err := httpsServer.Shutdown(shutdownCtx); err != nil {
+			log.Printf("HTTPS server shutdown error: %v", err)
+		}
+	}()
+
+	shutdownWg.Add(1)
+	go func() {
+		defer shutdownWg.Done()
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+			log.Printf("HTTP server shutdown error: %v", err)
+		}
+	}()
+
+	shutdownWg.Add(1)
+	go func() {
+		defer shutdownWg.Done()
+		if err := d.apiServer.Stop(); err != nil {
+			log.Printf("API server shutdown error: %v", err)
+		}
+	}()
+
+	shutdownWg.Add(1)
+	go func() {
+		defer shutdownWg.Done()
+		if err := d.dnsServer.Stop(); err != nil {
+			log.Printf("DNS server shutdown error: %v", err)
+		}
+	}()
+
+	shutdownWg.Wait()
+
+	// Clean up socket file
+	if err := os.Remove(d.config.SocketPath); err != nil && !os.IsNotExist(err) {
+		log.Printf("Failed to remove socket: %v", err)
+	}
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+
+	log.Println("Shutdown complete")
+	return nil
 }
 
-func (d *Daemon) cleanupRoutine() {
+func (d *Daemon) cleanupRoutine(ctx context.Context) {
 	ticker := time.NewTicker(10 * time.Second)
-	for range ticker.C {
-		d.registry.Cleanup()
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			d.registry.Cleanup()
+		}
 	}
 }
 
-func (d *Daemon) serveHTTP() {
-	addr := fmt.Sprintf(":%d", d.config.HTTPPort)
-	log.Printf("HTTP redirect server listening on %s", addr)
+// createHTTPServer creates the HTTP redirect server and its listener.
+// The caller owns the lifecycle of the returned server.
+func (d *Daemon) createHTTPServer() (*http.Server, net.Listener, error) {
+	// SECURITY: Bind to loopback only to prevent external access
+	addr := fmt.Sprintf("127.0.0.1:%d", d.config.HTTPPort)
+
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, nil, fmt.Errorf("listening on %s: %w", addr, err)
+	}
 
 	server := &http.Server{
-		Addr: addr,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			target := "https://" + r.Host + r.URL.Path
-			if r.URL.RawQuery != "" {
-				target += "?" + r.URL.RawQuery
-			}
-			http.Redirect(w, r, target, http.StatusMovedPermanently)
+			target := "https://" + r.Host + r.URL.RequestURI()
+			http.Redirect(w, r, target, http.StatusPermanentRedirect)
 		}),
 	}
-	server.ListenAndServe()
+
+	return server, listener, nil
 }
 
-func (d *Daemon) serveHTTPS() error {
-	addr := fmt.Sprintf(":%d", d.config.HTTPSPort)
-	log.Printf("HTTPS server listening on %s", addr)
+// createHTTPSServer creates the HTTPS server and its TLS listener.
+// The caller owns the lifecycle of the returned server.
+func (d *Daemon) createHTTPSServer() (*http.Server, net.Listener, error) {
+	// SECURITY: Bind to loopback only to prevent external access
+	addr := fmt.Sprintf("127.0.0.1:%d", d.config.HTTPSPort)
 
 	// SECURITY: TLS hardening - minimum TLS 1.2, secure cipher suites
 	tlsConfig := &tls.Config{
@@ -166,17 +297,15 @@ func (d *Daemon) serveHTTPS() error {
 
 	listener, err := tls.Listen("tcp", addr, tlsConfig)
 	if err != nil {
-		return fmt.Errorf("listening on %s: %w", addr, err)
+		return nil, nil, fmt.Errorf("listening on %s: %w", addr, err)
 	}
 
 	server := &http.Server{
-		Handler:      http.HandlerFunc(d.handleRequest),
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 60 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		Handler:     http.HandlerFunc(d.handleRequest),
+		IdleTimeout: 120 * time.Second,
 	}
 
-	return server.Serve(listener)
+	return server, listener, nil
 }
 
 func (d *Daemon) handleRequest(w http.ResponseWriter, r *http.Request) {
