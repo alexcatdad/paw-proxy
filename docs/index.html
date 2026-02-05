@@ -190,6 +190,21 @@
             animation: blink 1s step-end infinite;
         }
 
+        @keyframes paw-bounce {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            25% { transform: translateY(-8px) rotate(-8deg); }
+            50% { transform: translateY(0) rotate(0deg); }
+            75% { transform: translateY(-4px) rotate(8deg); }
+        }
+        .paw-animated {
+            display: inline-block;
+            animation: paw-bounce 2s ease-in-out infinite;
+            transform-origin: center bottom;
+        }
+        .paw-animated:hover {
+            animation: paw-bounce 0.5s ease-in-out infinite;
+        }
+
         .fade-in {
             opacity: 0;
             transform: translateY(24px);
@@ -252,7 +267,7 @@
         <!-- Header -->
         <header class="text-center mb-24">
             <div class="inline-flex items-center gap-4 mb-8">
-                <span class="text-6xl drop-shadow-lg">🐾</span>
+                <span class="text-6xl drop-shadow-lg paw-animated">🐾</span>
                 <h1 class="text-5xl md:text-6xl font-extrabold tracking-tight gradient-text">
                     paw-proxy
                 </h1>
