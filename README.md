@@ -2,6 +2,30 @@
 
 Zero-config HTTPS proxy for local macOS development. Get `https://myapp.test` working in seconds.
 
+## Why paw-proxy?
+
+Local development with HTTPS is painful. You need it for:
+- **OAuth callbacks** that require HTTPS redirect URIs
+- **Secure cookies** with `SameSite=None` or `Secure` flags
+- **Service workers** that only work on secure origins
+- **Mixed content** issues when your API is HTTPS but dev server is HTTP
+- **Production parity** - test how your app actually behaves
+
+Existing solutions are frustrating:
+- **mkcert** - Great for certs, but you still need nginx/caddy config per project
+- **ngrok/Cloudflare Tunnel** - External dependency, latency, rate limits
+- **Self-signed certs** - Browser warnings, manual trust, breaks fetch/curl
+
+paw-proxy gives you `https://myapp.test` with zero config. Just prefix your dev command with `up`:
+
+```bash
+# Before: http://localhost:3000 with HTTPS headaches
+npm run dev
+
+# After: https://myapp.test just works
+up npm run dev
+```
+
 ## Features
 
 - **Zero config** - Just run `up bun dev` and get HTTPS
@@ -133,6 +157,18 @@ go test -v ./...
 sudo ./paw-proxy setup
 ./integration-tests.sh
 ```
+
+## Inspiration & Prior Art
+
+paw-proxy stands on the shoulders of giants. This project wouldn't exist without:
+
+- **[mkcert](https://github.com/FiloSottile/mkcert)** - The gold standard for local CA generation. We learned a lot from how it handles certificate trust.
+- **[puma-dev](https://github.com/puma/puma-dev)** - The original `.test` domain proxy for macOS. Our architecture mirrors many of its ideas.
+- **[pow](http://pow.cx/)** - The OG that started it all. RIP.
+- **[hotel](https://github.com/typicode/hotel)** - Cross-platform proxy with a nice UI. Inspired our zero-config approach.
+- **[caddy](https://caddyserver.com/)** - Automatic HTTPS done right. We borrowed their "just works" philosophy.
+
+We didn't reinvent the wheel - we just modernized it for 2024+ dev workflows where every project needs HTTPS yesterday.
 
 ## License
 
