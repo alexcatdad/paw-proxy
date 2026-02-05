@@ -22,7 +22,7 @@ func New() *Proxy {
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				host, port, err := net.SplitHostPort(addr)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("proxy: split host/port: %w", err)
 				}
 
 				// SECURITY: Defense-in-depth — reject non-loopback addresses even though
@@ -58,7 +58,7 @@ var hopByHopHeaders = []string{
 	"Proxy-Authenticate",
 	"Proxy-Authorization",
 	"TE",
-	"Trailers",
+	"Trailer",
 	"Transfer-Encoding",
 }
 
@@ -199,7 +199,9 @@ func (p *Proxy) handleWebSocket(w http.ResponseWriter, r *http.Request, upstream
 			log.Printf("websocket: client->upstream copy: %v", err)
 		}
 		if tc, ok := upstreamConn.(*net.TCPConn); ok {
-			tc.CloseWrite()
+			if err := tc.CloseWrite(); err != nil {
+				log.Printf("websocket: upstream CloseWrite: %v", err)
+			}
 		}
 		done <- struct{}{}
 	}()
@@ -209,7 +211,9 @@ func (p *Proxy) handleWebSocket(w http.ResponseWriter, r *http.Request, upstream
 			log.Printf("websocket: upstream->client copy: %v", err)
 		}
 		if tc, ok := clientConn.(*net.TCPConn); ok {
-			tc.CloseWrite()
+			if err := tc.CloseWrite(); err != nil {
+				log.Printf("websocket: client CloseWrite: %v", err)
+			}
 		}
 		done <- struct{}{}
 	}()
