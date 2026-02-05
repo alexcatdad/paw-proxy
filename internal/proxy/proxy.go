@@ -89,6 +89,9 @@ func isWebSocket(r *http.Request) bool {
 	return strings.ToLower(r.Header.Get("Upgrade")) == "websocket"
 }
 
+// WebSocket idle timeout (1 hour max for dev servers)
+const wsIdleTimeout = 1 * time.Hour
+
 func (p *Proxy) handleWebSocket(w http.ResponseWriter, r *http.Request, upstream string) {
 	// Hijack the connection
 	hijacker, ok := w.(http.Hijacker)
@@ -111,6 +114,11 @@ func (p *Proxy) handleWebSocket(w http.ResponseWriter, r *http.Request, upstream
 		return
 	}
 	defer upstreamConn.Close()
+
+	// SECURITY: Set deadline to prevent zombie connections
+	deadline := time.Now().Add(wsIdleTimeout)
+	clientConn.SetDeadline(deadline)
+	upstreamConn.SetDeadline(deadline)
 
 	// Forward the original request
 	r.Write(upstreamConn)

@@ -24,8 +24,14 @@ You can expect a response within 48 hours. We'll work with you to understand and
 
 paw-proxy runs with elevated privileges (ports 80/443) and generates trusted certificates. Key security notes:
 
-1. **CA Trust** - The generated CA is trusted system-wide. Keep `~/Library/Application Support/paw-proxy/ca.key` secure.
+1. **CA Trust** - The generated CA (4096-bit RSA) is trusted system-wide. Keep `~/Library/Application Support/paw-proxy/ca.key` secure (0600 permissions).
 
-2. **Local Only** - The proxy only binds to localhost by design. Never expose to external networks.
+2. **Local Only** - The proxy binds exclusively to 127.0.0.1. Never expose to external networks.
 
 3. **Route Isolation** - Routes are isolated per working directory to prevent conflicts.
+
+4. **TLS Hardening** - Minimum TLS 1.2, secure cipher suites only (ECDHE with AES-GCM or ChaCha20-Poly1305).
+
+5. **Input Validation** - Route names are alphanumeric only, upstreams restricted to localhost (SSRF prevention).
+
+6. **Resource Limits** - Certificate cache (1000 max), request body size (1MB), connection timeouts configured.

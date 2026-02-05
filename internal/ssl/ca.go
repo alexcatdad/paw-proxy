@@ -15,7 +15,8 @@ import (
 )
 
 func GenerateCA(certPath, keyPath string) error {
-	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	// SECURITY: Use 4096-bit key for CA (stronger than 2048)
+	priv, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return fmt.Errorf("generating RSA key: %w", err)
 	}

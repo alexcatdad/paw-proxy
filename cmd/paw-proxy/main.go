@@ -55,8 +55,8 @@ func main() {
 func cmdRun() {
 	config := daemon.DefaultConfig()
 
-	// Setup logging
-	logFile, err := os.OpenFile(config.LogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	// SECURITY: Owner-only log file permissions
+	logFile, err := os.OpenFile(config.LogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
 		log.Fatalf("Failed to open log file: %v", err)
 	}

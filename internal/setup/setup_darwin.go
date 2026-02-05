@@ -133,14 +133,14 @@ var launchAgentTemplate = `<?xml version="1.0" encoding="UTF-8"?>
         <key>http</key>
         <dict>
             <key>SockNodeName</key>
-            <string>0.0.0.0</string>
+            <string>127.0.0.1</string>
             <key>SockServiceName</key>
             <string>80</string>
         </dict>
         <key>https</key>
         <dict>
             <key>SockNodeName</key>
-            <string>0.0.0.0</string>
+            <string>127.0.0.1</string>
             <key>SockServiceName</key>
             <string>443</string>
         </dict>

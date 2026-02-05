@@ -4,11 +4,21 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
 	"time"
 )
+
+// Max request body size (1MB)
+const maxRequestBodySize = 1024 * 1024
+
+// Route name validation pattern: alphanumeric, dash, underscore only
+var routeNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}$`)
 
 type Server struct {
 	socketPath string
@@ -47,8 +57,8 @@ func (s *Server) Start() error {
 		return err
 	}
 
-	// Make socket accessible
-	os.Chmod(s.socketPath, 0666)
+	// SECURITY: Owner-only access to prevent privilege escalation
+	os.Chmod(s.socketPath, 0600)
 
 	return s.server.Serve(s.listener)
 }
@@ -65,9 +75,75 @@ type RegisterRequest struct {
 	Dir      string `json:"dir"`
 }
 
+// validateRouteName ensures route names are safe for DNS, filesystem, and shell use
+func validateRouteName(name string) error {
+	if !routeNamePattern.MatchString(name) {
+		return fmt.Errorf("invalid route name: must be 1-63 alphanumeric characters, dashes, or underscores")
+	}
+	return nil
+}
+
+// validateUpstream ensures upstream targets are localhost only (prevent SSRF)
+func validateUpstream(upstream string) error {
+	host, portStr, err := net.SplitHostPort(upstream)
+	if err != nil {
+		return fmt.Errorf("invalid upstream format: expected host:port")
+	}
+
+	// SECURITY: Only allow localhost/loopback to prevent SSRF
+	if host != "localhost" && host != "127.0.0.1" && host != "::1" {
+		return fmt.Errorf("upstream must be localhost, 127.0.0.1, or ::1")
+	}
+
+	// Validate port is numeric and in valid range
+	port, err := strconv.Atoi(portStr)
+	if err != nil || port < 1 || port > 65535 {
+		return fmt.Errorf("invalid port: must be 1-65535")
+	}
+
+	return nil
+}
+
+// validateDir ensures directory paths are absolute and don't contain traversal
+func validateDir(dir string) error {
+	if dir == "" {
+		return fmt.Errorf("directory is required")
+	}
+
+	// Must be absolute path
+	if !filepath.IsAbs(dir) {
+		return fmt.Errorf("directory must be an absolute path")
+	}
+
+	// Check for path traversal (cleaned path should equal original)
+	cleaned := filepath.Clean(dir)
+	if cleaned != dir {
+		return fmt.Errorf("invalid directory path")
+	}
+
+	return nil
+}
+
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
+	// Limit request body size
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
+
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate all inputs
+	if err := validateRouteName(req.Name); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validateUpstream(req.Upstream); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validateDir(req.Dir); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -83,7 +159,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "registration failed", http.StatusInternalServerError)
 		return
 	}
 
@@ -92,8 +168,9 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDeregister(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
-	if name == "" {
-		http.Error(w, "name required", http.StatusBadRequest)
+
+	if err := validateRouteName(name); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -106,13 +183,14 @@ func (s *Server) handleDeregister(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
-	if name == "" {
-		http.Error(w, "name required", http.StatusBadRequest)
+
+	if err := validateRouteName(name); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if err := s.registry.Heartbeat(name); err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 
