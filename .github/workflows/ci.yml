@@ -60,9 +60,7 @@ jobs:
       - name: Start daemon
         run: |
           SOCK="$HOME/Library/Application Support/paw-proxy/paw-proxy.sock"
-          sudo ./paw-proxy run > /tmp/daemon.log 2>&1 &
-          DAEMON_PID=$!
-          echo "Daemon PID: $DAEMON_PID"
+          sudo bash -c './paw-proxy run > /tmp/daemon.log 2>&1 &'
           # Wait for socket to appear (up to 10s)
           for i in $(seq 1 20); do
             if [ -S "$SOCK" ]; then
@@ -70,17 +68,17 @@ jobs:
               sudo chmod 777 "$SOCK"
               break
             fi
-            # Check daemon is still alive
-            if ! kill -0 $DAEMON_PID 2>/dev/null; then
+            # Check if daemon process exists
+            if ! sudo pgrep -f "paw-proxy run" > /dev/null; then
               echo "Daemon crashed! Logs:"
-              cat /tmp/daemon.log
+              sudo cat /tmp/daemon.log
               exit 1
             fi
             sleep 0.5
           done
           if [ ! -S "$SOCK" ]; then
             echo "Socket never appeared. Logs:"
-            cat /tmp/daemon.log
+            sudo cat /tmp/daemon.log
             exit 1
           fi
       - name: Wait for daemon
@@ -92,7 +90,7 @@ jobs:
             fi
             if [ "$i" -eq 5 ]; then
               echo "Daemon never became healthy. Logs:"
-              cat /tmp/daemon.log
+              sudo cat /tmp/daemon.log
               exit 1
             fi
             sleep 1
