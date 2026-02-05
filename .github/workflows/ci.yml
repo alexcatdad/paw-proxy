@@ -7,6 +7,12 @@ on:
   pull_request:
     branches: [main]
 
+  # Enable re-triggering from auto-update-pr.yml workflow.
+  # When a PR branch is updated using GITHUB_TOKEN, GitHub suppresses the
+  # usual pull_request:synchronize event — so CI doesn't run automatically.
+  # However, workflow_dispatch IS exempt from this suppression.
+  workflow_dispatch:
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -58,11 +64,28 @@ jobs:
       - name: Prepare for daemon
         run: |
           sudo chmod 755 "$HOME/Library/Application Support/paw-proxy"
+          # Unload with sudo since setup loaded it in the root launchd domain
+          sudo launchctl unload ~/Library/LaunchAgents/dev.paw-proxy.plist 2>/dev/null || true
           launchctl unload ~/Library/LaunchAgents/dev.paw-proxy.plist 2>/dev/null || true
       - name: Start daemon
         run: |
           sudo ./paw-proxy run &
-          sleep 2
+          DAEMON_PID=$!
+          echo "DAEMON_PID=$DAEMON_PID" >> "$GITHUB_ENV"
+          # Wait for socket to appear (daemon logs to stderr now via MultiWriter)
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if [ -S "$HOME/Library/Application Support/paw-proxy/paw-proxy.sock" ]; then
+              echo "Socket appeared after ${i}s"
+              break
+            fi
+            # Check daemon is still running
+            if ! kill -0 "$DAEMON_PID" 2>/dev/null; then
+              echo "::error::Daemon process exited prematurely"
+              cat "$HOME/Library/Logs/paw-proxy.log" 2>/dev/null || true
+              exit 1
+            fi
+            sleep 1
+          done
           sudo chmod 777 "$HOME/Library/Application Support/paw-proxy/paw-proxy.sock"
       - name: Wait for daemon
         run: |
@@ -75,3 +98,8 @@ jobs:
           done
       - name: Integration Tests
         run: ./integration-tests.sh
+      - name: Dump daemon logs on failure
+        if: failure()
+        run: |
+          echo "=== Daemon log ==="
+          cat "$HOME/Library/Logs/paw-proxy.log" 2>/dev/null || echo "No log file found"

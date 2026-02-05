@@ -152,6 +152,8 @@ func (d *Daemon) Run() error {
 	httpServer, httpListener, err := d.createHTTPServer()
 	if err != nil {
 		cancel()
+		d.dnsServer.Stop()
+		d.apiServer.Stop()
 		return fmt.Errorf("creating HTTP server: %w", err)
 	}
 	wg.Add(1)
@@ -167,6 +169,9 @@ func (d *Daemon) Run() error {
 	httpsServer, httpsListener, err := d.createHTTPSServer()
 	if err != nil {
 		cancel()
+		httpListener.Close()
+		d.dnsServer.Stop()
+		d.apiServer.Stop()
 		return fmt.Errorf("creating HTTPS server: %w", err)
 	}
 	wg.Add(1)

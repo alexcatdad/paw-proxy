@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -68,7 +69,9 @@ func cmdRun() {
 		log.Fatalf("Failed to open log file: %v", err)
 	}
 	defer logFile.Close()
-	log.SetOutput(logFile)
+	// Write to both log file and stderr so startup failures are visible
+	// when the daemon is run directly (e.g., CI, debugging).
+	log.SetOutput(io.MultiWriter(logFile, os.Stderr))
 
 	d, err := daemon.New(config)
 	if err != nil {

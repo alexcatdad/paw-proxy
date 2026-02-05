@@ -91,23 +91,4 @@ func TestHTTPRedirectPreservesFullURL(t *testing.T) {
 	}
 }
 
-func TestExtractName(t *testing.T) {
-	tests := []struct {
-		host     string
-		expected string
-	}{
-		{"myapp.test", "myapp"},
-		{"myapp.test:443", "myapp"},
-		{"dashboard.test", "dashboard"},
-		{"simple", "simple"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.host, func(t *testing.T) {
-			got := extractName(tt.host)
-			if got != tt.expected {
-				t.Errorf("extractName(%q) = %q, want %q", tt.host, got, tt.expected)
-			}
-		})
-	}
-}
+// TestExtractName moved to api package — ExtractName is now api.ExtractName
