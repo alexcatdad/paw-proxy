@@ -39,12 +39,20 @@ func NewServer(socketPath string, registry *RouteRegistry) *Server {
 		startTime:  time.Now(),
 	}
 
+	// SECURITY: Per-endpoint rate limiters prevent runaway scripts from causing
+	// unbounded route map growth or CPU-intensive cert generation.
+	routeRegLimiter := newRateLimiter(10)
+	heartbeatLimiter := newRateLimiter(100)
+	routeDeleteLimiter := newRateLimiter(10)
+	routeListLimiter := newRateLimiter(50)
+	healthLimiter := newRateLimiter(100)
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /routes", s.handleRegister)
-	mux.HandleFunc("DELETE /routes/{name}", s.handleDeregister)
-	mux.HandleFunc("POST /routes/{name}/heartbeat", s.handleHeartbeat)
-	mux.HandleFunc("GET /routes", s.handleList)
-	mux.HandleFunc("GET /health", s.handleHealth)
+	mux.HandleFunc("POST /routes", rateLimit(routeRegLimiter, s.handleRegister))
+	mux.HandleFunc("DELETE /routes/{name}", rateLimit(routeDeleteLimiter, s.handleDeregister))
+	mux.HandleFunc("POST /routes/{name}/heartbeat", rateLimit(heartbeatLimiter, s.handleHeartbeat))
+	mux.HandleFunc("GET /routes", rateLimit(routeListLimiter, s.handleList))
+	mux.HandleFunc("GET /health", rateLimit(healthLimiter, s.handleHealth))
 
 	s.server = &http.Server{Handler: mux}
 
