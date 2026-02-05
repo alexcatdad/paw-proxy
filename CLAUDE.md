@@ -195,6 +195,34 @@ Use `closes #N` in commit message or PR body to auto-close issues on merge.
 - **#55** = version ldflags + Homebrew tap
 - **#13** = launchd socket activation + plist fix (blocked by #3)
 
+## Cloud Session Notes (Claude Code Cloud)
+
+Cloud sessions run in a sandboxed Linux container. Key constraints:
+
+### What Works
+- Full file system access (read/write/edit)
+- Go toolchain (`go build`, `go test -race`, `go vet`)
+- Git operations (clone, commit, push) — via local proxy at `127.0.0.1:46667`
+- Reading GitHub issues via `WebFetch` on public github.com URLs
+- Installing tools with `go install`
+
+### What Doesn't Work
+- `gh` CLI — not pre-installed, and GitHub API auth unavailable even if downloaded
+- Creating PRs programmatically — no `GH_TOKEN`, proxy doesn't forward API auth
+- `golangci-lint` — not pre-installed (skip lint step; `go vet` suffices)
+- macOS-specific integration tests — container is Linux
+- `sudo` — not available
+
+### Cloud PR Workflow (replaces standard PR Workflow above)
+1. Create branch: `fix/issue-{N}` or `feat/issue-{N}`
+2. Read the GitHub issue via WebFetch: `https://github.com/alexcatdad/paw-proxy/issues/{N}`
+3. Implement the fix
+4. Run `go test -v -race ./...` — all tests must pass
+5. Run `go vet ./...` — must be clean
+6. Commit with descriptive message: `fix: description (closes #{N})`
+7. Push branch: `git push -u origin <branch-name>`
+8. **Stop here** — output the branch name and a suggested PR title/body. The user will create the PR manually.
+
 ## Known Limitations
 
 - HTTP/1.1 only — no HTTP/2 or HTTP/3 (#20)
