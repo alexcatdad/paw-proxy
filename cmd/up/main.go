@@ -5,14 +5,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -45,11 +48,16 @@ func main() {
 	socketPath := filepath.Join(homeDir, "Library", "Application Support", "paw-proxy", "paw-proxy.sock")
 	caPath := filepath.Join(homeDir, "Library", "Application Support", "paw-proxy", "ca.crt")
 
-	// Check if daemon is running
-	if _, err := os.Stat(socketPath); os.IsNotExist(err) {
-		fmt.Println("Error: paw-proxy daemon not running")
-		fmt.Println("Run: sudo paw-proxy setup")
-		os.Exit(1)
+	// Check if daemon is running via health endpoint
+	client := socketClient(socketPath)
+	{
+		resp, err := client.Get("http://unix/health")
+		if err != nil {
+			fmt.Println("Error: paw-proxy daemon not running")
+			fmt.Println("Run: sudo paw-proxy setup")
+			os.Exit(1)
+		}
+		resp.Body.Close()
 	}
 
 	// Find free port
@@ -64,7 +72,6 @@ func main() {
 	dir, _ := os.Getwd()
 
 	// Register route
-	client := socketClient(socketPath)
 	err = registerRoute(client, name, fmt.Sprintf("localhost:%d", port), dir)
 	if err != nil {
 		// Check for conflict
@@ -116,6 +123,9 @@ func main() {
 		fmt.Sprintf("NODE_EXTRA_CA_CERTS=%s", caPath),
 	)
 
+	// Run child in its own process group so we can signal the entire group
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
 	// Start command
 	if err := cmd.Start(); err != nil {
 		cleanup()
@@ -132,13 +142,13 @@ func main() {
 	var exitCode int
 	select {
 	case sig := <-sigCh:
-		// Forward signal to child
-		cmd.Process.Signal(sig)
+		// Forward signal to entire process group (negative PID)
+		syscall.Kill(-cmd.Process.Pid, sig.(syscall.Signal))
 		// Wait for child with timeout
 		select {
 		case <-doneCh:
 		case <-time.After(5 * time.Second):
-			cmd.Process.Kill()
+			syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 		}
 	case err := <-doneCh:
 		if exitErr, ok := err.(*exec.ExitError); ok {
@@ -181,17 +191,21 @@ func determineName(explicit string) string {
 }
 
 func sanitizeName(name string) string {
-	// Replace non-alphanumeric with dashes
+	name = strings.ToLower(name)
 	result := make([]byte, 0, len(name))
 	for i := 0; i < len(name); i++ {
 		c := name[i]
-		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' {
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' {
 			result = append(result, c)
 		} else {
 			result = append(result, '-')
 		}
 	}
-	return string(result)
+	s := strings.Trim(string(result), "-")
+	if s == "" {
+		return "app"
+	}
+	return s
 }
 
 func socketClient(socketPath string) *http.Client {
@@ -203,6 +217,15 @@ func socketClient(socketPath string) *http.Client {
 		},
 		Timeout: 5 * time.Second,
 	}
+}
+
+// conflictError represents a route name conflict from the daemon API.
+type conflictError struct {
+	dir string
+}
+
+func (e *conflictError) Error() string {
+	return fmt.Sprintf("route conflict: already registered from %s", e.dir)
 }
 
 func registerRoute(client *http.Client, name, upstream, dir string) error {
@@ -217,6 +240,12 @@ func registerRoute(client *http.Client, name, upstream, dir string) error {
 		return err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusConflict {
+		var errResp map[string]string
+		json.NewDecoder(resp.Body).Decode(&errResp)
+		return &conflictError{dir: errResp["existingDir"]}
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp map[string]string
@@ -242,13 +271,20 @@ func heartbeat(ctx context.Context, client *http.Client, name string) {
 			return
 		case <-ticker.C:
 			req, _ := http.NewRequest("POST", fmt.Sprintf("http://unix/routes/%s/heartbeat", name), nil)
-			client.Do(req)
+			resp, err := client.Do(req)
+			if err != nil {
+				log.Printf("warning: heartbeat failed: %v", err)
+				continue
+			}
+			resp.Body.Close()
 		}
 	}
 }
 
 func extractConflictDir(err error) string {
-	// Parse error message for conflict info
-	// This is a simplification - real impl would parse JSON response
+	var ce *conflictError
+	if errors.As(err, &ce) {
+		return ce.dir
+	}
 	return ""
 }
