@@ -177,17 +177,60 @@ func determineName(explicit string) string {
 }
 
 func sanitizeName(name string) string {
+	// Lowercase first for case-insensitive DNS compatibility
+	name = toLower(name)
+
 	// Replace non-alphanumeric with dashes
 	result := make([]byte, 0, len(name))
 	for i := 0; i < len(name); i++ {
 		c := name[i]
-		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' {
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_' {
 			result = append(result, c)
 		} else {
 			result = append(result, '-')
 		}
 	}
+
+	// Trim leading and trailing dashes
+	s := string(result)
+	s = trimDashes(s)
+
+	// Fallback if empty or all dashes
+	if s == "" {
+		s = "app"
+	}
+
+	return s
+}
+
+func toLower(s string) string {
+	result := make([]byte, len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= 'A' && c <= 'Z' {
+			result[i] = c + 32
+		} else {
+			result[i] = c
+		}
+	}
 	return string(result)
+}
+
+func trimDashes(s string) string {
+	start := 0
+	end := len(s)
+
+	// Trim leading dashes
+	for start < end && s[start] == '-' {
+		start++
+	}
+
+	// Trim trailing dashes
+	for start < end && s[end-1] == '-' {
+		end--
+	}
+
+	return s[start:end]
 }
 
 func socketClient(socketPath string) *http.Client {
