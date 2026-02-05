@@ -59,15 +59,41 @@ jobs:
           launchctl unload ~/Library/LaunchAgents/dev.paw-proxy.plist 2>/dev/null || true
       - name: Start daemon
         run: |
-          sudo ./paw-proxy run &
-          sleep 2
-          sudo chmod 777 "$HOME/Library/Application Support/paw-proxy/paw-proxy.sock"
+          SOCK="$HOME/Library/Application Support/paw-proxy/paw-proxy.sock"
+          sudo ./paw-proxy run > /tmp/daemon.log 2>&1 &
+          DAEMON_PID=$!
+          echo "Daemon PID: $DAEMON_PID"
+          # Wait for socket to appear (up to 10s)
+          for i in $(seq 1 20); do
+            if [ -S "$SOCK" ]; then
+              echo "Socket appeared after ${i}x0.5s"
+              sudo chmod 777 "$SOCK"
+              break
+            fi
+            # Check daemon is still alive
+            if ! kill -0 $DAEMON_PID 2>/dev/null; then
+              echo "Daemon crashed! Logs:"
+              cat /tmp/daemon.log
+              exit 1
+            fi
+            sleep 0.5
+          done
+          if [ ! -S "$SOCK" ]; then
+            echo "Socket never appeared. Logs:"
+            cat /tmp/daemon.log
+            exit 1
+          fi
       - name: Wait for daemon
         run: |
           for i in 1 2 3 4 5; do
             if curl -sf --unix-socket "$HOME/Library/Application Support/paw-proxy/paw-proxy.sock" http://unix/health; then
               echo "Daemon is ready"
               break
+            fi
+            if [ "$i" -eq 5 ]; then
+              echo "Daemon never became healthy. Logs:"
+              cat /tmp/daemon.log
+              exit 1
             fi
             sleep 1
           done
