@@ -33,12 +33,11 @@ echo | openssl s_client -connect integration-test.test:443 -servername integrati
 echo "  ✓ Wildcard certificate issued for *.test"
 
 # Test 5b: HTTP/2 negotiation
+# Certificate validity is already tested above; here we only check ALPN protocol.
 echo "[Test 5b] HTTP/2 negotiation..."
-SUPPORT_DIR=~/Library/Application\ Support/paw-proxy
-HTTP2_PROTO=$(curl --resolve integration-test.test:443:127.0.0.1 \
-  --cacert "$SUPPORT_DIR/ca.crt" \
+HTTP2_PROTO=$(curl -k --resolve integration-test.test:443:127.0.0.1 \
   -o /dev/null -w '%{http_version}' \
-  -s https://integration-test.test:443/ 2>/dev/null)
+  -s https://integration-test.test:443/ 2>/dev/null || true)
 
 if [ "$HTTP2_PROTO" = "2" ]; then
   echo "  ✓ HTTP/2 negotiated"
