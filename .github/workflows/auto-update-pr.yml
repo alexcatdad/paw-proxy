@@ -134,3 +134,47 @@ jobs:
             -f ref="${PR_BRANCH}"
 
           echo "Done. PR #${{ steps.find-pr.outputs.pr_number }} should now run checks."
+
+      - name: Verify PR is up-to-date after CI
+        if: steps.update.outputs.updated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ steps.find-pr.outputs.pr_number }}
+          PR_BRANCH=${{ steps.find-pr.outputs.pr_branch }}
+
+          # Wait for CI to finish (poll every 30s, max 10 min)
+          echo "Waiting for CI to complete on PR #${PR_NUMBER}..."
+          for i in $(seq 1 20); do
+            sleep 30
+
+            # Check if PR already merged (success!)
+            STATE=$(gh pr view "$PR_NUMBER" --json state -q .state)
+            if [ "$STATE" = "MERGED" ]; then
+              echo "PR #${PR_NUMBER} already merged!"
+              exit 0
+            fi
+
+            # Check merge state
+            MERGE_STATE=$(gh pr view "$PR_NUMBER" --json mergeStateStatus -q .mergeStateStatus)
+            echo "Attempt ${i}: mergeState=${MERGE_STATE}"
+
+            if [ "$MERGE_STATE" = "CLEAN" ]; then
+              echo "PR #${PR_NUMBER} is CLEAN — auto-merge should proceed."
+              exit 0
+            fi
+
+            if [ "$MERGE_STATE" = "BEHIND" ]; then
+              echo "PR is BEHIND — re-updating branch..."
+              if gh pr update-branch "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"; then
+                sleep 10
+                echo "Re-dispatching CI..."
+                gh api \
+                  --method POST \
+                  "/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/dispatches" \
+                  -f ref="${PR_BRANCH}"
+              fi
+            fi
+          done
+
+          echo "::warning::Timed out waiting for PR #${PR_NUMBER} to reach CLEAN state"
