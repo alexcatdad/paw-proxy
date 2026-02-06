@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://alexcatdad.github.io/paw-proxy/sitemap.xml

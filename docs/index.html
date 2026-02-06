@@ -7,76 +7,68 @@
 
     <!-- SEO -->
     <meta name="description" content="Get https://myapp.test working in seconds. Zero-config HTTPS proxy for local macOS development with automatic SSL, WebSocket support, and smart naming.">
-    <meta name="keywords" content="HTTPS, local development, macOS, proxy, SSL, TLS, localhost, dev server, mkcert alternative">
+    <meta name="keywords" content="HTTPS, local development, macOS, proxy, SSL, TLS, localhost, dev server, mkcert alternative, paw-proxy">
     <meta name="author" content="alexcatdad">
     <meta name="robots" content="index, follow">
     <meta name="color-scheme" content="light dark">
+    <link rel="canonical" href="https://alexcatdad.github.io/paw-proxy/">
+    <meta name="theme-color" content="#F97316" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#080B10" media="(prefers-color-scheme: dark)">
 
     <!-- Open Graph -->
     <meta property="og:title" content="paw-proxy — Zero-config HTTPS for Local Development">
     <meta property="og:description" content="Get https://myapp.test working in seconds. Automatic SSL, WebSocket support, zero configuration.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://alexcatdad.github.io/paw-proxy/">
+    <meta property="og:image" content="https://alexcatdad.github.io/paw-proxy/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="paw-proxy: Zero-config HTTPS for local macOS development">
+    <meta property="og:site_name" content="paw-proxy">
+    <meta property="og:locale" content="en_US">
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="paw-proxy — Zero-config HTTPS for Local Development">
     <meta name="twitter:description" content="Get https://myapp.test working in seconds. Automatic SSL, WebSocket support, zero configuration.">
+    <meta name="twitter:image" content="https://alexcatdad.github.io/paw-proxy/og-image.png">
+    <meta name="twitter:image:alt" content="paw-proxy: Zero-config HTTPS for local macOS development">
 
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Nunito', 'system-ui', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
-                    },
-                    colors: {
-                        // Warm sand palette for light mode
-                        sand: {
-                            50: '#FDFBF7',
-                            100: '#FAF6EF',
-                            200: '#F3EBE0',
-                            300: '#E8DCC8',
-                            400: '#D4C4A8',
-                            500: '#B8A584',
-                            600: '#8C7A5E',
-                            700: '#5C5142',
-                            800: '#3D362D',
-                            900: '#252118',
-                        },
-                        // Cool slate-blue palette for dark mode
-                        slate: {
-                            750: '#1E2433',
-                            850: '#141926',
-                            925: '#0D1117',
-                            950: '#080B10',
-                        },
-                        accent: {
-                            light: '#FF8A4C',
-                            DEFAULT: '#F97316',
-                            dark: '#EA580C',
-                        },
-                        mint: {
-                            light: '#6EE7B7',
-                            DEFAULT: '#34D399',
-                            dark: '#10B981',
-                        }
-                    },
-                    borderRadius: {
-                        '4xl': '2rem',
-                        '5xl': '2.5rem',
-                    }
-                }
-            }
-        }
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "paw-proxy",
+        "description": "Zero-config HTTPS proxy for local macOS development. Get https://myapp.test working in seconds with automatic SSL, WebSocket support, and smart naming.",
+        "url": "https://alexcatdad.github.io/paw-proxy/",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "macOS",
+        "license": "https://github.com/alexcatdad/paw-proxy/blob/main/LICENSE",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        },
+        "author": {
+            "@type": "Person",
+            "name": "alexcatdad",
+            "url": "https://github.com/alexcatdad"
+        },
+        "codeRepository": "https://github.com/alexcatdad/paw-proxy",
+        "programmingLanguage": "Go",
+        "softwareRequirements": "macOS",
+        "keywords": ["HTTPS", "local development", "macOS", "proxy", "SSL", "TLS", "dev server"]
+    }
     </script>
+
+    <!-- Tailwind CSS (compiled from tailwind.config.js, not CDN runtime) -->
+    <link rel="stylesheet" href="styles.css">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -514,7 +506,7 @@ up -n myapp npm start  <span style="color: var(--text-muted)"># custom domain</s
                 <a href="https://github.com/puma/puma-dev" target="_blank" rel="noopener" class="clay-pill px-5 py-3 font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">
                     🐆 puma-dev
                 </a>
-                <a href="http://pow.cx/" target="_blank" rel="noopener" class="clay-pill px-5 py-3 font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">
+                <a href="https://pow.cx/" target="_blank" rel="noopener" class="clay-pill px-5 py-3 font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">
                     ⚡ pow
                 </a>
                 <a href="https://github.com/typicode/hotel" target="_blank" rel="noopener" class="clay-pill px-5 py-3 font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">
