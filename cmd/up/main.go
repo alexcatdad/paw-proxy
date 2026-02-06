@@ -21,21 +21,24 @@ import (
 )
 
 var (
-	nameFlag = flag.String("n", "", "Custom app name (default: from package.json or directory)")
+	nameFlag    = flag.String("n", "", "Custom app name (default: from package.json or directory)")
+	restartFlag = flag.Bool("restart", false, "Auto-restart on crash (non-zero exit)")
 )
 
 func main() {
 	flag.Parse()
 
 	if flag.NArg() == 0 {
-		fmt.Println("Usage: up [-n name] <command> [args...]")
+		fmt.Println("Usage: up [-n name] [--restart] <command> [args...]")
 		fmt.Println("")
 		fmt.Println("Options:")
 		fmt.Println("  -n name    Custom domain name (default: package.json name or directory)")
+		fmt.Println("  --restart  Auto-restart on crash (non-zero exit)")
 		fmt.Println("")
 		fmt.Println("Examples:")
 		fmt.Println("  up bun dev")
 		fmt.Println("  up -n myapp npm run dev")
+		fmt.Println("  up --restart bun dev")
 		os.Exit(1)
 	}
 
@@ -60,48 +63,17 @@ func main() {
 		resp.Body.Close()
 	}
 
-	// Find free port
-	port, err := findFreePort()
-	if err != nil {
-		fmt.Printf("Error finding free port: %v\n", err)
-		os.Exit(1)
-	}
-
 	// Determine app name
 	name := determineName(*nameFlag)
 	dir, _ := os.Getwd()
 
-	// Register route
-	err = registerRoute(client, name, fmt.Sprintf("localhost:%d", port), dir)
-	if err != nil {
-		// Check for conflict
-		if conflictDir := extractConflictDir(err); conflictDir != "" {
-			// Try directory name fallback
-			dirName := filepath.Base(dir)
-			if dirName != name {
-				fmt.Printf("⚠️  %s.test already in use from %s\n", name, conflictDir)
-				fmt.Printf("   Using %s.test instead\n", dirName)
-				name = dirName
-				err = registerRoute(client, name, fmt.Sprintf("localhost:%d", port), dir)
-			}
-		}
-		if err != nil {
-			fmt.Printf("Error registering route: %v\n", err)
-			os.Exit(1)
-		}
-	}
-
-	fmt.Printf("🔗 Mapping https://%s.test -> localhost:%d...\n", name, port)
-	fmt.Printf("🚀 Project is live at: https://%s.test\n", name)
-	fmt.Println("------------------------------------------------")
-
-	// Setup cleanup
+	// Setup cleanup (deregisters route from daemon)
 	cleanup := func() {
 		fmt.Printf("\n🛑 Removing mapping for %s.test...\n", name)
 		deregisterRoute(client, name)
 	}
 
-	// Start heartbeat
+	// Start heartbeat (runs for the entire lifetime, across restarts)
 	ctx, cancel := context.WithCancel(context.Background())
 	go heartbeat(ctx, client, name)
 
@@ -109,52 +81,116 @@ func main() {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
-	// Build command
-	args := flag.Args()
-	cmd := exec.Command(args[0], args[1:]...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Env = append(os.Environ(),
-		fmt.Sprintf("PORT=%d", port),
-		fmt.Sprintf("APP_DOMAIN=%s.test", name),
-		fmt.Sprintf("APP_URL=https://%s.test", name),
-		"HTTPS=true",
-		fmt.Sprintf("NODE_EXTRA_CA_CERTS=%s", caPath),
-	)
-
-	// Run child in its own process group so we can signal the entire group
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-
-	// Start command
-	if err := cmd.Start(); err != nil {
-		cleanup()
-		fmt.Printf("Error starting command: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Wait for signal or command exit
-	doneCh := make(chan error, 1)
-	go func() {
-		doneCh <- cmd.Wait()
-	}()
-
 	var exitCode int
-	select {
-	case sig := <-sigCh:
-		// Forward signal to entire process group (negative PID)
-		syscall.Kill(-cmd.Process.Pid, sig.(syscall.Signal))
-		// Wait for child with timeout
-		select {
-		case <-doneCh:
-		case <-time.After(5 * time.Second):
-			syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	for {
+		// Find free port
+		port, err := findFreePort()
+		if err != nil {
+			fmt.Printf("Error finding free port: %v\n", err)
+			os.Exit(1)
 		}
-	case err := <-doneCh:
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
+
+		upstream := fmt.Sprintf("localhost:%d", port)
+
+		// On restart, deregister old route first so re-registration succeeds
+		if exitCode != 0 {
+			deregisterRoute(client, name)
+		}
+
+		// Register route
+		err = registerRoute(client, name, upstream, dir)
+		if err != nil {
+			if conflictDir := extractConflictDir(err); conflictDir != "" {
+				dirName := filepath.Base(dir)
+				if dirName != name {
+					fmt.Printf("⚠️  %s.test already in use from %s\n", name, conflictDir)
+					fmt.Printf("   Using %s.test instead\n", dirName)
+					name = dirName
+					err = registerRoute(client, name, upstream, dir)
+				}
+			}
+			if err != nil {
+				fmt.Printf("Error registering route: %v\n", err)
+				os.Exit(1)
+			}
+		}
+
+		fmt.Printf("🔗 Mapping https://%s.test -> localhost:%d...\n", name, port)
+		if exitCode == 0 {
+			fmt.Printf("🚀 Project is live at: https://%s.test\n", name)
+		} else {
+			fmt.Printf("🔄 Restarting (previous exit code: %d)...\n", exitCode)
+		}
+		fmt.Println("------------------------------------------------")
+
+		// Build command
+		args := flag.Args()
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Env = append(os.Environ(),
+			fmt.Sprintf("PORT=%d", port),
+			fmt.Sprintf("APP_DOMAIN=%s.test", name),
+			fmt.Sprintf("APP_URL=https://%s.test", name),
+			"HTTPS=true",
+			fmt.Sprintf("NODE_EXTRA_CA_CERTS=%s", caPath),
+		)
+
+		// Run child in its own process group so we can signal the entire group
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
+		if err := cmd.Start(); err != nil {
+			fmt.Printf("Error starting command: %v\n", err)
+			break
+		}
+
+		// Wait for signal or command exit
+		doneCh := make(chan error, 1)
+		go func() {
+			doneCh <- cmd.Wait()
+		}()
+
+		gotSignal := false
+		select {
+		case sig := <-sigCh:
+			gotSignal = true
+			// Forward signal to entire process group (negative PID)
+			syscall.Kill(-cmd.Process.Pid, sig.(syscall.Signal))
+			// Wait for child with timeout
+			select {
+			case <-doneCh:
+			case <-time.After(5 * time.Second):
+				syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+			}
+		case err := <-doneCh:
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				exitCode = exitErr.ExitCode()
+			} else {
+				exitCode = 0
+			}
+		}
+
+		if gotSignal {
+			break
+		}
+
+		// If not restarting, or clean exit, stop the loop
+		if !*restartFlag || exitCode == 0 {
+			break
+		}
+
+		fmt.Printf("\n⚠️  Process exited with code %d, restarting in 1s...\n", exitCode)
+
+		// Brief delay before restart to avoid tight crash loops
+		select {
+		case <-time.After(1 * time.Second):
+		case <-sigCh:
+			goto done
 		}
 	}
+
+done:
 
 	cancel()
 	cleanup()
