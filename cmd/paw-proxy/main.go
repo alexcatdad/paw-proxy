@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/alexcatdad/paw-proxy/internal/daemon"
@@ -38,6 +39,9 @@ func main() {
 		case "run":
 			cmdRun()
 			return
+		case "logs":
+			cmdLogs()
+			return
 		case "version":
 			fmt.Printf("paw-proxy version %s\n", version)
 			return
@@ -52,6 +56,7 @@ func main() {
 	fmt.Println("  uninstall  Remove all paw-proxy components")
 	fmt.Println("  status     Show daemon status and registered routes")
 	fmt.Println("  run        Run daemon in foreground (for launchd)")
+	fmt.Println("  logs       Show daemon logs")
 	fmt.Println("  version    Show version")
 	os.Exit(1)
 }
@@ -210,6 +215,109 @@ func cmdStatus() {
 				fmt.Println("")
 				fmt.Printf("CA Expires: %s\n", cert.NotAfter.Format("2006-01-02"))
 			}
+		}
+	}
+}
+
+func cmdLogs() {
+	config, err := daemon.DefaultConfig()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Parse flags
+	tail := false
+	clear := false
+	for _, arg := range os.Args[2:] {
+		switch arg {
+		case "--tail", "-f":
+			tail = true
+		case "--clear":
+			clear = true
+		default:
+			fmt.Printf("Unknown flag: %s\n", arg)
+			fmt.Println("Usage: paw-proxy logs [--tail|-f] [--clear]")
+			os.Exit(1)
+		}
+	}
+
+	if clear {
+		if err := os.Truncate(config.LogPath, 0); err != nil {
+			if os.IsNotExist(err) {
+				fmt.Println("No log file found")
+				return
+			}
+			fmt.Printf("Error clearing logs: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Cleared %s\n", config.LogPath)
+		return
+	}
+
+	fmt.Printf("Showing logs from %s\n", config.LogPath)
+	fmt.Println(strings.Repeat("-", 50))
+
+	if tail {
+		cmdLogsTail(config.LogPath)
+	} else {
+		cmdLogsShow(config.LogPath, 50)
+	}
+}
+
+// cmdLogsShow prints the last N lines of the log file.
+func cmdLogsShow(path string, n int) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println("No log file found -- daemon may not have run yet")
+			return
+		}
+		fmt.Printf("Error reading log: %v\n", err)
+		os.Exit(1)
+	}
+
+	lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
+	start := 0
+	if len(lines) > n {
+		start = len(lines) - n
+	}
+	for _, line := range lines[start:] {
+		fmt.Println(line)
+	}
+}
+
+// cmdLogsTail follows the log file, printing new lines as they appear.
+func cmdLogsTail(path string) {
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println("No log file found -- daemon may not have run yet")
+			return
+		}
+		fmt.Printf("Error opening log: %v\n", err)
+		os.Exit(1)
+	}
+	defer f.Close()
+
+	// Seek to end
+	if _, err := f.Seek(0, io.SeekEnd); err != nil {
+		fmt.Printf("Error seeking: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("Following log output (Ctrl+C to stop)...")
+
+	buf := make([]byte, 4096)
+	for {
+		n, err := f.Read(buf)
+		if n > 0 {
+			os.Stdout.Write(buf[:n])
+		}
+		if err != nil {
+			// EOF is normal -- just wait for more data
+			time.Sleep(200 * time.Millisecond)
+			continue
 		}
 	}
 }
