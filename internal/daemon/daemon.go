@@ -5,7 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -57,6 +57,8 @@ type Daemon struct {
 	apiServer *api.Server
 	certCache *ssl.CertCache
 	proxy     *proxy.Proxy
+	logger    *slog.Logger
+	logFile   *os.File
 }
 
 func New(config *Config) (*Daemon, error) {
@@ -78,11 +80,18 @@ func New(config *Config) (*Daemon, error) {
 		return nil, fmt.Errorf("loading CA: %w", err)
 	}
 
+	// Set up structured JSON logger
+	logFile, err := os.OpenFile(config.LogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return nil, fmt.Errorf("opening log file: %w", err)
+	}
+	logger := slog.New(slog.NewJSONHandler(logFile, nil))
+
 	// Warn if CA certificate is near expiry
 	if ca.Leaf != nil {
 		daysLeft := int(time.Until(ca.Leaf.NotAfter).Hours() / 24)
 		if daysLeft < 30 {
-			log.Printf("WARNING: CA certificate expires in %d days - re-run 'paw-proxy setup'", daysLeft)
+			logger.Warn("CA certificate expiring soon", "days_left", daysLeft)
 		}
 	}
 
@@ -90,6 +99,7 @@ func New(config *Config) (*Daemon, error) {
 	dnsAddr := fmt.Sprintf("127.0.0.1:%d", config.DNSPort)
 	dnsServer, err := dns.NewServer(dnsAddr, config.TLD)
 	if err != nil {
+		logFile.Close()
 		return nil, fmt.Errorf("creating DNS server: %w", err)
 	}
 
@@ -99,13 +109,18 @@ func New(config *Config) (*Daemon, error) {
 	// Create API server
 	apiServer := api.NewServer(config.SocketPath, registry)
 
+	certCache := ssl.NewCertCache(ca, config.TLD)
+	certCache.SetLogger(logger)
+
 	return &Daemon{
 		config:    config,
 		dnsServer: dnsServer,
 		registry:  registry,
 		apiServer: apiServer,
-		certCache: ssl.NewCertCache(ca, config.TLD),
+		certCache: certCache,
 		proxy:     proxy.New(),
+		logger:    logger,
+		logFile:   logFile,
 	}, nil
 }
 
@@ -123,7 +138,7 @@ func (d *Daemon) Run() error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		log.Printf("DNS server listening on 127.0.0.1:%d", d.config.DNSPort)
+		d.logger.Info("server started", "component", "dns", "addr", fmt.Sprintf("127.0.0.1:%d", d.config.DNSPort))
 		if err := d.dnsServer.Start(); err != nil {
 			errCh <- fmt.Errorf("DNS server: %w", err)
 		}
@@ -133,7 +148,7 @@ func (d *Daemon) Run() error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		log.Printf("API server listening on %s", d.config.SocketPath)
+		d.logger.Info("server started", "component", "api", "addr", d.config.SocketPath)
 		if err := d.apiServer.Start(); err != nil {
 			// http.ErrServerClosed is expected during graceful shutdown
 			if err != http.ErrServerClosed {
@@ -160,7 +175,7 @@ func (d *Daemon) Run() error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		log.Printf("HTTP redirect server listening on %s", httpListener.Addr())
+		d.logger.Info("server started", "component", "http", "addr", httpListener.Addr().String())
 		if err := httpServer.Serve(httpListener); err != nil && err != http.ErrServerClosed {
 			errCh <- fmt.Errorf("HTTP server: %w", err)
 		}
@@ -178,7 +193,7 @@ func (d *Daemon) Run() error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		log.Printf("HTTPS server listening on %s", httpsListener.Addr())
+		d.logger.Info("server started", "component", "https", "addr", httpsListener.Addr().String())
 		if err := httpsServer.Serve(httpsListener); err != nil && err != http.ErrServerClosed {
 			errCh <- fmt.Errorf("HTTPS server: %w", err)
 		}
@@ -187,9 +202,9 @@ func (d *Daemon) Run() error {
 	// Wait for signal or component failure
 	select {
 	case sig := <-sigCh:
-		log.Printf("Received %s, shutting down...", sig)
+		d.logger.Info("shutdown signal received", "signal", sig.String())
 	case err := <-errCh:
-		log.Printf("Component failure: %v, shutting down...", err)
+		d.logger.Error("component failure", "error", err)
 	}
 
 	// Begin graceful shutdown
@@ -205,7 +220,7 @@ func (d *Daemon) Run() error {
 	go func() {
 		defer shutdownWg.Done()
 		if err := httpsServer.Shutdown(shutdownCtx); err != nil {
-			log.Printf("HTTPS server shutdown error: %v", err)
+			d.logger.Error("shutdown error", "component", "https", "error", err)
 		}
 	}()
 
@@ -213,7 +228,7 @@ func (d *Daemon) Run() error {
 	go func() {
 		defer shutdownWg.Done()
 		if err := httpServer.Shutdown(shutdownCtx); err != nil {
-			log.Printf("HTTP server shutdown error: %v", err)
+			d.logger.Error("shutdown error", "component", "http", "error", err)
 		}
 	}()
 
@@ -221,7 +236,7 @@ func (d *Daemon) Run() error {
 	go func() {
 		defer shutdownWg.Done()
 		if err := d.apiServer.Stop(); err != nil {
-			log.Printf("API server shutdown error: %v", err)
+			d.logger.Error("shutdown error", "component", "api", "error", err)
 		}
 	}()
 
@@ -229,7 +244,7 @@ func (d *Daemon) Run() error {
 	go func() {
 		defer shutdownWg.Done()
 		if err := d.dnsServer.Stop(); err != nil {
-			log.Printf("DNS server shutdown error: %v", err)
+			d.logger.Error("shutdown error", "component", "dns", "error", err)
 		}
 	}()
 
@@ -237,13 +252,19 @@ func (d *Daemon) Run() error {
 
 	// Clean up socket file
 	if err := os.Remove(d.config.SocketPath); err != nil && !os.IsNotExist(err) {
-		log.Printf("Failed to remove socket: %v", err)
+		d.logger.Warn("socket cleanup failed", "error", err)
 	}
 
 	// Wait for all goroutines to finish
 	wg.Wait()
 
-	log.Println("Shutdown complete")
+	d.logger.Info("shutdown complete")
+
+	// Close log file after all logging is done
+	if d.logFile != nil {
+		d.logFile.Close()
+	}
+
 	return nil
 }
 
@@ -315,13 +336,30 @@ func (d *Daemon) createHTTPSServer() (*http.Server, net.Listener, error) {
 }
 
 func (d *Daemon) handleRequest(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
 	route, ok := d.registry.LookupByHost(r.Host)
 	if !ok {
 		d.serveNotFound(w, r)
+		d.logger.Info("request",
+			"host", r.Host,
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", 404,
+			"duration_ms", time.Since(start).Milliseconds(),
+		)
 		return
 	}
 
 	d.proxy.ServeHTTP(w, r, route.Upstream)
+	d.logger.Info("request",
+		"host", r.Host,
+		"method", r.Method,
+		"path", r.URL.Path,
+		"route", route.Name,
+		"upstream", route.Upstream,
+		"duration_ms", time.Since(start).Milliseconds(),
+	)
 }
 
 func (d *Daemon) serveNotFound(w http.ResponseWriter, r *http.Request) {
