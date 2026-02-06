@@ -29,8 +29,8 @@ echo "  ✓ DNS resolves to 127.0.0.1"
 
 # Test 5: HTTPS certificate
 echo "[Test 5] HTTPS certificate..."
-echo | openssl s_client -connect integration-test.test:443 -servername integration-test.test 2>/dev/null | openssl x509 -noout -subject | grep -q "integration-test.test"
-echo "  ✓ Certificate issued for domain"
+echo | openssl s_client -connect integration-test.test:443 -servername integration-test.test 2>/dev/null | openssl x509 -noout -subject | grep -q "\\*.test"
+echo "  ✓ Wildcard certificate issued for *.test"
 
 # Test 6: Heartbeat
 echo "[Test 6] Heartbeat..."

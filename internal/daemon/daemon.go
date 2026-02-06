@@ -104,7 +104,7 @@ func New(config *Config) (*Daemon, error) {
 		dnsServer: dnsServer,
 		registry:  registry,
 		apiServer: apiServer,
-		certCache: ssl.NewCertCache(ca),
+		certCache: ssl.NewCertCache(ca, config.TLD),
 		proxy:     proxy.New(),
 	}, nil
 }
