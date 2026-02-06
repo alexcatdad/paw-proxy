@@ -121,6 +121,8 @@ go list -m -versions github.com/miekg/dns
 
 ### CodeRabbit Review Handling
 
+> **Note:** This workflow requires `gh` CLI (local/dev environments). For Cloud Sessions where `gh` is unavailable, see the Cloud PR Workflow section below.
+
 After creating a PR, follow this loop to resolve CodeRabbit review threads:
 
 1. **Wait 60 seconds** after PR creation for CodeRabbit to post its review.
