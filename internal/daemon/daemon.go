@@ -17,6 +17,7 @@ import (
 
 	"github.com/alexcatdad/paw-proxy/internal/api"
 	"github.com/alexcatdad/paw-proxy/internal/dns"
+	"github.com/alexcatdad/paw-proxy/internal/errorpage"
 	"github.com/alexcatdad/paw-proxy/internal/proxy"
 	"github.com/alexcatdad/paw-proxy/internal/ssl"
 )
@@ -316,11 +317,19 @@ func (d *Daemon) createHTTPSServer() (*http.Server, net.Listener, error) {
 func (d *Daemon) handleRequest(w http.ResponseWriter, r *http.Request) {
 	route, ok := d.registry.LookupByHost(r.Host)
 	if !ok {
-		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(http.StatusBadGateway)
-		fmt.Fprintf(w, "No app registered for %s\n\nRun: up -n %s <your-dev-command>\n", r.Host, api.ExtractName(r.Host))
+		d.serveNotFound(w, r)
 		return
 	}
 
 	d.proxy.ServeHTTP(w, r, route.Upstream)
+}
+
+func (d *Daemon) serveNotFound(w http.ResponseWriter, r *http.Request) {
+	appName := api.ExtractName(r.Host)
+	routes := d.registry.List()
+	var names []string
+	for _, route := range routes {
+		names = append(names, route.Name)
+	}
+	errorpage.NotFound(w, r.Host, appName, names)
 }
