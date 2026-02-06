@@ -117,6 +117,7 @@ go list -m -versions github.com/miekg/dns
 5. If you added new functionality, add tests
 6. Commit with descriptive message referencing the issue: `fix: bind HTTP/HTTPS to loopback only (closes #40)`
 7. Push and create PR with `gh pr create`
+8. Enable auto-merge: `gh pr merge <PR_NUMBER> --auto --squash`
 
 ### CodeRabbit Review Handling
 
