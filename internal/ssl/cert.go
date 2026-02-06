@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"strings"
 	"sync"
@@ -19,11 +20,12 @@ import (
 const maxCacheSize = 1000
 
 type CertCache struct {
-	ca    *tls.Certificate
-	tld   string
-	cache map[string]*tls.Certificate
-	order []string // Track insertion order for LRU eviction
-	mu    sync.RWMutex
+	ca     *tls.Certificate
+	tld    string
+	cache  map[string]*tls.Certificate
+	order  []string // Track insertion order for LRU eviction
+	mu     sync.RWMutex
+	logger *slog.Logger
 }
 
 func NewCertCache(ca *tls.Certificate, tld string) *CertCache {
@@ -35,11 +37,19 @@ func NewCertCache(ca *tls.Certificate, tld string) *CertCache {
 	}
 }
 
+// SetLogger configures structured logging for TLS errors.
+func (c *CertCache) SetLogger(logger *slog.Logger) {
+	c.logger = logger
+}
+
 func (c *CertCache) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	name := hello.ServerName
 
 	// SECURITY: Reject empty SNI to prevent serving a default cert for IP-based connections
 	if name == "" {
+		if c.logger != nil {
+			c.logger.Warn("TLS: empty SNI rejected")
+		}
 		return nil, fmt.Errorf("SNI required: connect using hostname, not IP")
 	}
 
@@ -73,6 +83,9 @@ func (c *CertCache) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate
 
 	cert, err := c.generateCert(wildcardName)
 	if err != nil {
+		if c.logger != nil {
+			c.logger.Error("TLS: cert generation failed", "name", wildcardName, "error", err)
+		}
 		return nil, err
 	}
 
