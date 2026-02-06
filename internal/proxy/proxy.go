@@ -164,7 +164,9 @@ func (p *Proxy) handleWebSocket(w http.ResponseWriter, r *http.Request, upstream
 		return
 	}
 
-	// Hijack the connection
+	// HTTP/2 connections don't support Hijack, but this is fine because browsers
+	// negotiate HTTP/1.1 for WebSocket via ALPN. If somehow a WebSocket request
+	// arrives over h2, we return an error rather than silently failing.
 	hijacker, ok := w.(http.Hijacker)
 	if !ok {
 		http.Error(w, "websocket not supported", http.StatusInternalServerError)

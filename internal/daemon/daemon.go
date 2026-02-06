@@ -179,7 +179,8 @@ func (d *Daemon) Run() error {
 	go func() {
 		defer wg.Done()
 		log.Printf("HTTPS server listening on %s", httpsListener.Addr())
-		if err := httpsServer.Serve(httpsListener); err != nil && err != http.ErrServerClosed {
+		// ServeTLS wraps the plain listener with TLS and auto-configures HTTP/2
+		if err := httpsServer.ServeTLS(httpsListener, "", ""); err != nil && err != http.ErrServerClosed {
 			errCh <- fmt.Errorf("HTTPS server: %w", err)
 		}
 	}()
@@ -281,8 +282,10 @@ func (d *Daemon) createHTTPServer() (*http.Server, net.Listener, error) {
 	return server, listener, nil
 }
 
-// createHTTPSServer creates the HTTPS server and its TLS listener.
+// createHTTPSServer creates the HTTPS server and its listener.
 // The caller owns the lifecycle of the returned server.
+// Uses net.Listen + ServeTLS instead of tls.Listen + Serve to enable
+// Go's automatic HTTP/2 configuration via h2 ALPN negotiation.
 func (d *Daemon) createHTTPSServer() (*http.Server, net.Listener, error) {
 	// SECURITY: Bind to loopback only to prevent external access
 	addr := fmt.Sprintf("127.0.0.1:%d", d.config.HTTPSPort)
@@ -301,13 +304,15 @@ func (d *Daemon) createHTTPSServer() (*http.Server, net.Listener, error) {
 		},
 	}
 
-	listener, err := tls.Listen("tcp", addr, tlsConfig)
+	// Use plain TCP listener — ServeTLS wraps it with TLS and enables HTTP/2
+	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, nil, fmt.Errorf("listening on %s: %w", addr, err)
 	}
 
 	server := &http.Server{
 		Handler:     http.HandlerFunc(d.handleRequest),
+		TLSConfig:   tlsConfig,
 		IdleTimeout: 120 * time.Second,
 	}
 

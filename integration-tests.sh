@@ -32,6 +32,21 @@ echo "[Test 5] HTTPS certificate..."
 echo | openssl s_client -connect integration-test.test:443 -servername integration-test.test 2>/dev/null | openssl x509 -noout -subject | grep -q "\\*.test"
 echo "  ✓ Wildcard certificate issued for *.test"
 
+# Test 5b: HTTP/2 negotiation
+echo "[Test 5b] HTTP/2 negotiation..."
+SUPPORT_DIR=~/Library/Application\ Support/paw-proxy
+HTTP2_PROTO=$(curl --resolve integration-test.test:443:127.0.0.1 \
+  --cacert "$SUPPORT_DIR/ca.crt" \
+  -o /dev/null -w '%{http_version}' \
+  -s https://integration-test.test:443/ 2>/dev/null)
+
+if [ "$HTTP2_PROTO" = "2" ]; then
+  echo "  ✓ HTTP/2 negotiated"
+else
+  echo "  ✗ Expected HTTP/2 but got HTTP/$HTTP2_PROTO"
+  exit 1
+fi
+
 # Test 6: Heartbeat
 echo "[Test 6] Heartbeat..."
 curl -sf --unix-socket ~/Library/Application\ Support/paw-proxy/paw-proxy.sock \
