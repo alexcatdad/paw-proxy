@@ -119,8 +119,13 @@ func TestDialRejectsNonLoopback(t *testing.T) {
 	}
 
 	body, _ := io.ReadAll(w.Result().Body)
-	if got := string(body); !strings.Contains(got, "refusing connection to non-local host") {
-		t.Errorf("expected non-local host error, got: %s", got)
+	got := string(body)
+	// The error page should be HTML and reference the upstream address
+	if !strings.Contains(got, "text/html") && w.Header().Get("Content-Type") != "text/html; charset=utf-8" {
+		t.Errorf("expected HTML content type, got %s", w.Header().Get("Content-Type"))
+	}
+	if !strings.Contains(got, "192.168.1.1:8080") {
+		t.Errorf("expected upstream address in error page, got: %s", got)
 	}
 }
 

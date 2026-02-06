@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/alexcatdad/paw-proxy/internal/errorpage"
 )
 
 type Proxy struct {
@@ -100,7 +102,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request, upstream strin
 	// Send request
 	resp, err := p.transport.RoundTrip(outReq)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("proxy error: %v", err), http.StatusBadGateway)
+		serveUpstreamError(w, r.Host, upstream, err)
 		return
 	}
 	defer resp.Body.Close()
@@ -116,6 +118,11 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request, upstream strin
 	if _, err := io.Copy(w, resp.Body); err != nil {
 		log.Printf("proxy: response copy: %v", err)
 	}
+}
+
+func serveUpstreamError(w http.ResponseWriter, host string, upstream string, err error) {
+	log.Printf("proxy: upstream error for %s -> %s: %v", host, upstream, err)
+	errorpage.UpstreamDown(w, host, upstream)
 }
 
 func isWebSocket(r *http.Request) bool {
