@@ -10,7 +10,7 @@ git fetch --prune
 cleaned=0
 repo_root=$(git rev-parse --show-toplevel)
 
-git worktree list --porcelain | grep "^worktree " | sed 's/^worktree //' | while read -r wt; do
+while IFS= read -r wt; do
     # Skip main worktree
     if [ "$wt" = "$repo_root" ]; then
         continue
@@ -28,6 +28,6 @@ git worktree list --porcelain | grep "^worktree " | sed 's/^worktree //' | while
         git branch -D "$branch" 2>/dev/null || true
         cleaned=$((cleaned + 1))
     fi
-done
+done < <(git worktree list --porcelain | sed -n 's/^worktree //p')
 
 echo "Done. Cleaned $cleaned worktree(s)."
