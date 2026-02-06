@@ -5,6 +5,7 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -88,7 +89,9 @@ func main() {
 		img.Set(x, h-1, color.RGBA{r, g, b, 100})
 	}
 
-	writeImage("docs/og-image.png", img)
+	if err := writeImage("docs/og-image.png", img); err != nil {
+		panic(err)
+	}
 
 	// Generate 180x180 apple-touch-icon
 	icon := image.NewRGBA(image.Rect(0, 0, 180, 180))
@@ -102,21 +105,24 @@ func main() {
 	iconGlow := color.RGBA{249, 115, 22, 30}
 	iconSoft := color.RGBA{255, 138, 76, 255}
 	drawPaw(icon, 90, 85, 0.55, iconAccent, iconGlow, iconSoft)
-	writeImage("docs/apple-touch-icon.png", icon)
+	if err := writeImage("docs/apple-touch-icon.png", icon); err != nil {
+		panic(err)
+	}
 }
 
-func writeImage(path string, img image.Image) {
+func writeImage(path string, img image.Image) error {
 	f, err := os.Create(path)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("create %s: %w", path, err)
 	}
 	if err := png.Encode(f, img); err != nil {
 		f.Close()
-		panic(err)
+		return fmt.Errorf("encode %s: %w", path, err)
 	}
 	if err := f.Close(); err != nil {
-		panic(err)
+		return fmt.Errorf("close %s: %w", path, err)
 	}
+	return nil
 }
 
 func drawPaw(img *image.RGBA, cx, cy int, scale float64, accent, glow, soft color.RGBA) {
