@@ -42,6 +42,9 @@ func main() {
 		case "logs":
 			cmdLogs()
 			return
+		case "doctor":
+			cmdDoctor()
+			return
 		case "version":
 			fmt.Printf("paw-proxy version %s\n", version)
 			return
@@ -57,6 +60,7 @@ func main() {
 	fmt.Println("  status     Show daemon status and registered routes")
 	fmt.Println("  run        Run daemon in foreground (for launchd)")
 	fmt.Println("  logs       Show daemon logs")
+	fmt.Println("  doctor     Run diagnostics to check system health")
 	fmt.Println("  version    Show version")
 	os.Exit(1)
 }
@@ -285,6 +289,135 @@ func cmdLogsShow(path string, n int) {
 	for _, line := range lines[start:] {
 		fmt.Println(line)
 	}
+}
+
+func cmdDoctor() {
+	config, err := daemon.DefaultConfig()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("paw-proxy doctor")
+	fmt.Println("================")
+	fmt.Println()
+
+	issues := 0
+
+	// 1. Check socket exists
+	if _, err := os.Stat(config.SocketPath); err != nil {
+		printCheck(false, "Unix socket missing at %s", config.SocketPath)
+		issues++
+	} else {
+		printCheck(true, "Unix socket exists at %s", config.SocketPath)
+	}
+
+	// 2. Check daemon health via unix socket
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return net.Dial("unix", config.SocketPath)
+			},
+		},
+		Timeout: 2 * time.Second,
+	}
+
+	resp, err := client.Get("http://unix/health")
+	if err != nil {
+		printCheck(false, "Daemon not responding")
+		issues++
+	} else {
+		var health struct {
+			Status  string `json:"status"`
+			Version string `json:"version"`
+			Uptime  string `json:"uptime"`
+		}
+		if decErr := json.NewDecoder(resp.Body).Decode(&health); decErr != nil {
+			printCheck(false, "Daemon health response invalid: %v", decErr)
+			issues++
+		} else {
+			printCheck(true, "Daemon running (v%s, up %s)", health.Version, health.Uptime)
+		}
+		resp.Body.Close()
+	}
+
+	// 3. Check DNS resolver file
+	resolverPath := "/etc/resolver/test"
+	if _, err := os.Stat(resolverPath); err != nil {
+		printCheck(false, "DNS resolver missing (/etc/resolver/test)")
+		issues++
+	} else {
+		printCheck(true, "DNS resolver configured (/etc/resolver/test)")
+	}
+
+	// 4. Check DNS server reachability on port 9353
+	dnsConn, err := net.DialTimeout("udp", "127.0.0.1:9353", 2*time.Second)
+	if err != nil {
+		printCheck(false, "DNS server not reachable on port 9353")
+		issues++
+	} else {
+		dnsConn.Close()
+		printCheck(true, "DNS server reachable on port 9353")
+	}
+
+	// 5. Check CA certificate exists, is parseable, and not expired/expiring
+	certPath := filepath.Join(config.SupportDir, "ca.crt")
+	certData, err := os.ReadFile(certPath)
+	if err != nil {
+		printCheck(false, "CA certificate not found")
+		issues++
+	} else {
+		block, _ := pem.Decode(certData)
+		if block == nil {
+			printCheck(false, "CA certificate invalid (cannot parse PEM)")
+			issues++
+		} else {
+			cert, parseErr := x509.ParseCertificate(block.Bytes)
+			if parseErr != nil {
+				printCheck(false, "CA certificate invalid: %v", parseErr)
+				issues++
+			} else {
+				daysLeft := int(time.Until(cert.NotAfter).Hours() / 24)
+				if daysLeft < 0 {
+					printCheck(false, "CA certificate expired %d days ago", -daysLeft)
+					issues++
+				} else if daysLeft < 30 {
+					printCheck(false, "CA certificate expires in %d days -- re-run setup", daysLeft)
+					issues++
+				} else {
+					printCheck(true, "CA certificate valid (expires %s)", cert.NotAfter.Format("2006-01-02"))
+				}
+			}
+		}
+	}
+
+	// 6. Check ports 80 and 443 are listening
+	for _, port := range []int{80, 443} {
+		conn, dialErr := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 2*time.Second)
+		if dialErr != nil {
+			printCheck(false, "Port %d not listening", port)
+			issues++
+		} else {
+			conn.Close()
+			printCheck(true, "Port %d listening", port)
+		}
+	}
+
+	// Summary
+	fmt.Println()
+	if issues == 0 {
+		fmt.Println("All checks passed!")
+	} else {
+		fmt.Printf("%d issue(s) found. Try: sudo paw-proxy setup\n", issues)
+	}
+}
+
+func printCheck(ok bool, format string, args ...interface{}) {
+	mark := "✓"
+	if !ok {
+		mark = "✗"
+	}
+	fmt.Printf("[%s] %s\n", mark, fmt.Sprintf(format, args...))
 }
 
 // cmdLogsTail follows the log file, printing new lines as they appear.
