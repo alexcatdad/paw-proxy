@@ -55,17 +55,7 @@ func main() {
 	// Paw icon - larger, centered
 	cx, cy := w/2, h/2-40
 
-	// Glow behind the paw
-	drawFilledCircleAlpha(img, cx, cy-10, 120, accentGlow)
-
-	// Paw toe pads (4 on top)
-	drawFilledCircle(img, cx-60, cy-60, 28, accent)
-	drawFilledCircle(img, cx-20, cy-85, 25, accentSoft)
-	drawFilledCircle(img, cx+20, cy-85, 25, accentSoft)
-	drawFilledCircle(img, cx+60, cy-60, 28, accent)
-
-	// Main pad (large ellipse)
-	drawFilledEllipse(img, cx, cy+15, 52, 42, accent)
+	drawPaw(img, cx, cy, 1.0, accent, accentGlow, accentSoft)
 
 	// Horizontal separator line below paw
 	lineY := cy + 100
@@ -98,15 +88,51 @@ func main() {
 		img.Set(x, h-1, color.RGBA{r, g, b, 100})
 	}
 
-	f, err := os.Create("docs/og-image.png")
+	writeImage("docs/og-image.png", img)
+
+	// Generate 180x180 apple-touch-icon
+	icon := image.NewRGBA(image.Rect(0, 0, 180, 180))
+	// Dark background matching the OG image
+	for y := 0; y < 180; y++ {
+		for x := 0; x < 180; x++ {
+			icon.Set(x, y, color.RGBA{14, 18, 27, 255})
+		}
+	}
+	iconAccent := color.RGBA{249, 115, 22, 255}
+	iconGlow := color.RGBA{249, 115, 22, 30}
+	iconSoft := color.RGBA{255, 138, 76, 255}
+	drawPaw(icon, 90, 85, 0.55, iconAccent, iconGlow, iconSoft)
+	writeImage("docs/apple-touch-icon.png", icon)
+}
+
+func writeImage(path string, img image.Image) {
+	f, err := os.Create(path)
 	if err != nil {
 		panic(err)
 	}
-	defer f.Close()
-
 	if err := png.Encode(f, img); err != nil {
+		f.Close()
 		panic(err)
 	}
+	if err := f.Close(); err != nil {
+		panic(err)
+	}
+}
+
+func drawPaw(img *image.RGBA, cx, cy int, scale float64, accent, glow, soft color.RGBA) {
+	s := func(v int) int { return int(float64(v) * scale) }
+
+	// Glow behind the paw
+	drawFilledCircleAlpha(img, cx, cy-s(10), s(120), glow)
+
+	// Paw toe pads (4 on top)
+	drawFilledCircle(img, cx-s(60), cy-s(60), s(28), accent)
+	drawFilledCircle(img, cx-s(20), cy-s(85), s(25), soft)
+	drawFilledCircle(img, cx+s(20), cy-s(85), s(25), soft)
+	drawFilledCircle(img, cx+s(60), cy-s(60), s(28), accent)
+
+	// Main pad (large ellipse)
+	drawFilledEllipse(img, cx, cy+s(15), s(52), s(42), accent)
 }
 
 func lerp(a, b uint8, t float64) uint8 {
@@ -114,7 +140,8 @@ func lerp(a, b uint8, t float64) uint8 {
 }
 
 func blendPixel(img *image.RGBA, x, y int, c color.RGBA) {
-	if x < 0 || x >= w || y < 0 || y >= h {
+	bounds := img.Bounds()
+	if x < bounds.Min.X || x >= bounds.Max.X || y < bounds.Min.Y || y >= bounds.Max.Y {
 		return
 	}
 	existing := img.RGBAAt(x, y)

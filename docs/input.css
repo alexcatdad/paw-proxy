@@ -1,3 +1,4 @@
+/* Rebuild: npx tailwindcss -i docs/input.css -o docs/styles.css --minify */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
