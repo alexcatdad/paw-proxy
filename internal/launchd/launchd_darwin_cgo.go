@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"syscall"
 	"unsafe"
 )
 
@@ -54,21 +55,54 @@ func ActivateSocket(name string) (net.Listener, bool, error) {
 
 	// Use the first file descriptor (plist declares one socket per name)
 	fdSlice := unsafe.Slice((*C.int)(fds), int(cnt))
-	fd := uintptr(fdSlice[0])
+	fd := int(fdSlice[0])
 
 	// Close any extra fds we won't use
 	for i := 1; i < int(cnt); i++ {
 		_ = os.NewFile(uintptr(fdSlice[i]), "").Close()
 	}
 
+	// Validate fd is a TCP stream socket. Without this check, a misconfigured
+	// plist could pass a UDP or Unix socket, causing confusing accept() errors.
+	sockType, err := syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_TYPE)
+	if err != nil {
+		closeFD(fd)
+		return nil, false, fmt.Errorf("getsockopt SO_TYPE for %q fd %d: %w", name, fd, err)
+	}
+	if sockType != syscall.SOCK_STREAM {
+		closeFD(fd)
+		return nil, false, fmt.Errorf("launchd socket %q: expected SOCK_STREAM (%d), got %d", name, syscall.SOCK_STREAM, sockType)
+	}
+
+	// Ensure the socket is in listening state. Launchd calls listen() when
+	// SockPassive=true in the plist, but we call it defensively in case the
+	// plist was misconfigured. On BSD, listen() on an already-listening socket
+	// just updates the backlog — safe to call unconditionally.
+	if err := syscall.Listen(fd, syscall.SOMAXCONN); err != nil {
+		closeFD(fd)
+		return nil, false, fmt.Errorf("listen() on launchd socket %q fd %d: %w", name, fd, err)
+	}
+
 	// Wrap fd as net.Listener. net.FileListener dups the fd,
 	// so we must close the original os.File to avoid leaking it.
-	f := os.NewFile(fd, name)
+	f := os.NewFile(uintptr(fd), name)
 	listener, err := net.FileListener(f)
 	f.Close()
 	if err != nil {
 		return nil, false, fmt.Errorf("net.FileListener for %q: %w", name, err)
 	}
 
+	// Verify the listener has a valid bound address. A port of 0 indicates
+	// the socket wasn't properly bound by launchd (the 0.0.0.0:0 symptom).
+	if tcpAddr, ok := listener.Addr().(*net.TCPAddr); ok && tcpAddr.Port == 0 {
+		listener.Close()
+		return nil, false, fmt.Errorf("launchd socket %q has invalid address %s", name, listener.Addr())
+	}
+
 	return listener, true, nil
+}
+
+// closeFD closes a raw file descriptor by wrapping it in os.File.
+func closeFD(fd int) {
+	os.NewFile(uintptr(fd), "").Close()
 }
