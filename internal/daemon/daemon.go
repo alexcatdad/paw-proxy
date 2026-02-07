@@ -18,6 +18,7 @@ import (
 	"github.com/alexcatdad/paw-proxy/internal/api"
 	"github.com/alexcatdad/paw-proxy/internal/dns"
 	"github.com/alexcatdad/paw-proxy/internal/errorpage"
+	"github.com/alexcatdad/paw-proxy/internal/launchd"
 	"github.com/alexcatdad/paw-proxy/internal/proxy"
 	"github.com/alexcatdad/paw-proxy/internal/ssl"
 )
@@ -285,12 +286,23 @@ func (d *Daemon) cleanupRoutine(ctx context.Context) {
 // createHTTPServer creates the HTTP redirect server and its listener.
 // The caller owns the lifecycle of the returned server.
 func (d *Daemon) createHTTPServer() (*http.Server, net.Listener, error) {
-	// SECURITY: Bind to loopback only to prevent external access
-	addr := fmt.Sprintf("127.0.0.1:%d", d.config.HTTPPort)
-
-	listener, err := net.Listen("tcp", addr)
+	// Try launchd socket activation first (macOS LaunchAgent)
+	listener, activated, err := launchd.ActivateSocket("http")
 	if err != nil {
-		return nil, nil, fmt.Errorf("listening on %s: %w", addr, err)
+		d.logger.Warn("launchd socket activation failed, falling back to direct binding",
+			"socket", "http", "error", err)
+	}
+
+	if !activated {
+		// SECURITY: Bind to loopback only to prevent external access
+		addr := fmt.Sprintf("127.0.0.1:%d", d.config.HTTPPort)
+		listener, err = net.Listen("tcp", addr)
+		if err != nil {
+			return nil, nil, fmt.Errorf("listening on %s: %w", addr, err)
+		}
+		d.logger.Info("using direct binding", "component", "http", "addr", addr)
+	} else {
+		d.logger.Info("using launchd socket activation", "component", "http")
 	}
 
 	server := &http.Server{
@@ -308,9 +320,6 @@ func (d *Daemon) createHTTPServer() (*http.Server, net.Listener, error) {
 // Uses net.Listen + ServeTLS instead of tls.Listen + Serve to enable
 // Go's automatic HTTP/2 configuration via h2 ALPN negotiation.
 func (d *Daemon) createHTTPSServer() (*http.Server, net.Listener, error) {
-	// SECURITY: Bind to loopback only to prevent external access
-	addr := fmt.Sprintf("127.0.0.1:%d", d.config.HTTPSPort)
-
 	// SECURITY: TLS hardening - minimum TLS 1.2, secure cipher suites
 	tlsConfig := &tls.Config{
 		GetCertificate: d.certCache.GetCertificate,
@@ -325,10 +334,25 @@ func (d *Daemon) createHTTPSServer() (*http.Server, net.Listener, error) {
 		},
 	}
 
-	// Use plain TCP listener — ServeTLS wraps it with TLS and enables HTTP/2
-	listener, err := net.Listen("tcp", addr)
+	// Try launchd socket activation first (macOS LaunchAgent).
+	// Launchd passes raw TCP sockets — ServeTLS in the caller wraps with TLS.
+	listener, activated, err := launchd.ActivateSocket("https")
 	if err != nil {
-		return nil, nil, fmt.Errorf("listening on %s: %w", addr, err)
+		d.logger.Warn("launchd socket activation failed, falling back to direct binding",
+			"socket", "https", "error", err)
+	}
+
+	if !activated {
+		// SECURITY: Bind to loopback only to prevent external access
+		addr := fmt.Sprintf("127.0.0.1:%d", d.config.HTTPSPort)
+		// Use plain TCP listener — ServeTLS wraps it with TLS and enables HTTP/2
+		listener, err = net.Listen("tcp", addr)
+		if err != nil {
+			return nil, nil, fmt.Errorf("listening on %s: %w", addr, err)
+		}
+		d.logger.Info("using direct binding", "component", "https", "addr", addr)
+	} else {
+		d.logger.Info("using launchd socket activation", "component", "https")
 	}
 
 	server := &http.Server{
