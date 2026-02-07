@@ -26,11 +26,10 @@ func Uninstall(supportDir, tld string, fromBrew bool) error {
 	fmt.Println("paw-proxy uninstall")
 	fmt.Println("===================")
 
-	// 1. Stop and remove LaunchAgent
+	// 1. Stop and remove LaunchAgent (bootout releases socket reservations, unlike unload)
 	fmt.Printf("\n[1/3] Removing daemon...\n")
-	// SECURITY: Use exec.Command with explicit args (no shell) to prevent injection via plistPath.
-	if err := exec.Command("launchctl", "unload", plistPath).Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "  warning: could not unload LaunchAgent: %v\n", err)
+	if err := launchctlBootout(); err != nil {
+		fmt.Fprintf(os.Stderr, "  warning: could not bootout LaunchAgent: %v\n", err)
 		// Not fatal — agent may not be loaded
 	}
 	if err := os.Remove(plistPath); err != nil {
