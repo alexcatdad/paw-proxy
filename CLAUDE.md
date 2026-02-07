@@ -122,6 +122,38 @@ go list -m -versions github.com/miekg/dns
 5. If you added new functionality, add tests
 6. Commit with descriptive message referencing the issue: `fix: bind HTTP/HTTPS to loopback only (closes #40)`
 7. Push and create PR with `gh pr create`
+8. Enable auto-merge: `gh pr merge <PR_NUMBER> --auto --squash`
+
+### CodeRabbit Review Handling
+
+> **Note:** This workflow requires `gh` CLI (local/dev environments). For Cloud Sessions where `gh` is unavailable, see the Cloud PR Workflow section below.
+
+After creating a PR, follow this loop to resolve CodeRabbit review threads:
+
+1. **Wait 60 seconds** after PR creation for CodeRabbit to post its review.
+2. **Check for unresolved threads:**
+   ```bash
+   gh pr view <PR_NUMBER> --json reviewThreads --jq '.reviewThreads[] | select(.isResolved == false)'
+   ```
+3. **For each unresolved thread:**
+   - Read the suggestion carefully.
+   - If it is a **valid code fix** (not just a style nit), apply the change to the codebase.
+   - If it is a **non-actionable comment or style nit**, resolve the thread with a brief explanation.
+4. **After applying any code fixes**, commit and push the changes.
+5. **Wait 30 seconds** for CodeRabbit to re-review the updated code.
+6. **Re-check for unresolved threads** (repeat from step 2).
+7. **Repeat until no unresolved threads remain**, up to a maximum of **3 iterations** to avoid infinite loops.
+
+**Resolving a thread via GraphQL:**
+```bash
+gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "THREAD_ID"}) { thread { isResolved } } }'
+```
+
+**Key rules:**
+- Do not resolve a thread without reading and considering the suggestion first.
+- Do not check for threads earlier than 60 seconds after PR creation — CodeRabbit needs time to analyze.
+- Always re-check after force-pushing fixes — new reviews may appear on changed code.
+- If 3 iterations pass and threads remain, leave a PR comment summarizing what is unresolved and stop.
 
 ## CI Configuration
 
