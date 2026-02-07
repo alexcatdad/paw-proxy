@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -30,6 +32,11 @@ func Run(config *Config) error {
 	if err := os.MkdirAll(config.SupportDir, 0700); err != nil {
 		return fmt.Errorf("creating support dir: %w", err)
 	}
+	// SECURITY: chown support dir to the real user when running under sudo,
+	// so the LaunchAgent (which runs as the user) can access it.
+	if err := chownToRealUser(config.SupportDir); err != nil {
+		return fmt.Errorf("fixing support dir ownership: %w", err)
+	}
 	fmt.Printf("  ✓ %s\n", config.SupportDir)
 
 	// 2. Generate CA
@@ -44,6 +51,10 @@ func Run(config *Config) error {
 			return fmt.Errorf("generating CA: %w", err)
 		}
 		fmt.Printf("  ✓ Generated CA certificate\n")
+	}
+	// SECURITY: chown CA files to the real user so the daemon can read them.
+	if err := chownToRealUser(certPath, keyPath); err != nil {
+		return fmt.Errorf("fixing CA file ownership: %w", err)
 	}
 
 	// 3. Trust CA in keychain
@@ -72,6 +83,7 @@ func Run(config *Config) error {
 	fmt.Println("Setup complete!")
 	fmt.Println("")
 	fmt.Println("Note: macOS may show a 'Background Items Added' notification. This is normal.")
+	fmt.Println("Note: Restart your browser to pick up the new CA certificate.")
 	fmt.Println("")
 	fmt.Println("Firefox users: Install 'nss' for certificate trust:")
 	fmt.Println("  brew install nss")
@@ -139,6 +151,10 @@ var launchAgentTemplate = `<?xml version="1.0" encoding="UTF-8"?>
             <string>127.0.0.1</string>
             <key>SockServiceName</key>
             <string>80</string>
+            <key>SockType</key>
+            <string>stream</string>
+            <key>SockPassive</key>
+            <true/>
         </dict>
         <key>https</key>
         <dict>
@@ -146,6 +162,10 @@ var launchAgentTemplate = `<?xml version="1.0" encoding="UTF-8"?>
             <string>127.0.0.1</string>
             <key>SockServiceName</key>
             <string>443</string>
+            <key>SockType</key>
+            <string>stream</string>
+            <key>SockPassive</key>
+            <true/>
         </dict>
     </dict>
 </dict>
@@ -164,8 +184,8 @@ func installLaunchAgent(config *Config) error {
 		return err
 	}
 
-	// Unload existing if present
-	exec.Command("launchctl", "unload", plistPath).Run()
+	// Remove existing service and release socket reservations
+	launchctlBootout() //nolint:errcheck // not fatal if service isn't loaded
 
 	// Write plist
 	f, err := os.Create(plistPath)
@@ -183,6 +203,79 @@ func installLaunchAgent(config *Config) error {
 		return err
 	}
 
-	// Load plist
-	return exec.Command("launchctl", "load", plistPath).Run()
+	// SECURITY: chown plist to the real user so launchd loads it correctly.
+	if err := chownToRealUser(plistPath); err != nil {
+		return fmt.Errorf("fixing plist ownership: %w", err)
+	}
+
+	// Load plist using modern launchctl bootstrap
+	uid, err := resolveRealUID()
+	if err != nil {
+		return fmt.Errorf("resolving user UID: %w", err)
+	}
+	target := fmt.Sprintf("gui/%d", uid)
+	return exec.Command("launchctl", "bootstrap", target, plistPath).Run()
+}
+
+// resolveRealUID returns the UID of the real user. When running under sudo,
+// this is the SUDO_USER's UID, not root's.
+func resolveRealUID() (int, error) {
+	uid := os.Getuid()
+	if uid == 0 {
+		if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" {
+			u, err := user.Lookup(sudoUser)
+			if err != nil {
+				return 0, fmt.Errorf("looking up SUDO_USER %q: %w", sudoUser, err)
+			}
+			parsed, err := strconv.Atoi(u.Uid)
+			if err != nil {
+				return 0, fmt.Errorf("parsing UID for %q: %w", sudoUser, err)
+			}
+			return parsed, nil
+		}
+	}
+	return uid, nil
+}
+
+// chownToRealUser changes ownership of paths to the real (non-root) user when
+// running under sudo. This is a no-op when not running as root or when root
+// was not reached via sudo (e.g. CI).
+func chownToRealUser(paths ...string) error {
+	if os.Getuid() != 0 {
+		return nil
+	}
+	sudoUser := os.Getenv("SUDO_USER")
+	if sudoUser == "" {
+		return nil
+	}
+	u, err := user.Lookup(sudoUser)
+	if err != nil {
+		return fmt.Errorf("looking up SUDO_USER %q: %w", sudoUser, err)
+	}
+	uid, err := strconv.Atoi(u.Uid)
+	if err != nil {
+		return fmt.Errorf("parsing UID for %q: %w", sudoUser, err)
+	}
+	gid, err := strconv.Atoi(u.Gid)
+	if err != nil {
+		return fmt.Errorf("parsing GID for %q: %w", sudoUser, err)
+	}
+	for _, p := range paths {
+		if err := os.Chown(p, uid, gid); err != nil {
+			return fmt.Errorf("chown %s: %w", p, err)
+		}
+	}
+	return nil
+}
+
+// launchctlBootout removes a launchd service and releases its socket
+// reservations. Uses the modern bootout command instead of the deprecated
+// unload, which leaves socket bindings active.
+func launchctlBootout() error {
+	uid, err := resolveRealUID()
+	if err != nil {
+		return err
+	}
+	target := fmt.Sprintf("gui/%d/dev.paw-proxy", uid)
+	return exec.Command("launchctl", "bootout", target).Run()
 }
