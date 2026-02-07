@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -82,8 +83,10 @@ func TestResolveRealUID_MatchesCurrentUser(t *testing.T) {
 		t.Error("non-root user should not have UID 0")
 	}
 
-	// Verify it matches the current user's UID
-	_ = u // user.Current() validates the user lookup works
+	expectedUID, _ := strconv.Atoi(u.Uid)
+	if uid != expectedUID {
+		t.Errorf("resolveRealUID() = %d, want %d", uid, expectedUID)
+	}
 }
 
 func TestLaunchAgentTemplate_ContainsSockType(t *testing.T) {
