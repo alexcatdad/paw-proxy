@@ -79,6 +79,11 @@ go test -cover ./...
 
 # Check for latest version of a dependency
 go list -m -versions github.com/miekg/dns
+
+# Clean up stale worktrees after PR merges
+./scripts/clean-worktrees.sh
+# Or use the Claude Code skill:
+# /clean_gone
 ```
 
 ### Test Coverage (current)
