@@ -32,6 +32,15 @@ jobs:
           go-version: '1.24'
       - run: go test -v -race ./...
 
+  vulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -49,7 +58,7 @@ jobs:
 
   integration:
     runs-on: macos-14
-    needs: [lint, test, build]
+    needs: [lint, test, vulncheck, build]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -86,7 +95,8 @@ jobs:
             fi
             sleep 1
           done
-          sudo chmod 777 "$HOME/Library/Application Support/paw-proxy/paw-proxy.sock"
+          sudo chown "$USER" "$HOME/Library/Application Support/paw-proxy/paw-proxy.sock"
+          chmod 600 "$HOME/Library/Application Support/paw-proxy/paw-proxy.sock"
       - name: Wait for daemon
         run: |
           for i in 1 2 3 4 5; do

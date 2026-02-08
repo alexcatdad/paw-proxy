@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -283,6 +284,30 @@ func (d *Daemon) cleanupRoutine(ctx context.Context) {
 	}
 }
 
+func redirectTarget(rawHost, requestURI, tld string) (string, bool) {
+	if rawHost == "" {
+		return "", false
+	}
+
+	host := rawHost
+	if strings.HasPrefix(rawHost, "[") || strings.Count(rawHost, ":") == 1 {
+		if parsedHost, _, err := net.SplitHostPort(rawHost); err == nil {
+			host = parsedHost
+		}
+	}
+
+	host = strings.TrimSuffix(strings.ToLower(host), ".")
+	tld = strings.Trim(strings.ToLower(tld), ".")
+	if host == "" || tld == "" {
+		return "", false
+	}
+	if host != tld && !strings.HasSuffix(host, "."+tld) {
+		return "", false
+	}
+
+	return "https://" + host + requestURI, true
+}
+
 // createHTTPServer creates the HTTP redirect server and its listener.
 // The caller owns the lifecycle of the returned server.
 func (d *Daemon) createHTTPServer() (*http.Server, net.Listener, error) {
@@ -307,9 +332,17 @@ func (d *Daemon) createHTTPServer() (*http.Server, net.Listener, error) {
 
 	server := &http.Server{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			target := "https://" + r.Host + r.URL.RequestURI()
+			target, ok := redirectTarget(r.Host, r.URL.RequestURI(), d.config.TLD)
+			if !ok {
+				http.Error(w, "invalid host", http.StatusBadRequest)
+				return
+			}
 			http.Redirect(w, r, target, http.StatusPermanentRedirect)
 		}),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	return server, listener, nil
@@ -356,9 +389,12 @@ func (d *Daemon) createHTTPSServer() (*http.Server, net.Listener, error) {
 	}
 
 	server := &http.Server{
-		Handler:     http.HandlerFunc(d.handleRequest),
-		TLSConfig:   tlsConfig,
-		IdleTimeout: 120 * time.Second,
+		Handler:           http.HandlerFunc(d.handleRequest),
+		TLSConfig:         tlsConfig,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      2 * time.Minute,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	return server, listener, nil

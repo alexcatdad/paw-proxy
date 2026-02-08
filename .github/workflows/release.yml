@@ -15,24 +15,32 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.24'
 
       - name: Run tests
-        run: go test -v ./...
+        run: go test -v -race ./...
+
+      - name: Check vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
       - name: Build binaries
         run: |
           mkdir -p dist
+          VERSION="${GITHUB_REF_NAME:-dev}"
+          LDFLAGS="-s -w -X main.version=${VERSION} -X github.com/alexcatdad/paw-proxy/internal/api.Version=${VERSION}"
 
           # paw-proxy
-          GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/paw-proxy-darwin-arm64 ./cmd/paw-proxy
-          GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/paw-proxy-darwin-amd64 ./cmd/paw-proxy
+          GOOS=darwin GOARCH=arm64 go build -ldflags="$LDFLAGS" -o dist/paw-proxy-darwin-arm64 ./cmd/paw-proxy
+          GOOS=darwin GOARCH=amd64 go build -ldflags="$LDFLAGS" -o dist/paw-proxy-darwin-amd64 ./cmd/paw-proxy
           lipo -create -output dist/paw-proxy-darwin-universal dist/paw-proxy-darwin-arm64 dist/paw-proxy-darwin-amd64
 
           # up
           GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/up-darwin-arm64 ./cmd/up
           GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/up-darwin-amd64 ./cmd/up
           lipo -create -output dist/up-darwin-universal dist/up-darwin-arm64 dist/up-darwin-amd64
+
+          # Checksums
+          (cd dist && shasum -a 256 paw-proxy-darwin-arm64 paw-proxy-darwin-amd64 paw-proxy-darwin-universal up-darwin-arm64 up-darwin-amd64 up-darwin-universal > checksums.txt)
 
       # Integration tests skipped in CI (requires keychain setup)
       # Run locally with: ./integration-tests.sh
@@ -47,4 +55,5 @@ jobs:
             dist/up-darwin-arm64
             dist/up-darwin-amd64
             dist/up-darwin-universal
+            dist/checksums.txt
           generate_release_notes: true
