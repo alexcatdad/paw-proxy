@@ -1,8 +1,19 @@
 # .github/workflows/release.yml
+#
+# Automatic release on merge to main.
+# Parses conventional commits since the last tag to determine semver bump:
+#   - "feat:" -> minor
+#   - "fix:", "perf:", "refactor:" -> patch
+#   - "!:" or "BREAKING CHANGE" -> major
+#   - "docs:", "ci:", "chore:", "test:", "style:" -> skip (no release)
+#
+# Tags the commit, builds universal macOS binaries, and publishes a GitHub release.
+
 name: Release
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
 
 permissions:
@@ -11,22 +22,113 @@ permissions:
 jobs:
   release:
     runs-on: macos-14
+    # Skip if this push was the bot creating a tag (avoid double-run)
+    if: github.actor != 'github-actions[bot]' || !startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        env:
+          HEAD_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          # If triggered by a tag push, use the tag directly
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Skip non-release commits
+          if echo "$HEAD_MESSAGE" | head -1 | grep -qE '^(docs|ci|chore|test|style)(\(.+\))?:'; then
+            echo "Non-release commit type. Skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Get the latest tag
+          LATEST_TAG=$(git tag -l 'v*' --sort=-v:refname | head -n1)
+          if [ -z "$LATEST_TAG" ]; then
+            LATEST_TAG="v0.0.0"
+          fi
+
+          # Parse current version
+          VERSION="${LATEST_TAG#v}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+
+          # Get commits since last tag
+          COMMITS=$(git log "$LATEST_TAG"..HEAD --pretty=format:"%s" 2>/dev/null || git log --pretty=format:"%s")
+          echo "Commits since $LATEST_TAG:"
+          echo "$COMMITS"
+
+          # Determine bump type
+          BUMP="none"
+          while IFS= read -r msg; do
+            if echo "$msg" | grep -qE '^[a-z]+(\(.+\))?!:' || echo "$msg" | grep -qi 'BREAKING CHANGE'; then
+              BUMP="major"
+              break
+            fi
+            if echo "$msg" | grep -qE '^feat(\(.+\))?:'; then
+              [ "$BUMP" != "major" ] && BUMP="minor"
+            fi
+            if echo "$msg" | grep -qE '^(fix|perf|refactor)(\(.+\))?:'; then
+              [ "$BUMP" = "none" ] && BUMP="patch"
+            fi
+          done <<< "$COMMITS"
+
+          if [ "$BUMP" = "none" ]; then
+            echo "No version-bumping commits found. Skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          case "$BUMP" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+
+          NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "Bumping $BUMP: $LATEST_TAG -> $NEW_TAG"
+
+      - name: Create tag
+        if: steps.version.outputs.skip != 'true' && !startsWith(github.ref, 'refs/tags/')
+        env:
+          NEW_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
+          git push origin "$NEW_TAG"
+
+      - uses: actions/setup-go@v5
+        if: steps.version.outputs.skip != 'true'
+        with:
+          go-version: '1.24.13'
 
       - name: Run tests
-        run: go test -v ./...
+        if: steps.version.outputs.skip != 'true'
+        run: go test -v -race ./...
+
+      - name: Check vulnerabilities
+        if: steps.version.outputs.skip != 'true'
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
       - name: Build binaries
+        if: steps.version.outputs.skip != 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.tag }}
         run: |
           mkdir -p dist
+          LDFLAGS="-s -w -X main.version=${VERSION} -X github.com/alexcatdad/paw-proxy/internal/api.Version=${VERSION}"
 
           # paw-proxy
-          GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/paw-proxy-darwin-arm64 ./cmd/paw-proxy
-          GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/paw-proxy-darwin-amd64 ./cmd/paw-proxy
+          GOOS=darwin GOARCH=arm64 go build -ldflags="$LDFLAGS" -o dist/paw-proxy-darwin-arm64 ./cmd/paw-proxy
+          GOOS=darwin GOARCH=amd64 go build -ldflags="$LDFLAGS" -o dist/paw-proxy-darwin-amd64 ./cmd/paw-proxy
           lipo -create -output dist/paw-proxy-darwin-universal dist/paw-proxy-darwin-arm64 dist/paw-proxy-darwin-amd64
 
           # up
@@ -34,12 +136,14 @@ jobs:
           GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/up-darwin-amd64 ./cmd/up
           lipo -create -output dist/up-darwin-universal dist/up-darwin-arm64 dist/up-darwin-amd64
 
-      # Integration tests skipped in CI (requires keychain setup)
-      # Run locally with: ./integration-tests.sh
+          # Checksums
+          (cd dist && shasum -a 256 paw-proxy-darwin-arm64 paw-proxy-darwin-amd64 paw-proxy-darwin-universal up-darwin-arm64 up-darwin-amd64 up-darwin-universal > checksums.txt)
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Create release
+        if: steps.version.outputs.skip != 'true'
+        uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
           files: |
             dist/paw-proxy-darwin-arm64
             dist/paw-proxy-darwin-amd64
@@ -47,4 +151,5 @@ jobs:
             dist/up-darwin-arm64
             dist/up-darwin-amd64
             dist/up-darwin-universal
+            dist/checksums.txt
           generate_release_notes: true

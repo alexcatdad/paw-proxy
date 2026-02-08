@@ -16,6 +16,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -24,6 +25,35 @@ var (
 	nameFlag    = flag.String("n", "", "Custom app name (default: from package.json or directory)")
 	restartFlag = flag.Bool("restart", false, "Auto-restart on crash (non-zero exit)")
 )
+
+type routeState struct {
+	mu       sync.RWMutex
+	name     string
+	upstream string
+	dir      string
+}
+
+func newRouteState(name, dir string) *routeState {
+	return &routeState{name: name, dir: dir}
+}
+
+func (s *routeState) SetName(name string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.name = name
+}
+
+func (s *routeState) SetUpstream(upstream string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.upstream = upstream
+}
+
+func (s *routeState) Snapshot() (name string, upstream string, dir string) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.name, s.upstream, s.dir
+}
 
 func main() {
 	flag.Parse()
@@ -66,16 +96,19 @@ func main() {
 	// Determine app name
 	name := determineName(*nameFlag)
 	dir, _ := os.Getwd()
+	state := newRouteState(name, dir)
 
 	// Setup cleanup (deregisters route from daemon)
 	cleanup := func() {
 		fmt.Printf("\n🛑 Removing mapping for %s.test...\n", name)
-		deregisterRoute(client, name)
+		if err := deregisterRoute(client, name); err != nil {
+			log.Printf("warning: cleanup deregistration failed: %v", err)
+		}
 	}
 
 	// Start heartbeat (runs for the entire lifetime, across restarts)
 	ctx, cancel := context.WithCancel(context.Background())
-	go heartbeat(ctx, client, name)
+	go heartbeat(ctx, client, state)
 
 	// Setup signal handling
 	sigCh := make(chan os.Signal, 1)
@@ -91,21 +124,25 @@ func main() {
 		}
 
 		upstream := fmt.Sprintf("localhost:%d", port)
+		state.SetUpstream(upstream)
 
 		// On restart, deregister old route first so re-registration succeeds
 		if exitCode != 0 {
-			deregisterRoute(client, name)
+			if err := deregisterRoute(client, name); err != nil {
+				log.Printf("warning: restart deregistration failed: %v", err)
+			}
 		}
 
 		// Register route
 		err = registerRoute(client, name, upstream, dir)
 		if err != nil {
 			if conflictDir := extractConflictDir(err); conflictDir != "" {
-				dirName := filepath.Base(dir)
+				dirName := sanitizeName(filepath.Base(dir))
 				if dirName != name {
 					fmt.Printf("⚠️  %s.test already in use from %s\n", name, conflictDir)
 					fmt.Printf("   Using %s.test instead\n", dirName)
 					name = dirName
+					state.SetName(name)
 					err = registerRoute(client, name, upstream, dir)
 				}
 			}
@@ -208,7 +245,7 @@ func findFreePort() (int, error) {
 
 func determineName(explicit string) string {
 	if explicit != "" {
-		return explicit
+		return sanitizeName(explicit)
 	}
 
 	// Try package.json
@@ -240,6 +277,15 @@ func sanitizeName(name string) string {
 	s := strings.Trim(string(result), "-")
 	if s == "" {
 		return "app"
+	}
+	if s[0] >= '0' && s[0] <= '9' {
+		s = "app-" + s
+	}
+	if len(s) > 63 {
+		s = strings.TrimRight(s[:63], "-")
+		if s == "" {
+			return "app"
+		}
 	}
 	return s
 }
@@ -292,13 +338,30 @@ func registerRoute(client *http.Client, name, upstream, dir string) error {
 	return nil
 }
 
-func deregisterRoute(client *http.Client, name string) {
-	req, _ := http.NewRequest("DELETE", fmt.Sprintf("http://unix/routes/%s", name), nil)
-	client.Do(req)
+func deregisterRoute(client *http.Client, name string) error {
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("http://unix/routes/%s", name), nil)
+	if err != nil {
+		return err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
+		return fmt.Errorf("unexpected deregister status: %s", resp.Status)
+	}
+
+	return nil
 }
 
-func heartbeat(ctx context.Context, client *http.Client, name string) {
-	ticker := time.NewTicker(10 * time.Second)
+func heartbeat(ctx context.Context, client *http.Client, state *routeState) {
+	heartbeatWithInterval(ctx, client, state, 10*time.Second)
+}
+
+func heartbeatWithInterval(ctx context.Context, client *http.Client, state *routeState, interval time.Duration) {
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
@@ -306,13 +369,39 @@ func heartbeat(ctx context.Context, client *http.Client, name string) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			req, _ := http.NewRequest("POST", fmt.Sprintf("http://unix/routes/%s/heartbeat", name), nil)
+			name, _, _ := state.Snapshot()
+			req, err := http.NewRequest("POST", fmt.Sprintf("http://unix/routes/%s/heartbeat", name), nil)
+			if err != nil {
+				log.Printf("warning: heartbeat request creation failed: %v", err)
+				continue
+			}
 			resp, err := client.Do(req)
 			if err != nil {
 				log.Printf("warning: heartbeat failed: %v", err)
 				continue
 			}
+
+			if resp.StatusCode == http.StatusOK {
+				resp.Body.Close()
+				continue
+			}
 			resp.Body.Close()
+
+			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
+				name, upstream, dir := state.Snapshot()
+				if upstream == "" {
+					log.Printf("warning: heartbeat route missing but no upstream available for %s", name)
+					continue
+				}
+				if err := registerRoute(client, name, upstream, dir); err != nil {
+					log.Printf("warning: auto re-register failed: %v", err)
+					continue
+				}
+				log.Printf("route re-registered after daemon restart: %s.test -> %s", name, upstream)
+				continue
+			}
+
+			log.Printf("warning: heartbeat returned status %s", resp.Status)
 		}
 	}
 }

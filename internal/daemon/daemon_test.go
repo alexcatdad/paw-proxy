@@ -1,94 +1,65 @@
 package daemon
 
-import (
-	"net/http"
-	"net/http/httptest"
-	"testing"
-)
+import "testing"
 
-func TestHTTPRedirectUses308(t *testing.T) {
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		target := "https://" + r.Host + r.URL.RequestURI()
-		http.Redirect(w, r, target, http.StatusPermanentRedirect)
-	})
-
-	req := httptest.NewRequest("POST", "http://myapp.test/api/data", nil)
-	rr := httptest.NewRecorder()
-
-	handler.ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusPermanentRedirect {
-		t.Errorf("expected status %d, got %d", http.StatusPermanentRedirect, rr.Code)
-	}
-
-	location := rr.Header().Get("Location")
-	expected := "https://myapp.test/api/data"
-	if location != expected {
-		t.Errorf("expected Location %q, got %q", expected, location)
-	}
-}
-
-func TestHTTPRedirectPreservesFullURL(t *testing.T) {
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		target := "https://" + r.Host + r.URL.RequestURI()
-		http.Redirect(w, r, target, http.StatusPermanentRedirect)
-	})
-
+func TestRedirectTarget(t *testing.T) {
 	tests := []struct {
-		name     string
-		url      string
-		host     string
-		expected string
+		name       string
+		host       string
+		requestURI string
+		tld        string
+		wantOK     bool
+		wantTarget string
 	}{
 		{
-			name:     "path only",
-			url:      "http://myapp.test/dashboard",
-			host:     "myapp.test",
-			expected: "https://myapp.test/dashboard",
+			name:       "valid subdomain",
+			host:       "myapp.test",
+			requestURI: "/dashboard",
+			tld:        "test",
+			wantOK:     true,
+			wantTarget: "https://myapp.test/dashboard",
 		},
 		{
-			name:     "path with query string",
-			url:      "http://myapp.test/search?q=hello&page=2",
-			host:     "myapp.test",
-			expected: "https://myapp.test/search?q=hello&page=2",
+			name:       "valid host with port",
+			host:       "myapp.test:80",
+			requestURI: "/api?q=1",
+			tld:        "test",
+			wantOK:     true,
+			wantTarget: "https://myapp.test/api?q=1",
 		},
 		{
-			name:     "root path",
-			url:      "http://myapp.test/",
-			host:     "myapp.test",
-			expected: "https://myapp.test/",
+			name:       "accept bare tld",
+			host:       "test",
+			requestURI: "/",
+			tld:        "test",
+			wantOK:     true,
+			wantTarget: "https://test/",
 		},
 		{
-			name:     "path with fragment is stripped by HTTP",
-			url:      "http://myapp.test/page",
-			host:     "myapp.test",
-			expected: "https://myapp.test/page",
+			name:       "reject foreign domain",
+			host:       "evil.com",
+			requestURI: "/",
+			tld:        "test",
+			wantOK:     false,
 		},
 		{
-			name:     "encoded path segments",
-			url:      "http://myapp.test/path%20with%20spaces",
-			host:     "myapp.test",
-			expected: "https://myapp.test/path%20with%20spaces",
+			name:       "reject empty host",
+			host:       "",
+			requestURI: "/",
+			tld:        "test",
+			wantOK:     false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", tt.url, nil)
-			rr := httptest.NewRecorder()
-
-			handler.ServeHTTP(rr, req)
-
-			if rr.Code != http.StatusPermanentRedirect {
-				t.Errorf("expected status %d, got %d", http.StatusPermanentRedirect, rr.Code)
+			gotTarget, gotOK := redirectTarget(tt.host, tt.requestURI, tt.tld)
+			if gotOK != tt.wantOK {
+				t.Fatalf("redirectTarget(%q) ok = %v, want %v", tt.host, gotOK, tt.wantOK)
 			}
-
-			location := rr.Header().Get("Location")
-			if location != tt.expected {
-				t.Errorf("expected Location %q, got %q", tt.expected, location)
+			if tt.wantOK && gotTarget != tt.wantTarget {
+				t.Fatalf("redirectTarget(%q) target = %q, want %q", tt.host, gotTarget, tt.wantTarget)
 			}
 		})
 	}
 }
-
-// TestExtractName moved to api package — ExtractName is now api.ExtractName

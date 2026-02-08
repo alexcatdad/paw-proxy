@@ -84,10 +84,10 @@ func TestValidateRouteName(t *testing.T) {
 		{"empty", "", true},
 		{"too-long-64", strings.Repeat("a", 64), true},
 
-		// Invalid: starts with non-alphanumeric
+		// Invalid: must start with a letter
 		{"starts-with-dash", "-myapp", true},
 		{"starts-with-underscore", "_myapp", true},
-		{"starts-with-number", "1app", false}, // numbers are alphanumeric, valid start
+		{"starts-with-number", "1app", true},
 
 		// Invalid: special characters (injection attempts)
 		{"shell-injection-semicolon", "app;rm -rf /", true},
@@ -284,6 +284,56 @@ func TestAPIServer_ValidationRejection(t *testing.T) {
 				t.Errorf("expected %d, got %d", tt.wantCode, resp.StatusCode)
 			}
 		})
+	}
+}
+
+func TestAPIServer_RegisterRouteLimit(t *testing.T) {
+	socketPath := filepath.Join("/tmp", fmt.Sprintf("paw-test-limit-%d.sock", time.Now().UnixNano()))
+	defer os.Remove(socketPath)
+
+	registry := NewRouteRegistry(30 * time.Second)
+	for i := 0; i < maxRoutes; i++ {
+		name := fmt.Sprintf("app%d", i)
+		if err := registry.Register(name, fmt.Sprintf("localhost:%d", 3000+i), "/tmp"); err != nil {
+			t.Fatalf("failed pre-registering route %d: %v", i, err)
+		}
+	}
+	srv := NewServer(socketPath, registry)
+
+	go srv.Start()
+	defer srv.Stop()
+
+	time.Sleep(50 * time.Millisecond)
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return net.Dial("unix", socketPath)
+			},
+		},
+	}
+
+	body, _ := json.Marshal(map[string]string{
+		"name":     "overflow",
+		"upstream": "localhost:9090",
+		"dir":      "/tmp",
+	})
+	resp, err := client.Post("http://unix/routes", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST /routes failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("expected 429, got %d", resp.StatusCode)
+	}
+
+	var errResp map[string]string
+	if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
+		t.Fatalf("failed decoding JSON response: %v", err)
+	}
+	if !strings.Contains(errResp["error"], "route limit reached") {
+		t.Fatalf("expected route limit error, got %q", errResp["error"])
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -448,9 +449,13 @@ func cmdLogsTail(path string) {
 			os.Stdout.Write(buf[:n])
 		}
 		if err != nil {
-			// EOF is normal -- just wait for more data
-			time.Sleep(200 * time.Millisecond)
-			continue
+			if errors.Is(err, io.EOF) {
+				// EOF is normal -- just wait for more data
+				time.Sleep(200 * time.Millisecond)
+				continue
+			}
+			fmt.Printf("Error reading log: %v\n", err)
+			return
 		}
 	}
 }

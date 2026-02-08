@@ -62,8 +62,8 @@ func ActivateSocket(name string) (net.Listener, bool, error) {
 		_ = os.NewFile(uintptr(fdSlice[i]), "").Close()
 	}
 
-	// Validate fd is a TCP stream socket. Without this check, a misconfigured
-	// plist could pass a UDP or Unix socket, causing confusing accept() errors.
+	// SECURITY: Validate fd is a TCP stream socket to prevent launchd from
+	// passing UDP/Unix sockets that break accept() semantics.
 	sockType, err := syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_TYPE)
 	if err != nil {
 		closeFD(fd)
@@ -74,10 +74,8 @@ func ActivateSocket(name string) (net.Listener, bool, error) {
 		return nil, false, fmt.Errorf("launchd socket %q: expected SOCK_STREAM (%d), got %d", name, syscall.SOCK_STREAM, sockType)
 	}
 
-	// Ensure the socket is in listening state. Launchd calls listen() when
-	// SockPassive=true in the plist, but we call it defensively in case the
-	// plist was misconfigured. On BSD, listen() on an already-listening socket
-	// just updates the backlog — safe to call unconditionally.
+	// SECURITY: Ensure the socket is in a listening state even if launchd was
+	// misconfigured; on BSD, listen() on an already-listening socket is safe.
 	if err := syscall.Listen(fd, syscall.SOMAXCONN); err != nil {
 		closeFD(fd)
 		return nil, false, fmt.Errorf("listen() on launchd socket %q fd %d: %w", name, fd, err)
@@ -92,8 +90,8 @@ func ActivateSocket(name string) (net.Listener, bool, error) {
 		return nil, false, fmt.Errorf("net.FileListener for %q: %w", name, err)
 	}
 
-	// Verify the listener has a valid bound address. A port of 0 indicates
-	// the socket wasn't properly bound by launchd (the 0.0.0.0:0 symptom).
+	// SECURITY: Verify the listener has a valid bound address to reject
+	// 0.0.0.0:0 sockets from misconfigured launchd activation.
 	if tcpAddr, ok := listener.Addr().(*net.TCPAddr); ok && tcpAddr.Port == 0 {
 		listener.Close()
 		return nil, false, fmt.Errorf("launchd socket %q has invalid address %s", name, listener.Addr())

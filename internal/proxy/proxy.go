@@ -18,32 +18,43 @@ type Proxy struct {
 	transport *http.Transport
 }
 
+func isLoopbackHost(host string) bool {
+	ip := net.ParseIP(host)
+	return host == "localhost" || (ip != nil && ip.IsLoopback())
+}
+
+func extractAndValidateUpstreamPort(addr string) (string, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", fmt.Errorf("proxy: split host/port: %w", err)
+	}
+	if !isLoopbackHost(host) {
+		return "", fmt.Errorf("proxy: refusing connection to non-local host %s", host)
+	}
+	return port, nil
+}
+
+func dialLoopbackPort(port string, timeout time.Duration) (net.Conn, error) {
+	conn, ipv4Err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", port), timeout)
+	if ipv4Err == nil {
+		return conn, nil
+	}
+	conn, ipv6Err := net.DialTimeout("tcp", net.JoinHostPort("::1", port), timeout)
+	if ipv6Err == nil {
+		return conn, nil
+	}
+	return nil, fmt.Errorf("upstream unreachable: IPv4: %v, IPv6: %v", ipv4Err, ipv6Err)
+}
+
 func New() *Proxy {
 	return &Proxy{
 		transport: &http.Transport{
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				host, port, err := net.SplitHostPort(addr)
+				port, err := extractAndValidateUpstreamPort(addr)
 				if err != nil {
-					return nil, fmt.Errorf("proxy: split host/port: %w", err)
+					return nil, err
 				}
-
-				// SECURITY: Defense-in-depth — reject non-loopback addresses even though
-				// the API layer already validates upstream to localhost-only.
-				ip := net.ParseIP(host)
-				if host != "localhost" && (ip == nil || !ip.IsLoopback()) {
-					return nil, fmt.Errorf("proxy: refusing connection to non-local host %s", host)
-				}
-
-				// Try IPv4 first, then IPv6 — report both errors on failure
-				conn, ipv4Err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", port), 2*time.Second)
-				if ipv4Err == nil {
-					return conn, nil
-				}
-				conn, ipv6Err := net.DialTimeout("tcp", net.JoinHostPort("::1", port), 2*time.Second)
-				if ipv6Err == nil {
-					return conn, nil
-				}
-				return nil, fmt.Errorf("upstream unreachable: IPv4: %v, IPv6: %v", ipv4Err, ipv6Err)
+				return dialLoopbackPort(port, 2*time.Second)
 			},
 			MaxIdleConns:       100,
 			IdleConnTimeout:    90 * time.Second,
@@ -179,7 +190,13 @@ func (p *Proxy) handleWebSocket(w http.ResponseWriter, r *http.Request, upstream
 	defer clientConn.Close()
 
 	// Connect to upstream
-	upstreamConn, err := net.DialTimeout("tcp", upstream, 5*time.Second)
+	port, err := extractAndValidateUpstreamPort(upstream)
+	if err != nil {
+		log.Printf("websocket: upstream validation failed: %v", err)
+		clientConn.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
+		return
+	}
+	upstreamConn, err := dialLoopbackPort(port, 5*time.Second)
 	if err != nil {
 		clientConn.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
 		return
