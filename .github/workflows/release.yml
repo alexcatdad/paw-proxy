@@ -169,7 +169,7 @@ jobs:
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ vars.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          private-key: ${{ secrets.APP_SECRET }}
           owner: ${{ github.repository_owner }}
           repositories: homebrew-tap
 
