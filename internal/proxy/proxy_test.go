@@ -435,3 +435,36 @@ func TestWebSocket_BothGoroutinesComplete(t *testing.T) {
 	}
 }
 
+func TestExtractAndValidateUpstreamPort(t *testing.T) {
+	tests := []struct {
+		name    string
+		addr    string
+		want    string
+		wantErr bool
+	}{
+		{name: "localhost", addr: "localhost:3000", want: "3000"},
+		{name: "ipv4 loopback", addr: "127.0.0.1:8080", want: "8080"},
+		{name: "ipv6 loopback", addr: "[::1]:5000", want: "5000"},
+		{name: "reject private network", addr: "192.168.1.10:3000", wantErr: true},
+		{name: "reject domain", addr: "example.com:3000", wantErr: true},
+		{name: "reject malformed", addr: "localhost", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := extractAndValidateUpstreamPort(tt.addr)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("extractAndValidateUpstreamPort(%q) = %q, want %q", tt.addr, got, tt.want)
+			}
+		})
+	}
+}

@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+const maxRoutes = 100
+
 type Route struct {
 	Name          string    `json:"name"`
 	Upstream      string    `json:"upstream"`
@@ -22,6 +24,14 @@ type ConflictError struct {
 
 func (e *ConflictError) Error() string {
 	return fmt.Sprintf("route %q already registered from %s", e.Name, e.ExistingDir)
+}
+
+type LimitError struct {
+	Limit int
+}
+
+func (e *LimitError) Error() string {
+	return fmt.Sprintf("route limit reached (%d)", e.Limit)
 }
 
 type RouteRegistry struct {
@@ -46,6 +56,9 @@ func (r *RouteRegistry) Register(name, upstream, dir string) error {
 			Name:        name,
 			ExistingDir: existing.Dir,
 		}
+	}
+	if len(r.routes) >= maxRoutes {
+		return &LimitError{Limit: maxRoutes}
 	}
 
 	now := time.Now()

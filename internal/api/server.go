@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -21,8 +22,8 @@ var Version = "dev"
 // Max request body size (1MB)
 const maxRequestBodySize = 1024 * 1024
 
-// Route name validation pattern: alphanumeric, dash, underscore only
-var routeNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}$`)
+// Route name validation pattern: starts with letter; rest can be alphanumeric, dash, underscore.
+var routeNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]{0,62}$`)
 
 type Server struct {
 	socketPath string
@@ -92,7 +93,7 @@ type RegisterRequest struct {
 // validateRouteName ensures route names are safe for DNS, filesystem, and shell use
 func validateRouteName(name string) error {
 	if !routeNamePattern.MatchString(name) {
-		return fmt.Errorf("invalid route name: must be 1-63 alphanumeric characters, dashes, or underscores")
+		return fmt.Errorf("invalid route name: must start with a letter and contain only letters, numbers, dashes, or underscores (max 63 chars)")
 	}
 	return nil
 }
@@ -145,7 +146,9 @@ func validateDir(dir string) error {
 func jsonError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	if err := json.NewEncoder(w).Encode(map[string]string{"error": msg}); err != nil {
+		log.Printf("api: failed to encode error response: %v", err)
+	}
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
@@ -177,10 +180,16 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		if conflict, ok := err.(*ConflictError); ok {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(map[string]string{
+			if encErr := json.NewEncoder(w).Encode(map[string]string{
 				"error":       "conflict",
 				"existingDir": conflict.ExistingDir,
-			})
+			}); encErr != nil {
+				log.Printf("api: failed to encode conflict response: %v", encErr)
+			}
+			return
+		}
+		if limit, ok := err.(*LimitError); ok {
+			jsonError(w, fmt.Sprintf("route limit reached (%d)", limit.Limit), http.StatusTooManyRequests)
 			return
 		}
 		jsonError(w, "registration failed", http.StatusInternalServerError)
@@ -224,15 +233,19 @@ func (s *Server) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 	routes := s.registry.List()
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(routes)
+	if err := json.NewEncoder(w).Encode(routes); err != nil {
+		log.Printf("api: failed to encode route list response: %v", err)
+	}
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	uptime := time.Since(s.startTime)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":  "ok",
 		"version": Version,
 		"uptime":  uptime.String(),
-	})
+	}); err != nil {
+		log.Printf("api: failed to encode health response: %v", err)
+	}
 }

@@ -285,3 +285,26 @@ func TestCleanupDuringHeartbeat(t *testing.T) {
 		t.Errorf("expected 'keepalive', got %q", route.Name)
 	}
 }
+
+func TestRouteRegistry_MaxRoutesLimit(t *testing.T) {
+	r := NewRouteRegistry(30 * time.Second)
+
+	for i := 0; i < maxRoutes; i++ {
+		name := fmt.Sprintf("app%d", i)
+		if err := r.Register(name, fmt.Sprintf("localhost:%d", 3000+i), "/path"); err != nil {
+			t.Fatalf("unexpected error registering route %d: %v", i, err)
+		}
+	}
+
+	err := r.Register("overflow", "localhost:9999", "/path")
+	if err == nil {
+		t.Fatal("expected limit error, got nil")
+	}
+	limitErr, ok := err.(*LimitError)
+	if !ok {
+		t.Fatalf("expected LimitError, got %T", err)
+	}
+	if limitErr.Limit != maxRoutes {
+		t.Fatalf("expected limit %d, got %d", maxRoutes, limitErr.Limit)
+	}
+}
