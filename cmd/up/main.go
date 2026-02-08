@@ -370,7 +370,11 @@ func heartbeatWithInterval(ctx context.Context, client *http.Client, state *rout
 			return
 		case <-ticker.C:
 			name, _, _ := state.Snapshot()
-			req, _ := http.NewRequest("POST", fmt.Sprintf("http://unix/routes/%s/heartbeat", name), nil)
+			req, err := http.NewRequest("POST", fmt.Sprintf("http://unix/routes/%s/heartbeat", name), nil)
+			if err != nil {
+				log.Printf("warning: heartbeat request creation failed: %v", err)
+				continue
+			}
 			resp, err := client.Do(req)
 			if err != nil {
 				log.Printf("warning: heartbeat failed: %v", err)

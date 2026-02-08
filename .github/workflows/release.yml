@@ -23,7 +23,7 @@ jobs:
   release:
     runs-on: macos-14
     # Skip if this push was the bot creating a tag (avoid double-run)
-    if: github.actor != 'github-actions[bot]' || startsWith(github.ref, 'refs/tags/')
+    if: github.actor != 'github-actions[bot]' || !startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v4
         with:
@@ -141,7 +141,7 @@ jobs:
 
       - name: Create release
         if: steps.version.outputs.skip != 'true'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           files: |
