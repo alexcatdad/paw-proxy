@@ -1,0 +1,8 @@
+{
+  "$schema": "https://alexcatdad.github.io/schemas/project-meta.schema.json",
+  "what": "Zero-config HTTPS proxy for local macOS development.",
+  "why": "Built to remove HTTPS friction from OAuth and secure-cookie local workflows.",
+  "tags": ["go", "macos", "developer-tools", "networking"],
+  "featured": true,
+  "order": 10
+}
