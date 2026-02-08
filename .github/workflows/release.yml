@@ -24,6 +24,9 @@ jobs:
     runs-on: macos-14
     # Skip if this push was the bot creating a tag (avoid double-run)
     if: github.actor != 'github-actions[bot]' || !startsWith(github.ref, 'refs/tags/')
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      released: ${{ steps.version.outputs.skip != 'true' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -153,3 +156,119 @@ jobs:
             dist/up-darwin-universal
             dist/checksums.txt
           generate_release_notes: true
+
+  update-homebrew:
+    name: Update Homebrew Tap
+    runs-on: ubuntu-latest
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    environment: action-runners
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: homebrew-tap
+
+      - name: Get GitHub App user ID
+        id: get-user-id
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
+
+      - name: Download release binaries
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release.outputs.tag }}
+        run: gh release download "$TAG" --repo "${{ github.repository }}" --pattern 'paw-proxy-darwin-*' --pattern 'up-darwin-*' --dir assets
+
+      - name: Compute SHA256 checksums
+        id: sha
+        run: |
+          echo "proxy_arm64=$(sha256sum assets/paw-proxy-darwin-arm64 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "proxy_amd64=$(sha256sum assets/paw-proxy-darwin-amd64 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "up_arm64=$(sha256sum assets/up-darwin-arm64 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "up_amd64=$(sha256sum assets/up-darwin-amd64 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/homebrew-tap
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Strip version prefix
+        id: ver
+        env:
+          TAG: ${{ needs.release.outputs.tag }}
+        run: echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Update formula
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          SHA_PROXY_ARM64: ${{ steps.sha.outputs.proxy_arm64 }}
+          SHA_PROXY_AMD64: ${{ steps.sha.outputs.proxy_amd64 }}
+          SHA_UP_ARM64: ${{ steps.sha.outputs.up_arm64 }}
+          SHA_UP_AMD64: ${{ steps.sha.outputs.up_amd64 }}
+        run: |
+          cat > Formula/paw-proxy.rb << EOF
+          class PawProxy < Formula
+            desc "Zero-config HTTPS proxy for local macOS development"
+            homepage "https://github.com/alexcatdad/paw-proxy"
+            license "MIT"
+            version "${VERSION}"
+
+            on_macos do
+              on_arm do
+                url "https://github.com/alexcatdad/paw-proxy/releases/download/v#{version}/paw-proxy-darwin-arm64"
+                sha256 "${SHA_PROXY_ARM64}"
+
+                resource "up" do
+                  url "https://github.com/alexcatdad/paw-proxy/releases/download/v#{version}/up-darwin-arm64"
+                  sha256 "${SHA_UP_ARM64}"
+                end
+              end
+
+              on_intel do
+                url "https://github.com/alexcatdad/paw-proxy/releases/download/v#{version}/paw-proxy-darwin-amd64"
+                sha256 "${SHA_PROXY_AMD64}"
+
+                resource "up" do
+                  url "https://github.com/alexcatdad/paw-proxy/releases/download/v#{version}/up-darwin-amd64"
+                  sha256 "${SHA_UP_AMD64}"
+                end
+              end
+            end
+
+            def install
+              bin.install Dir["paw-proxy-*"].first || "paw-proxy" => "paw-proxy"
+              resource("up").stage do
+                bin.install Dir["up-*"].first || "up" => "up"
+              end
+            end
+
+            def post_install
+              ohai "Run 'sudo paw-proxy setup' to configure CA, DNS resolver, and LaunchAgent"
+            end
+
+            test do
+              assert_match "paw-proxy", shell_output("#{bin}/paw-proxy version")
+            end
+          end
+          EOF
+
+      - name: Commit and push
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          USER_ID: ${{ steps.get-user-id.outputs.user-id }}
+        run: |
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${USER_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
+          git add Formula/paw-proxy.rb
+          git diff --staged --quiet || {
+            git commit -m "chore: update paw-proxy to ${VERSION}"
+            git push
+          }
