@@ -140,6 +140,27 @@ Stop any other web servers (nginx, Apache, etc.) before running setup.
 paw-proxy uninstall
 ```
 
+## Security
+
+paw-proxy is designed with a defense-in-depth approach for local development:
+
+- **Loopback-only binding** — HTTP, HTTPS, and DNS servers all bind to `127.0.0.1`, never to external interfaces
+- **SSRF prevention** — Upstream targets are validated as localhost/loopback at both the API layer and the transport layer (double-gated)
+- **No shell injection** — All subprocess calls use explicit argument lists via `exec.Command`, never `sh -c`
+- **Secure socket permissions** — The Unix control socket is created with `0600` via umask, avoiding TOCTOU races between creation and chmod
+- **Input validation** — Route names are regex-checked, upstreams are restricted to loopback, and directory paths must be absolute with no traversal sequences
+- **Rate limiting** — All API endpoints are rate-limited to prevent abuse from runaway scripts
+- **Resource caps** — Route registry is capped at 100 entries; certificate cache is capped at 1000 with LRU eviction
+- **TLS hardening** — Minimum TLS 1.2 with a curated set of strong cipher suites (ECDHE + AES-GCM / ChaCha20)
+- **Constrained CA** — The generated CA uses RSA 4096-bit keys with `MaxPathLen=0`, preventing it from signing intermediate CAs
+- **Private key protection** — CA private key is written with `0600` (owner-only) permissions
+- **SNI required** — Connections without a Server Name Indication are rejected, preventing cert misissuance for IP-based requests
+- **XSS prevention** — All dynamic content in error pages is HTML-escaped
+- **Launchd socket validation** — Socket activation validates the file descriptor is a TCP stream socket with a valid bound address before use
+- **Request body limits** — API request bodies are capped at 1MB
+- **Minimal dependencies** — Only one external dependency (`miekg/dns`), keeping the supply chain attack surface small
+- **Clean uninstall** — `paw-proxy uninstall` removes the CA from your keychain, the DNS resolver, and the LaunchAgent
+
 ## Development
 
 ```bash
