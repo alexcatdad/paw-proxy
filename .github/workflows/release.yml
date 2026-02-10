@@ -259,6 +259,14 @@ jobs:
               ohai "Run 'sudo paw-proxy setup' to configure CA, DNS resolver, and LaunchAgent"
             end
 
+            def caveats
+              <<~EOS
+                Before uninstalling, run:
+                  sudo paw-proxy uninstall
+                This removes the CA certificate, DNS resolver, and LaunchAgent.
+              EOS
+            end
+
             test do
               assert_match "paw-proxy", shell_output("#{bin}/paw-proxy version")
             end
