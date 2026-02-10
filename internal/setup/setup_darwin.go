@@ -214,7 +214,7 @@ func installLaunchAgent(config *Config) error {
 		return fmt.Errorf("resolving user UID: %w", err)
 	}
 	target := fmt.Sprintf("gui/%d", uid)
-	return exec.Command("launchctl", "bootstrap", target, plistPath).Run()
+	return launchctlAsUser("bootstrap", target, plistPath)
 }
 
 // resolveRealUID returns the UID of the real user. When running under sudo,
@@ -268,6 +268,20 @@ func chownToRealUser(paths ...string) error {
 	return nil
 }
 
+// launchctlAsUser runs a launchctl subcommand as the real user instead of root.
+// When running under sudo, macOS rejects launchctl bootstrap/bootout targeting
+// a user GUI domain from the root process. Dropping to the real user via
+// "sudo -u" avoids exit status 5 from launchd.
+func launchctlAsUser(args ...string) error {
+	if os.Getuid() == 0 {
+		if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" {
+			sudoArgs := append([]string{"-u", sudoUser, "launchctl"}, args...)
+			return exec.Command("sudo", sudoArgs...).Run()
+		}
+	}
+	return exec.Command("launchctl", args...).Run()
+}
+
 // launchctlBootout removes a launchd service and releases its socket
 // reservations. Uses the modern bootout command instead of the deprecated
 // unload, which leaves socket bindings active.
@@ -277,5 +291,5 @@ func launchctlBootout() error {
 		return err
 	}
 	target := fmt.Sprintf("gui/%d/dev.paw-proxy", uid)
-	return exec.Command("launchctl", "bootout", target).Run()
+	return launchctlAsUser("bootout", target)
 }
