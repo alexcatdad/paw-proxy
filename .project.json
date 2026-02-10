@@ -1,0 +1,12 @@
+{
+  "what": "Zero-config HTTPS proxy for local macOS development and secure local domains.",
+  "why": "Removes local HTTPS friction for OAuth callbacks, secure cookies, and service workers.",
+  "tags": [
+    "go",
+    "proxy",
+    "https",
+    "dev-tools"
+  ],
+  "featured": false,
+  "order": 50
+}
