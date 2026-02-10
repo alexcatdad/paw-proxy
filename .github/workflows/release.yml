@@ -213,34 +213,40 @@ jobs:
           SHA_UP_ARM64: ${{ steps.sha.outputs.up_arm64 }}
           SHA_UP_AMD64: ${{ steps.sha.outputs.up_amd64 }}
         run: |
-          cat > Formula/paw-proxy.rb << EOF
+          cat > Formula/paw-proxy.rb << 'FORMULA'
           class PawProxy < Formula
             desc "Zero-config HTTPS proxy for local macOS development"
             homepage "https://github.com/alexcatdad/paw-proxy"
             license "MIT"
+          FORMULA
+
+          cat >> Formula/paw-proxy.rb << EOF
             version "${VERSION}"
 
             on_macos do
               on_arm do
-                url "https://github.com/alexcatdad/paw-proxy/releases/download/v#{version}/paw-proxy-darwin-arm64"
+                url "https://github.com/alexcatdad/paw-proxy/releases/download/v${VERSION}/paw-proxy-darwin-arm64"
                 sha256 "${SHA_PROXY_ARM64}"
 
                 resource "up" do
-                  url "https://github.com/alexcatdad/paw-proxy/releases/download/v#{version}/up-darwin-arm64"
+                  url "https://github.com/alexcatdad/paw-proxy/releases/download/v${VERSION}/up-darwin-arm64"
                   sha256 "${SHA_UP_ARM64}"
                 end
               end
 
               on_intel do
-                url "https://github.com/alexcatdad/paw-proxy/releases/download/v#{version}/paw-proxy-darwin-amd64"
+                url "https://github.com/alexcatdad/paw-proxy/releases/download/v${VERSION}/paw-proxy-darwin-amd64"
                 sha256 "${SHA_PROXY_AMD64}"
 
                 resource "up" do
-                  url "https://github.com/alexcatdad/paw-proxy/releases/download/v#{version}/up-darwin-amd64"
+                  url "https://github.com/alexcatdad/paw-proxy/releases/download/v${VERSION}/up-darwin-amd64"
                   sha256 "${SHA_UP_AMD64}"
                 end
               end
             end
+          EOF
+
+          cat >> Formula/paw-proxy.rb << 'FORMULA'
 
             def install
               bin.install Dir["paw-proxy-*"].first || "paw-proxy" => "paw-proxy"
@@ -257,7 +263,7 @@ jobs:
               assert_match "paw-proxy", shell_output("#{bin}/paw-proxy version")
             end
           end
-          EOF
+          FORMULA
 
       - name: Commit and push
         env:
