@@ -27,10 +27,18 @@ echo "[Test 4] DNS resolution..."
 dig +short integration-test.test @127.0.0.1 -p 9353 | grep -q "127.0.0.1"
 echo "  ✓ DNS resolves to 127.0.0.1"
 
-# Test 5: HTTPS certificate
-echo "[Test 5] HTTPS certificate..."
-echo | openssl s_client -connect integration-test.test:443 -servername integration-test.test 2>/dev/null | openssl x509 -noout -subject | grep -q "\\*.test"
-echo "  ✓ Wildcard certificate issued for *.test"
+# Test 5: HTTPS certificate - SAN contains requested hostname
+echo "[Test 5] HTTPS certificate SANs..."
+CERT_PEM=$(echo | openssl s_client -connect integration-test.test:443 -servername integration-test.test 2>/dev/null | openssl x509)
+
+# Check that the specific hostname is in Subject Alternative Names
+if echo "$CERT_PEM" | openssl x509 -noout -text | grep -q "DNS:integration-test.test"; then
+  echo "  ✓ Certificate SAN contains integration-test.test"
+else
+  echo "  ✗ Certificate SAN does not contain integration-test.test"
+  echo "$CERT_PEM" | openssl x509 -noout -text | grep -A1 "Subject Alternative Name"
+  exit 1
+fi
 
 # Test 5b: HTTP/2 negotiation
 # Certificate validity is already tested above; here we only check ALPN protocol.
