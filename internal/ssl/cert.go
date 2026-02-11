@@ -53,13 +53,9 @@ func (c *CertCache) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate
 		return nil, fmt.Errorf("SNI required: connect using hostname, not IP")
 	}
 
-	// Use wildcard cert for all domains under the configured TLD.
-	// *.test covers myapp.test, api.test, etc.
-	wildcardName := "*." + c.tld
-
 	// Fast path: read lock for cache hit (non-expired)
 	c.mu.RLock()
-	if cert, ok := c.cache[wildcardName]; ok {
+	if cert, ok := c.cache[name]; ok {
 		if cert.Leaf == nil || time.Now().Before(cert.Leaf.NotAfter) {
 			c.mu.RUnlock()
 			return cert, nil
@@ -67,26 +63,41 @@ func (c *CertCache) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate
 	}
 	c.mu.RUnlock()
 
-	// Slow path: write lock for miss or expired
+	// Slow path: write lock to check and clean expired entries
 	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	// Double-check after acquiring write lock (avoids TOCTOU race)
-	if cert, ok := c.cache[wildcardName]; ok {
+	if cert, ok := c.cache[name]; ok {
 		if cert.Leaf == nil || time.Now().Before(cert.Leaf.NotAfter) {
+			c.mu.Unlock()
 			return cert, nil
 		}
 		// Expired, remove and regenerate
-		delete(c.cache, wildcardName)
-		c.removeFromOrder(wildcardName)
+		delete(c.cache, name)
+		c.removeFromOrder(name)
 	}
+	c.mu.Unlock()
 
-	cert, err := c.generateCert(wildcardName)
+	// Generate cert without holding lock (crypto operations are expensive)
+	cert, err := c.generateCert(name)
 	if err != nil {
 		if c.logger != nil {
-			c.logger.Error("TLS: cert generation failed", "name", wildcardName, "error", err)
+			c.logger.Error("TLS: cert generation failed", "name", name, "error", err)
 		}
 		return nil, err
+	}
+
+	// Re-acquire lock for cache insertion
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Check if another goroutine already generated this cert
+	if existing, ok := c.cache[name]; ok {
+		if existing.Leaf == nil || time.Now().Before(existing.Leaf.NotAfter) {
+			return existing, nil
+		}
+		delete(c.cache, name)
+		c.removeFromOrder(name)
 	}
 
 	// SECURITY: Evict oldest entry if cache is full
@@ -96,8 +107,8 @@ func (c *CertCache) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate
 		c.order = c.order[1:]
 	}
 
-	c.cache[wildcardName] = cert
-	c.order = append(c.order, wildcardName)
+	c.cache[name] = cert
+	c.order = append(c.order, name)
 	return cert, nil
 }
 
