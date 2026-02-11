@@ -53,13 +53,9 @@ func (c *CertCache) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate
 		return nil, fmt.Errorf("SNI required: connect using hostname, not IP")
 	}
 
-	// Use wildcard cert for all domains under the configured TLD.
-	// *.test covers myapp.test, api.test, etc.
-	wildcardName := "*." + c.tld
-
 	// Fast path: read lock for cache hit (non-expired)
 	c.mu.RLock()
-	if cert, ok := c.cache[wildcardName]; ok {
+	if cert, ok := c.cache[name]; ok {
 		if cert.Leaf == nil || time.Now().Before(cert.Leaf.NotAfter) {
 			c.mu.RUnlock()
 			return cert, nil
@@ -72,19 +68,19 @@ func (c *CertCache) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate
 	defer c.mu.Unlock()
 
 	// Double-check after acquiring write lock (avoids TOCTOU race)
-	if cert, ok := c.cache[wildcardName]; ok {
+	if cert, ok := c.cache[name]; ok {
 		if cert.Leaf == nil || time.Now().Before(cert.Leaf.NotAfter) {
 			return cert, nil
 		}
 		// Expired, remove and regenerate
-		delete(c.cache, wildcardName)
-		c.removeFromOrder(wildcardName)
+		delete(c.cache, name)
+		c.removeFromOrder(name)
 	}
 
-	cert, err := c.generateCert(wildcardName)
+	cert, err := c.generateCert(name)
 	if err != nil {
 		if c.logger != nil {
-			c.logger.Error("TLS: cert generation failed", "name", wildcardName, "error", err)
+			c.logger.Error("TLS: cert generation failed", "name", name, "error", err)
 		}
 		return nil, err
 	}
@@ -96,8 +92,8 @@ func (c *CertCache) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate
 		c.order = c.order[1:]
 	}
 
-	c.cache[wildcardName] = cert
-	c.order = append(c.order, wildcardName)
+	c.cache[name] = cert
+	c.order = append(c.order, name)
 	return cert, nil
 }
 
