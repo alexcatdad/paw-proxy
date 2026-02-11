@@ -265,6 +265,49 @@ jobs:
           end
           FORMULA
 
+      - name: Update README
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          TABLE=$'| Formula | Version | Description |\n|---------|---------|-------------|'
+          for rb in Formula/*.rb; do
+            name=$(basename "$rb" .rb)
+            ver=$(grep -m1 'version "' "$rb" | sed 's/.*version "//;s/".*//')
+            desc=$(grep -m1 'desc "' "$rb" | sed 's/.*desc "//;s/".*//')
+            TABLE="${TABLE}"$'\n'"| [${name}](https://github.com/${OWNER}/${name}) | ${ver} | ${desc} |"
+          done
+          if [ -d Casks ]; then
+            for rb in Casks/*.rb; do
+              name=$(basename "$rb" .rb)
+              ver=$(grep -m1 'version "' "$rb" | sed 's/.*version "//;s/".*//')
+              desc=$(grep -m1 'desc "' "$rb" | sed 's/.*desc "//;s/".*//')
+              TABLE="${TABLE}"$'\n'"| [${name}](https://github.com/${OWNER}/${name}) | ${ver} | ${desc} (cask) |"
+            done
+          fi
+
+          INSTALL=$'```bash\n'
+          for rb in Formula/*.rb; do
+            name=$(basename "$rb" .rb)
+            INSTALL="${INSTALL}brew install ${OWNER}/tap/${name}"$'\n'
+          done
+          if [ -d Casks ]; then
+            for rb in Casks/*.rb; do
+              name=$(basename "$rb" .rb)
+              INSTALL="${INSTALL}brew install --cask ${OWNER}/tap/${name}"$'\n'
+            done
+          fi
+          INSTALL="${INSTALL}"$'```\n'
+
+          awk -v table="$TABLE" -v install="$INSTALL" '
+            /<!-- BEGIN FORMULAE -->/ { print; printf "%s\n", table; skip=1; next }
+            /<!-- END FORMULAE -->/ { skip=0 }
+            skip { next }
+            /<!-- BEGIN INSTALL -->/ { print; printf "%s\n", install; skip2=1; next }
+            /<!-- END INSTALL -->/ { skip2=0 }
+            skip2 { next }
+            { print }
+          ' README.md > README.tmp && mv README.tmp README.md
+
       - name: Commit and push
         env:
           VERSION: ${{ steps.ver.outputs.version }}
@@ -273,7 +316,7 @@ jobs:
         run: |
           git config user.name "${APP_SLUG}[bot]"
           git config user.email "${USER_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
-          git add Formula/paw-proxy.rb
+          git add Formula/paw-proxy.rb README.md
           git diff --staged --quiet || {
             git commit -m "chore: update paw-proxy to ${VERSION}"
             git push
