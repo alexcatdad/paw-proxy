@@ -37,10 +37,7 @@ up npm run dev
 ## Installation
 
 ```bash
-# Download latest release
-curl -L https://github.com/alexcatdad/paw-proxy/releases/latest/download/paw-proxy-darwin-universal -o /usr/local/bin/paw-proxy
-curl -L https://github.com/alexcatdad/paw-proxy/releases/latest/download/up-darwin-universal -o /usr/local/bin/up
-chmod +x /usr/local/bin/paw-proxy /usr/local/bin/up
+brew install alexcatdad/tap/paw-proxy
 
 # Run setup (creates CA, configures DNS, installs daemon)
 sudo paw-proxy setup

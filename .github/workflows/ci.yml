@@ -68,26 +68,23 @@ jobs:
         run: |
           go build -o paw-proxy ./cmd/paw-proxy
           go build -o up ./cmd/up
-      - name: Setup CA and resolver
+      - name: Lifecycle Tests (setup/uninstall)
+        run: sudo ./lifecycle-tests.sh ./paw-proxy
+      - name: Setup for runtime tests
         run: sudo ./paw-proxy setup
-      - name: Prepare for daemon
-        run: |
-          sudo chmod 755 "$HOME/Library/Application Support/paw-proxy"
-          # Unload with sudo since setup loaded it in the root launchd domain
-          sudo launchctl unload ~/Library/LaunchAgents/dev.paw-proxy.plist 2>/dev/null || true
-          launchctl unload ~/Library/LaunchAgents/dev.paw-proxy.plist 2>/dev/null || true
       - name: Start daemon
         run: |
+          # In CI, launchd may not start the daemon reliably — start manually.
+          # Bootout any launchd-managed instance first to free the sockets.
+          sudo launchctl bootout "gui/$(id -u)/dev.paw-proxy" 2>/dev/null || true
           sudo ./paw-proxy run &
           DAEMON_PID=$!
           echo "DAEMON_PID=$DAEMON_PID" >> "$GITHUB_ENV"
-          # Wait for socket to appear (daemon logs to stderr now via MultiWriter)
           for i in 1 2 3 4 5 6 7 8 9 10; do
             if [ -S "$HOME/Library/Application Support/paw-proxy/paw-proxy.sock" ]; then
               echo "Socket appeared after ${i}s"
               break
             fi
-            # Check daemon is still running
             if ! kill -0 "$DAEMON_PID" 2>/dev/null; then
               echo "::error::Daemon process exited prematurely"
               cat "$HOME/Library/Logs/paw-proxy.log" 2>/dev/null || true
@@ -106,8 +103,10 @@ jobs:
             fi
             sleep 1
           done
-      - name: Integration Tests
+      - name: Runtime Integration Tests
         run: ./integration-tests.sh
+      - name: Uninstall Tests (cleanup)
+        run: sudo ./paw-proxy uninstall --brew
       - name: Dump daemon logs on failure
         if: failure()
         run: |
