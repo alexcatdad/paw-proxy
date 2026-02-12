@@ -139,8 +139,11 @@ jobs:
           GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/up-darwin-amd64 ./cmd/up
           lipo -create -output dist/up-darwin-universal dist/up-darwin-arm64 dist/up-darwin-amd64
 
+          # Man pages
+          tar -czf dist/man-pages.tar.gz -C man paw-proxy.1 up.1
+
           # Checksums
-          (cd dist && shasum -a 256 paw-proxy-darwin-arm64 paw-proxy-darwin-amd64 paw-proxy-darwin-universal up-darwin-arm64 up-darwin-amd64 up-darwin-universal > checksums.txt)
+          (cd dist && shasum -a 256 paw-proxy-darwin-arm64 paw-proxy-darwin-amd64 paw-proxy-darwin-universal up-darwin-arm64 up-darwin-amd64 up-darwin-universal man-pages.tar.gz > checksums.txt)
 
       - name: Create release
         if: steps.version.outputs.skip != 'true'
@@ -154,6 +157,7 @@ jobs:
             dist/up-darwin-arm64
             dist/up-darwin-amd64
             dist/up-darwin-universal
+            dist/man-pages.tar.gz
             dist/checksums.txt
           generate_release_notes: true
 
@@ -183,7 +187,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.release.outputs.tag }}
-        run: gh release download "$TAG" --repo "${{ github.repository }}" --pattern 'paw-proxy-darwin-*' --pattern 'up-darwin-*' --dir assets
+        run: gh release download "$TAG" --repo "${{ github.repository }}" --pattern 'paw-proxy-darwin-*' --pattern 'up-darwin-*' --pattern 'man-pages.tar.gz' --dir assets
 
       - name: Compute SHA256 checksums
         id: sha
@@ -192,6 +196,7 @@ jobs:
           echo "proxy_amd64=$(sha256sum assets/paw-proxy-darwin-amd64 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
           echo "up_arm64=$(sha256sum assets/up-darwin-arm64 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
           echo "up_amd64=$(sha256sum assets/up-darwin-amd64 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "man_pages=$(sha256sum assets/man-pages.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
       - name: Checkout homebrew-tap
         uses: actions/checkout@v4
@@ -212,6 +217,7 @@ jobs:
           SHA_PROXY_AMD64: ${{ steps.sha.outputs.proxy_amd64 }}
           SHA_UP_ARM64: ${{ steps.sha.outputs.up_arm64 }}
           SHA_UP_AMD64: ${{ steps.sha.outputs.up_amd64 }}
+          SHA_MAN_PAGES: ${{ steps.sha.outputs.man_pages }}
         run: |
           cat > Formula/paw-proxy.rb << 'FORMULA'
           class PawProxy < Formula
@@ -244,6 +250,11 @@ jobs:
                 end
               end
             end
+
+            resource "man-pages" do
+              url "https://github.com/alexcatdad/paw-proxy/releases/download/v${VERSION}/man-pages.tar.gz"
+              sha256 "${SHA_MAN_PAGES}"
+            end
           EOF
 
           cat >> Formula/paw-proxy.rb << 'FORMULA'
@@ -252,6 +263,10 @@ jobs:
               bin.install Dir["paw-proxy-*"].first || "paw-proxy" => "paw-proxy"
               resource("up").stage do
                 bin.install Dir["up-*"].first || "up" => "up"
+              end
+              resource("man-pages").stage do
+                man1.install "paw-proxy.1"
+                man1.install "up.1"
               end
             end
 

@@ -1,0 +1,71 @@
+.TH UP 1 "2026-02" "paw-proxy" "User Commands"
+.SH NAME
+up \- Dev server wrapper — register routes with paw\-proxy and run commands
+.SH SYNOPSIS
+.B up
+.RB [ -n
+.IR name ]
+.RB [ \-\-restart ]
+.I command
+.RI [ args... ]
+.SH DESCRIPTION
+.B up
+Dev server wrapper — register routes with paw\-proxy and run commands.
+.SH OPTIONS
+.TP
+.B \-n \fIname\fR
+Custom domain name (default: package.json name or directory)
+.TP
+.B \-\-restart
+Auto\-restart on crash (non\-zero exit)
+.SH ENVIRONMENT
+.TP
+.B PORT
+Allocated port for your dev server to bind to
+.TP
+.B APP_DOMAIN
+Domain name, e.g. myapp.test
+.TP
+.B APP_URL
+Full URL, e.g. https://myapp.test
+.TP
+.B HTTPS
+Always "true"
+.TP
+.B NODE_EXTRA_CA_CERTS
+Path to CA cert (for Node.js HTTPS requests)
+.SH EXAMPLES
+.PP
+Run Bun dev server with HTTPS:
+.PP
+.RS
+.nf
+$ up bun dev
+.fi
+.RE
+.PP
+Run npm dev server with HTTPS:
+.PP
+.RS
+.nf
+$ up npm run dev
+.fi
+.RE
+.PP
+Custom domain: https://api.test:
+.PP
+.RS
+.nf
+$ up \-n api bun dev
+.fi
+.RE
+.PP
+Auto\-restart on crash:
+.PP
+.RS
+.nf
+$ up \-\-restart bun dev
+.fi
+.RE
+.SH SEE ALSO
+.BR paw\-proxy(1)

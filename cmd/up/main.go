@@ -19,6 +19,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/alexcatdad/paw-proxy/internal/help"
 )
 
 var (
@@ -56,19 +58,13 @@ func (s *routeState) Snapshot() (name string, upstream string, dir string) {
 }
 
 func main() {
+	flag.Usage = func() {
+		help.UpCommand.Render(os.Stderr)
+	}
 	flag.Parse()
 
 	if flag.NArg() == 0 {
-		fmt.Println("Usage: up [-n name] [--restart] <command> [args...]")
-		fmt.Println("")
-		fmt.Println("Options:")
-		fmt.Println("  -n name    Custom domain name (default: package.json name or directory)")
-		fmt.Println("  --restart  Auto-restart on crash (non-zero exit)")
-		fmt.Println("")
-		fmt.Println("Examples:")
-		fmt.Println("  up bun dev")
-		fmt.Println("  up -n myapp npm run dev")
-		fmt.Println("  up --restart bun dev")
+		help.UpCommand.Render(os.Stderr)
 		os.Exit(1)
 	}
 
