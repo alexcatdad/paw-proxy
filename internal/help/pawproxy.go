@@ -13,9 +13,10 @@ var PawProxyCommand = Command{
 			RequiresRoot: true,
 		},
 		{
-			Name:    "uninstall",
-			Summary: "Remove all paw-proxy components",
-			Usage:   "paw-proxy uninstall [--brew]",
+			Name:         "uninstall",
+			Summary:      "Remove all paw-proxy components (requires sudo)",
+			Usage:        "sudo paw-proxy uninstall [--brew]",
+			RequiresRoot: true,
 			Flags: []Flag{
 				{Long: "--brew", Desc: "Skip CA removal prompt (used by Homebrew uninstall hook)"},
 			},
