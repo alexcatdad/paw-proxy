@@ -1,0 +1,95 @@
+.TH PAW-PROXY 1 "2026-02" "paw-proxy" "User Commands"
+.SH NAME
+paw-proxy \- Zero\-config HTTPS proxy for local macOS development
+.SH SYNOPSIS
+.B paw-proxy
+.RI [ command ]
+.RI [ options ]
+.SH DESCRIPTION
+.B paw-proxy
+Zero\-config HTTPS proxy for local macOS development.
+.SH COMMANDS
+.TP
+.B setup
+Configure DNS, CA, and install daemon (requires sudo) Requires sudo.
+.TP
+.B uninstall
+Remove all paw\-proxy components
+.RS
+.TP
+.B \-\-brew
+Skip CA removal prompt (used by Homebrew uninstall hook)
+.RE
+.TP
+.B status
+Show daemon status and registered routes
+.TP
+.B run
+Run daemon in foreground (used by launchd)
+.TP
+.B logs
+Show daemon logs
+.RS
+.TP
+.B \-f , \-\-tail
+Follow log output in real time
+.RE
+.RS
+.TP
+.B \-\-clear
+Truncate the log file
+.RE
+.TP
+.B doctor
+Run diagnostics to check system health
+.TP
+.B version
+Show version
+.SH EXAMPLES
+.PP
+Initial setup (creates CA, configures DNS, installs daemon):
+.PP
+.RS
+.nf
+$ sudo paw\-proxy setup
+.fi
+.RE
+.PP
+Check if daemon is running and see active routes:
+.PP
+.RS
+.nf
+$ paw\-proxy status
+.fi
+.RE
+.PP
+Follow daemon logs in real time:
+.PP
+.RS
+.nf
+$ paw\-proxy logs \-f
+.fi
+.RE
+.PP
+Diagnose common issues:
+.PP
+.RS
+.nf
+$ paw\-proxy doctor
+.fi
+.RE
+.SH FILES
+.TP
+.I ~/Library/Application Support/paw\-proxy/
+Support directory (CA, socket, config)
+.TP
+.I ~/Library/Logs/paw\-proxy.log
+Daemon log file
+.TP
+.I /etc/resolver/test
+macOS DNS resolver for .test TLD
+.TP
+.I ~/Library/LaunchAgents/com.alexcatdad.paw\-proxy.plist
+LaunchAgent for auto\-start
+.SH SEE ALSO
+.BR up(1)

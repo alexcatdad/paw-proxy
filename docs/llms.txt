@@ -1,0 +1,66 @@
+# paw-proxy
+
+> Zero-config HTTPS proxy for local macOS development. Provides automatic HTTPS for .test domains with trusted certificates, DNS resolution, and reverse proxying — no per-project configuration needed.
+
+paw-proxy eliminates the friction of local HTTPS development. It runs a daemon that handles DNS resolution (`*.test` → `127.0.0.1`), generates trusted TLS certificates on demand, and reverse-proxies HTTPS traffic to your dev server's local port.
+
+Two binaries: `paw-proxy` (daemon and management CLI) and `up` (dev server wrapper). Run `up bun dev` and your app is instantly available at `https://myapp.test`.
+
+## Installation
+
+- [Homebrew install and setup](https://github.com/alexcatdad/paw-proxy#installation): `brew install alexcatdad/tap/paw-proxy && sudo paw-proxy setup`
+- [Build from source](https://github.com/alexcatdad/paw-proxy#development): Clone, `go build`, and `sudo ./paw-proxy setup`
+
+## Usage
+
+- [Quick start and examples](https://github.com/alexcatdad/paw-proxy#usage): `up bun dev`, `up -n myapp npm run dev`
+- [Environment variables](https://github.com/alexcatdad/paw-proxy#up): PORT, APP_DOMAIN, APP_URL, HTTPS, NODE_EXTRA_CA_CERTS
+- [Command reference](https://github.com/alexcatdad/paw-proxy#commands): setup, uninstall, status, run, logs, doctor, version
+
+### CLI Quick Reference
+
+`paw-proxy` commands:
+- `sudo paw-proxy setup` — Generate CA, configure DNS, install daemon (requires sudo)
+- `paw-proxy status` — Show daemon status and active routes
+- `paw-proxy doctor` — Run 6 diagnostic checks (socket, daemon, DNS, CA, ports)
+- `paw-proxy logs [-f]` — Show or follow daemon logs
+- `paw-proxy uninstall` — Remove all components
+
+`up` usage:
+- `up <command>` — Find free port, register route, set PORT env var, run command
+- `up -n name <command>` — Use custom domain name
+- `up --restart <command>` — Auto-restart on crash
+
+## Troubleshooting
+
+- [Common issues](https://github.com/alexcatdad/paw-proxy#troubleshooting): Certificate trust, daemon not running, port conflicts
+- Run `paw-proxy doctor` for automated diagnostics
+- Logs at `~/Library/Logs/paw-proxy.log` or via `paw-proxy logs -f`
+
+## Architecture
+
+- [README](https://github.com/alexcatdad/paw-proxy/blob/main/README.md): Overview and how-it-works diagram
+- [CLAUDE.md](https://github.com/alexcatdad/paw-proxy/blob/main/CLAUDE.md): Detailed architecture, code locations, coding conventions
+- [Full LLM reference](https://alexcatdad.github.io/paw-proxy/llms-full.txt): Self-contained complete reference with API docs and troubleshooting
+
+### Key Source Files
+
+- [daemon.go](https://github.com/alexcatdad/paw-proxy/blob/main/internal/daemon/daemon.go): Main daemon lifecycle (DNS, HTTP, HTTPS, cleanup goroutines)
+- [routes.go](https://github.com/alexcatdad/paw-proxy/blob/main/internal/api/routes.go): Route registry with RWMutex, heartbeat timeout
+- [server.go](https://github.com/alexcatdad/paw-proxy/blob/main/internal/api/server.go): Unix socket API, input validation (SSRF prevention)
+- [proxy.go](https://github.com/alexcatdad/paw-proxy/blob/main/internal/proxy/proxy.go): HTTP forwarding and WebSocket proxy
+- [cert.go](https://github.com/alexcatdad/paw-proxy/blob/main/internal/ssl/cert.go): Certificate generation and LRU cache
+- [setup_darwin.go](https://github.com/alexcatdad/paw-proxy/blob/main/internal/setup/setup_darwin.go): macOS setup (CA, keychain, resolver, LaunchAgent)
+
+## Contributing
+
+- [Contribution guide](https://github.com/alexcatdad/paw-proxy/blob/main/CONTRIBUTING.md): Development setup and PR workflow
+- [Open issues](https://github.com/alexcatdad/paw-proxy/issues): Bug reports and feature requests
+- Build: `go build ./cmd/paw-proxy && go build ./cmd/up`
+- Test: `go test -v -race ./...`
+
+## Optional
+
+- [Homebrew tap repository](https://github.com/alexcatdad/homebrew-tap): Formula and tap configuration
+- [Changelog](https://github.com/alexcatdad/paw-proxy/blob/main/CHANGELOG.md): Release history
+- [Landing page](https://alexcatdad.github.io/paw-proxy/): Project website

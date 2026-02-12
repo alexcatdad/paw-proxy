@@ -1,0 +1,515 @@
+# paw-proxy
+
+> Zero-config HTTPS proxy for local macOS development. Provides automatic HTTPS for .test domains with trusted certificates, DNS resolution, and reverse proxying — no per-project configuration needed.
+
+paw-proxy eliminates the friction of local HTTPS development. It runs a daemon that handles DNS resolution (`*.test` → `127.0.0.1`), generates trusted TLS certificates on demand, and reverse-proxies HTTPS traffic to your dev server's local port.
+
+Two binaries: `paw-proxy` (daemon and management CLI) and `up` (dev server wrapper). Run `up bun dev` and your app is instantly available at `https://myapp.test`.
+
+Key features:
+- Automatic .test TLD DNS resolution (local DNS server on port 9353)
+- On-demand HTTPS certificate generation (ECDSA P-256, signed by local CA)
+- WebSocket support with raw TCP proxying
+- Unix socket API for route management
+- LaunchAgent integration for automatic daemon start on macOS
+- Smart naming from package.json or directory name
+- Auto-restart on crash with `--restart` flag
+
+## Installation
+
+### Via Homebrew (Recommended)
+
+```
+brew install alexcatdad/tap/paw-proxy
+sudo paw-proxy setup
+```
+
+### From Source
+
+```
+git clone https://github.com/alexcatdad/paw-proxy.git
+cd paw-proxy
+go build -o paw-proxy ./cmd/paw-proxy
+go build -o up ./cmd/up
+sudo cp paw-proxy up /usr/local/bin/
+sudo paw-proxy setup
+```
+
+### What Setup Does
+
+1. Creates support directory: `~/Library/Application Support/paw-proxy` (mode 0700)
+2. Generates CA certificate: RSA 4096-bit, 10-year validity, saved as `ca.crt` and `ca.key` (mode 0600)
+3. Trusts CA in macOS keychain (login keychain, falls back to System keychain)
+4. Creates DNS resolver: `/etc/resolver/test` pointing to `127.0.0.1:9353`
+5. Installs LaunchAgent: `~/Library/LaunchAgents/com.alexcatdad.paw-proxy.plist`
+
+### Uninstall
+
+```
+sudo paw-proxy uninstall
+```
+
+Removes CA from keychain, deletes resolver, unloads and removes LaunchAgent, deletes support directory.
+
+## Usage
+
+### Basic Workflow
+
+```
+cd ~/projects/myapp
+up bun dev
+```
+
+Output:
+```
+🔗 Mapping https://myapp.test -> localhost:3847...
+🚀 Project is live at: https://myapp.test
+------------------------------------------------
+```
+
+What happens:
+1. `up` connects to the daemon's unix socket and verifies it's running
+2. Determines app name from `-n` flag, `package.json` name, or directory name
+3. Finds a free port on 127.0.0.1
+4. Registers route with daemon: `myapp` → `http://127.0.0.1:<port>`
+5. Sets environment variables and runs `bun dev`
+6. Sends heartbeat every 10 seconds to keep route alive
+7. On exit (Ctrl+C), deregisters route from daemon
+
+### Custom Domain Name
+
+```
+up -n api bun dev
+# App available at https://api.test
+```
+
+### Auto-Restart on Crash
+
+```
+up --restart bun dev
+# Restarts automatically on non-zero exit, 1s delay between restarts
+```
+
+### Environment Variables
+
+`up` sets these for the child process:
+
+| Variable | Example | Purpose |
+|----------|---------|---------|
+| PORT | 3847 | Port your dev server should bind to |
+| APP_DOMAIN | myapp.test | Domain name |
+| APP_URL | https://myapp.test | Full HTTPS URL |
+| HTTPS | true | Indicates HTTPS is available |
+| NODE_EXTRA_CA_CERTS | ~/Library/Application Support/paw-proxy/ca.crt | CA cert path for Node.js |
+
+### Route Name Resolution
+
+1. If `-n name` flag is provided, use that (sanitized)
+2. Else if `package.json` exists in current directory, use its `name` field (sanitized)
+3. Else use directory name (sanitized)
+
+Sanitization: lowercase, replace non-alphanumeric with `-`, trim leading/trailing `-`, prepend `app-` if starts with digit, max 63 chars.
+
+## CLI Commands
+
+### paw-proxy setup
+
+```
+sudo paw-proxy setup
+```
+
+Performs complete setup: CA generation, keychain trust, DNS resolver, LaunchAgent. Idempotent — safe to re-run. Requires sudo for `/etc/resolver` and keychain modifications.
+
+### paw-proxy uninstall
+
+```
+sudo paw-proxy uninstall [--brew]
+```
+
+Removes all paw-proxy components. The `--brew` flag skips the interactive CA removal prompt (used by Homebrew's uninstall hook).
+
+### paw-proxy status
+
+```
+paw-proxy status
+```
+
+Shows daemon status, uptime, version, active routes with upstreams, and CA expiration date.
+
+Example output:
+```
+Status: ✅ Running (v1.2.0, up 2h15m)
+
+Routes:
+  • myapp.test -> localhost:3847 (45m30s)
+    Dir: /Users/alex/projects/myapp
+  • api.test -> localhost:4200 (12m15s)
+    Dir: /Users/alex/projects/api
+
+CA Expires: 2036-02-10
+```
+
+### paw-proxy run
+
+```
+paw-proxy run
+```
+
+Starts the daemon in foreground. Normally launched by the LaunchAgent, not run manually. Starts 5 goroutines: DNS server (port 9353), API server (unix socket), HTTP server (port 80, redirects to HTTPS), HTTPS server (port 443), and cleanup routine (evicts stale routes every 10s).
+
+### paw-proxy logs
+
+```
+paw-proxy logs [--tail|-f] [--clear]
+```
+
+- No flags: shows last 50 lines from `~/Library/Logs/paw-proxy.log`
+- `--tail` or `-f`: follows log output in real time (like `tail -f`)
+- `--clear`: truncates the log file
+
+### paw-proxy doctor
+
+```
+paw-proxy doctor
+```
+
+Runs 6 diagnostic checks:
+1. Unix socket exists at expected path
+2. Daemon responding to health endpoint
+3. DNS resolver file at `/etc/resolver/test`
+4. DNS server reachable on port 9353
+5. CA certificate valid and not expiring within 30 days
+6. Ports 80 and 443 listening
+
+Example output:
+```
+paw-proxy doctor
+================
+
+[✓] Unix socket exists at ~/Library/Application Support/paw-proxy/paw-proxy.sock
+[✓] Daemon running (v1.2.0, up 2h15m)
+[✓] DNS resolver configured (/etc/resolver/test)
+[✓] DNS server reachable on port 9353
+[✓] CA certificate valid (expires 2036-02-10)
+[✓] Port 80 listening
+[✓] Port 443 listening
+
+All checks passed!
+```
+
+### paw-proxy version
+
+```
+paw-proxy version
+```
+
+Prints version string (injected at build time via ldflags).
+
+## Architecture
+
+### Component Overview
+
+```
+┌─────────────┐     ┌──────────────┐     ┌─────────────┐
+│   Browser   │────▶│  paw-proxy   │────▶│  Dev Server  │
+│             │     │  (port 443)  │     │  (dynamic)   │
+└─────────────┘     └──────────────┘     └──────────────┘
+                           │
+                    ┌──────┴──────┐
+                    │  DNS Server  │
+                    │  (port 9353) │
+                    └──────────────┘
+```
+
+### Request Flow
+
+1. Browser queries DNS for `myapp.test`
+2. macOS reads `/etc/resolver/test`, forwards to `127.0.0.1:9353`
+3. paw-proxy DNS server responds: A record → 127.0.0.1, AAAA → ::1
+4. Browser connects to `127.0.0.1:443`
+5. TLS handshake: daemon generates ECDSA P-256 cert for `myapp.test`, signed by CA, cached in LRU cache (max 1000 entries)
+6. Daemon extracts Host header, strips `.test` suffix, looks up route in registry
+7. Proxy forwards request to upstream with X-Forwarded-For/Proto/Host headers
+8. For WebSocket: hijacks connection, runs bidirectional `io.Copy`
+
+### Project Structure
+
+```
+internal/
+├── api/        # Unix socket API and route registry
+│   ├── server.go     # HTTP handlers, input validation, rate limiting
+│   └── routes.go     # RouteRegistry with RWMutex, CRUD, cleanup
+├── daemon/     # Main daemon orchestrator
+│   └── daemon.go     # Launches goroutines, TLS config, graceful shutdown
+├── dns/        # DNS server for .test TLD
+│   └── server.go     # UDP-only, A/AAAA responses for *.test
+├── proxy/      # Reverse proxy with WebSocket support
+│   └── proxy.go      # HTTP forwarding + raw TCP WebSocket proxy
+├── setup/      # macOS setup/uninstall (darwin-only)
+│   ├── setup_darwin.go    # CA, keychain, resolver, LaunchAgent
+│   ├── setup_other.go     # Stub for non-macOS
+│   └── uninstall_darwin.go
+└── ssl/        # CA generation + per-domain cert cache
+    ├── ca.go         # RSA 4096-bit CA, 10-year validity
+    └── cert.go       # ECDSA P-256 leaf certs, LRU cache (max 1000)
+
+cmd/
+├── paw-proxy/  # Main CLI entry point
+│   └── main.go
+├── up/         # Dev server wrapper entry point
+│   └── main.go
+└── gen-man/    # Man page generator
+    └── main.go
+```
+
+### Security Model
+
+**SSRF Prevention:** Upstream URLs validated to localhost only — `127.0.0.1`, `::1`, `localhost`. Prevents proxying to external or internal network hosts.
+
+**Route Name Validation:** Regex `^[a-zA-Z][a-zA-Z0-9_-]{0,62}$` ensures DNS-safe labels. Max 63 characters per DNS label.
+
+**Directory Validation:** Must be absolute path (starts with `/`), no path traversal (`..` components rejected).
+
+**Certificate Trust Chain:** CA cert (RSA 4096-bit, self-signed) → leaf cert (ECDSA P-256, 1-year validity). CA trusted in macOS keychain.
+
+**File Permissions:** Support directory 0700, CA private key 0600, unix socket 0600.
+
+**TLS Configuration:** TLS 1.2 minimum. Cipher suites: ECDHE with AES-GCM and ChaCha20-Poly1305.
+
+**Network Binding:** HTTP and HTTPS servers bind to `127.0.0.1` (loopback only).
+
+## Unix Socket API
+
+The daemon exposes a control API via unix socket at `~/Library/Application Support/paw-proxy/paw-proxy.sock`.
+
+### POST /routes
+
+Register a new route.
+
+Request:
+```json
+{"name": "myapp", "upstream": "http://127.0.0.1:3000", "dir": "/Users/alex/projects/myapp"}
+```
+
+Validation:
+- `name`: matches `^[a-zA-Z][a-zA-Z0-9_-]{0,62}$`
+- `upstream`: must be localhost (127.0.0.1, ::1, or localhost)
+- `dir`: must be absolute path, no traversal
+
+Response 200:
+```json
+{"status": "registered"}
+```
+
+Response 409 (conflict):
+```json
+{"error": "route already exists", "existingDir": "/Users/alex/other-project"}
+```
+
+### DELETE /routes/{name}
+
+Deregister a route.
+
+Response 200: `{"status": "deregistered"}`
+Response 404: `{"error": "route not found"}`
+
+### POST /routes/{name}/heartbeat
+
+Keep route alive. Routes expire after 30 seconds without a heartbeat.
+
+Response 200: `{"status": "ok"}`
+Response 404: `{"error": "route not found"}`
+
+### GET /routes
+
+List all registered routes.
+
+Response 200:
+```json
+[{"name": "myapp", "upstream": "http://127.0.0.1:3000", "dir": "/Users/alex/projects/myapp", "registered": "2026-02-12T10:30:00Z", "lastHeartbeat": "2026-02-12T10:30:45Z"}]
+```
+
+### GET /health
+
+Health check.
+
+Response 200:
+```json
+{"status": "ok", "version": "1.2.0", "uptime": "2h15m30s"}
+```
+
+### Curl Examples
+
+```
+# Health check
+curl --unix-socket ~/Library/Application\ Support/paw-proxy/paw-proxy.sock http://unix/health
+
+# List routes
+curl --unix-socket ~/Library/Application\ Support/paw-proxy/paw-proxy.sock http://unix/routes
+
+# Register route
+curl --unix-socket ~/Library/Application\ Support/paw-proxy/paw-proxy.sock \
+  -X POST -H "Content-Type: application/json" \
+  -d '{"name":"myapp","upstream":"http://127.0.0.1:3000","dir":"/tmp/myapp"}' \
+  http://unix/routes
+
+# Deregister route
+curl --unix-socket ~/Library/Application\ Support/paw-proxy/paw-proxy.sock \
+  -X DELETE http://unix/routes/myapp
+```
+
+## Troubleshooting
+
+### Quick Diagnostics
+
+```
+paw-proxy doctor    # Run all 6 checks
+paw-proxy status    # Daemon status and routes
+paw-proxy logs -f   # Follow daemon logs
+```
+
+### Setup Fails with Permission Error
+
+Cause: Setup modifies `/etc/resolver`, system keychain, and LaunchAgents.
+Fix: Run with sudo: `sudo paw-proxy setup`
+
+### Certificate Not Trusted in Browser
+
+Cause: CA not in keychain or not trusted.
+Diagnose:
+```
+security find-certificate -c "paw-proxy CA" ~/Library/Keychains/login.keychain-db
+```
+Fix: Re-run `sudo paw-proxy setup` to re-trust the CA.
+
+### Firefox Doesn't Trust Certificate
+
+Cause: Firefox uses its own certificate store, not the macOS keychain.
+Fix: Install NSS tools and re-run setup:
+```
+brew install nss
+sudo paw-proxy setup
+```
+
+### "Daemon Not Running" Error
+
+Cause: LaunchAgent not loaded or daemon crashed.
+Diagnose:
+```
+launchctl list | grep paw-proxy
+paw-proxy logs
+```
+Fix: Re-run `sudo paw-proxy setup` or manually load LaunchAgent:
+```
+launchctl load ~/Library/LaunchAgents/com.alexcatdad.paw-proxy.plist
+```
+
+### Port 80 or 443 Already in Use
+
+Cause: Another web server (nginx, Apache, etc.) is using the port.
+Diagnose:
+```
+lsof -i :443
+lsof -i :80
+```
+Fix: Stop the conflicting service before running setup.
+
+### DNS Resolution Fails
+
+Cause: Resolver file missing or daemon DNS server not running.
+Diagnose:
+```
+cat /etc/resolver/test
+# Should contain: nameserver 127.0.0.1 and port 9353
+dig myapp.test @127.0.0.1 -p 9353
+```
+Fix: Re-run `sudo paw-proxy setup` to recreate resolver file.
+
+### Route Disappears After ~30 Seconds
+
+Cause: The `up` process died or heartbeat is failing.
+Diagnose: Check if `up` is running: `ps aux | grep up`
+Fix: Restart `up` or check daemon logs for heartbeat errors.
+
+### Route Name Conflict
+
+Cause: Another `up` instance registered the same name.
+Fix: Use a different name: `up -n myapp2 bun dev`
+
+### WebSocket Disconnects After 1 Hour
+
+Cause: Proxy sets a 1-hour absolute deadline on WebSocket connections (known limitation).
+Workaround: Reconnect from client side. Tracked as GitHub issue #22.
+
+### SSE Connections Die After 60 Seconds
+
+Cause: HTTPS server has 60-second WriteTimeout (known limitation).
+Workaround: None currently. Tracked as GitHub issue #24.
+
+### NODE_EXTRA_CA_CERTS Not Working
+
+Cause: Node.js was started outside of `up`, so the env var wasn't set.
+Fix: Always start Node.js via `up`: `up node server.js`
+
+## Development
+
+### Prerequisites
+
+- Go 1.24+ (matches go.mod)
+- macOS for integration tests
+- Single external dependency: `github.com/miekg/dns v1.1.72`
+
+### Build and Test
+
+```
+# Build
+go build -o paw-proxy ./cmd/paw-proxy
+go build -o up ./cmd/up
+
+# Unit tests with race detector
+go test -v -race ./...
+
+# Vet
+go vet ./...
+
+# Lint (if golangci-lint installed)
+golangci-lint run
+
+# Integration tests (macOS, requires setup)
+sudo ./paw-proxy setup
+./integration-tests.sh
+
+# Coverage
+go test -cover ./...
+
+# Regenerate man pages
+go run ./cmd/gen-man
+```
+
+### Coding Conventions
+
+- Error wrapping: `fmt.Errorf("context: %w", err)`
+- Security comments: `// SECURITY: explanation`
+- Build tags: `//go:build darwin` with `_other.go` stubs
+- No `log.Fatal` in library code (only in `cmd/`)
+- No holding locks during I/O or crypto operations
+- Validate all user input at API boundary
+
+## Files
+
+| Path | Purpose |
+|------|---------|
+| `~/Library/Application Support/paw-proxy/` | Support directory |
+| `~/Library/Application Support/paw-proxy/ca.crt` | CA certificate |
+| `~/Library/Application Support/paw-proxy/ca.key` | CA private key (mode 0600) |
+| `~/Library/Application Support/paw-proxy/paw-proxy.sock` | Unix socket (mode 0600) |
+| `~/Library/Logs/paw-proxy.log` | Daemon log file |
+| `/etc/resolver/test` | macOS DNS resolver for .test TLD |
+| `~/Library/LaunchAgents/com.alexcatdad.paw-proxy.plist` | LaunchAgent plist |
+
+## Resources
+
+- GitHub: https://github.com/alexcatdad/paw-proxy
+- Issues: https://github.com/alexcatdad/paw-proxy/issues
+- Homebrew tap: https://github.com/alexcatdad/homebrew-tap
+- Website: https://alexcatdad.github.io/paw-proxy/

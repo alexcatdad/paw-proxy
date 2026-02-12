@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/alexcatdad/paw-proxy/internal/daemon"
+	"github.com/alexcatdad/paw-proxy/internal/help"
 	"github.com/alexcatdad/paw-proxy/internal/setup"
 )
 
@@ -25,25 +26,53 @@ import (
 var version = "dev"
 
 func main() {
-	// Subcommands
+	help.PawProxyCommand.Version = version
+
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
+		case "--help", "-h", "help":
+			help.PawProxyCommand.Render(os.Stdout)
+			return
 		case "setup":
+			if hasHelpFlag(os.Args[2:]) {
+				help.PawProxyCommand.RenderSubcommand(os.Stdout, "setup")
+				return
+			}
 			cmdSetup()
 			return
 		case "uninstall":
+			if hasHelpFlag(os.Args[2:]) {
+				help.PawProxyCommand.RenderSubcommand(os.Stdout, "uninstall")
+				return
+			}
 			cmdUninstall()
 			return
 		case "status":
+			if hasHelpFlag(os.Args[2:]) {
+				help.PawProxyCommand.RenderSubcommand(os.Stdout, "status")
+				return
+			}
 			cmdStatus()
 			return
 		case "run":
+			if hasHelpFlag(os.Args[2:]) {
+				help.PawProxyCommand.RenderSubcommand(os.Stdout, "run")
+				return
+			}
 			cmdRun()
 			return
 		case "logs":
+			if hasHelpFlag(os.Args[2:]) {
+				help.PawProxyCommand.RenderSubcommand(os.Stdout, "logs")
+				return
+			}
 			cmdLogs()
 			return
 		case "doctor":
+			if hasHelpFlag(os.Args[2:]) {
+				help.PawProxyCommand.RenderSubcommand(os.Stdout, "doctor")
+				return
+			}
 			cmdDoctor()
 			return
 		case "version":
@@ -52,18 +81,18 @@ func main() {
 		}
 	}
 
-	// Default: show usage
-	fmt.Println("Usage: paw-proxy <command>")
-	fmt.Println("")
-	fmt.Println("Commands:")
-	fmt.Println("  setup      Configure DNS, CA, and install daemon (requires sudo)")
-	fmt.Println("  uninstall  Remove all paw-proxy components")
-	fmt.Println("  status     Show daemon status and registered routes")
-	fmt.Println("  run        Run daemon in foreground (for launchd)")
-	fmt.Println("  logs       Show daemon logs")
-	fmt.Println("  doctor     Run diagnostics to check system health")
-	fmt.Println("  version    Show version")
+	// No command or unknown command: show help
+	help.PawProxyCommand.Render(os.Stderr)
 	os.Exit(1)
+}
+
+func hasHelpFlag(args []string) bool {
+	for _, arg := range args {
+		if arg == "--help" || arg == "-h" {
+			return true
+		}
+	}
+	return false
 }
 
 func cmdRun() {
