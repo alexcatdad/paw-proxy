@@ -33,7 +33,10 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error creating %s: %v\n", c.file, err)
 			os.Exit(1)
 		}
-		writeManPage(f, c.cmd, date)
+		if err := writeManPage(f, c.cmd, date); err != nil {
+			fmt.Fprintf(os.Stderr, "error writing %s: %v\n", c.file, err)
+			os.Exit(1)
+		}
 		if err := f.Close(); err != nil {
 			fmt.Fprintf(os.Stderr, "error closing %s: %v\n", c.file, err)
 			os.Exit(1)
@@ -42,128 +45,141 @@ func main() {
 	}
 }
 
-func writeManPage(f *os.File, cmd *help.Command, date string) {
-	name := strings.ToUpper(cmd.Name)
-	w := func(format string, args ...interface{}) {
-		fmt.Fprintf(f, format+"\n", args...)
+// roffWriter wraps an *os.File and captures the first write error.
+type roffWriter struct {
+	f   *os.File
+	err error
+}
+
+func (rw *roffWriter) w(format string, args ...interface{}) {
+	if rw.err != nil {
+		return
 	}
+	_, rw.err = fmt.Fprintf(rw.f, format+"\n", args...)
+}
+
+func writeManPage(f *os.File, cmd *help.Command, date string) error {
+	name := strings.ToUpper(cmd.Name)
+	rw := &roffWriter{f: f}
 
 	// Title header
-	w(`.TH %s 1 "%s" "paw-proxy" "User Commands"`, name, date)
+	rw.w(`.TH %s 1 "%s" "paw-proxy" "User Commands"`, name, date)
 
 	// NAME
-	w(".SH NAME")
-	w(`%s \- %s`, cmd.Name, escRoff(cmd.Summary))
+	rw.w(".SH NAME")
+	rw.w(`%s \- %s`, cmd.Name, escRoff(cmd.Summary))
 
 	// SYNOPSIS
-	w(".SH SYNOPSIS")
-	writeSynopsis(f, cmd)
+	rw.w(".SH SYNOPSIS")
+	writeSynopsis(rw, cmd)
 
 	// DESCRIPTION
-	w(".SH DESCRIPTION")
-	w(`.B %s`, cmd.Name)
+	rw.w(".SH DESCRIPTION")
+	rw.w(`.B %s`, cmd.Name)
 	if cmd.Description != "" {
-		w("%s", escRoff(cmd.Description))
+		rw.w("%s", escRoff(cmd.Description))
 	} else {
-		w("%s", escRoff(cmd.Summary)+".")
+		rw.w("%s", escRoff(cmd.Summary)+".")
 	}
 
 	// COMMANDS (for binaries with subcommands)
 	if len(cmd.Subcommands) > 0 {
-		w(".SH COMMANDS")
+		rw.w(".SH COMMANDS")
 		for _, sc := range cmd.Subcommands {
-			w(".TP")
-			w(`.B %s`, sc.Name)
-			w("%s", escRoff(sc.Summary))
+			rw.w(".TP")
+			rw.w(`.B %s`, sc.Name)
+			rw.w("%s", escRoff(sc.Summary))
 			for _, fl := range sc.Flags {
-				w(".RS")
-				w(".TP")
-				w(`.B %s`, escFlag(fl))
-				w("%s", escRoff(fl.Desc))
-				w(".RE")
+				rw.w(".RS")
+				rw.w(".TP")
+				rw.w(`.B %s`, escFlag(fl))
+				rw.w("%s", escRoff(fl.Desc))
+				rw.w(".RE")
 			}
 		}
 	}
 
 	// OPTIONS (for top-level flags)
 	if len(cmd.Flags) > 0 {
-		w(".SH OPTIONS")
+		rw.w(".SH OPTIONS")
 		for _, fl := range cmd.Flags {
-			w(".TP")
-			w(`.B %s`, escFlag(fl))
-			w("%s", escRoff(fl.Desc))
+			rw.w(".TP")
+			rw.w(`.B %s`, escFlag(fl))
+			rw.w("%s", escRoff(fl.Desc))
 		}
 	}
 
 	// ENVIRONMENT
 	if len(cmd.EnvVars) > 0 {
-		w(".SH ENVIRONMENT")
+		rw.w(".SH ENVIRONMENT")
 		for _, ev := range cmd.EnvVars {
-			w(".TP")
-			w(`.B %s`, ev.Name)
-			w("%s", escRoff(ev.Desc))
+			rw.w(".TP")
+			rw.w(`.B %s`, ev.Name)
+			rw.w("%s", escRoff(ev.Desc))
 		}
 	}
 
 	// EXAMPLES
 	if len(cmd.Examples) > 0 {
-		w(".SH EXAMPLES")
+		rw.w(".SH EXAMPLES")
 		for _, ex := range cmd.Examples {
 			if ex.Desc != "" {
-				w(".PP")
-				w("%s:", escRoff(ex.Desc))
+				rw.w(".PP")
+				rw.w("%s:", escRoff(ex.Desc))
 			}
-			w(".PP")
-			w(".RS")
-			w(".nf")
-			w("$ %s", escRoff(ex.Command))
-			w(".fi")
-			w(".RE")
+			rw.w(".PP")
+			rw.w(".RS")
+			rw.w(".nf")
+			rw.w("$ %s", escRoff(ex.Command))
+			rw.w(".fi")
+			rw.w(".RE")
 		}
 	}
 
 	// FILES
 	if len(cmd.Files) > 0 {
-		w(".SH FILES")
+		rw.w(".SH FILES")
 		for _, fp := range cmd.Files {
-			w(".TP")
-			w(`.I %s`, escRoff(fp.Path))
-			w("%s", escRoff(fp.Desc))
+			rw.w(".TP")
+			rw.w(`.I %s`, escRoff(fp.Path))
+			rw.w("%s", escRoff(fp.Desc))
 		}
 	}
 
 	// SEE ALSO
 	if len(cmd.SeeAlso) > 0 {
-		w(".SH SEE ALSO")
+		rw.w(".SH SEE ALSO")
 		refs := make([]string, len(cmd.SeeAlso))
 		for i, sa := range cmd.SeeAlso {
 			refs[i] = fmt.Sprintf(`.BR %s`, escRoff(sa))
 		}
-		w("%s", strings.Join(refs, ",\n"))
+		rw.w("%s", strings.Join(refs, ",\n"))
 	}
+
+	if rw.err != nil {
+		return fmt.Errorf("write man page: %w", rw.err)
+	}
+	return nil
 }
 
-func writeSynopsis(f *os.File, cmd *help.Command) {
-	w := func(format string, args ...interface{}) {
-		fmt.Fprintf(f, format+"\n", args...)
-	}
-	w(`.B %s`, cmd.Name)
+func writeSynopsis(rw *roffWriter, cmd *help.Command) {
+	rw.w(`.B %s`, cmd.Name)
 	if len(cmd.Subcommands) > 0 {
-		w(`.RI [ command ]`)
-		w(`.RI [ options ]`)
+		rw.w(`.RI [ command ]`)
+		rw.w(`.RI [ options ]`)
 	} else {
 		for _, fl := range cmd.Flags {
 			if fl.Short != "" && fl.Arg != "" {
-				w(`.RB [ %s`, fl.Short)
-				w(`.IR %s ]`, fl.Arg)
+				rw.w(`.RB [ %s`, fl.Short)
+				rw.w(`.IR %s ]`, fl.Arg)
 			} else if fl.Long != "" {
-				w(`.RB [ %s ]`, escRoff(fl.Long))
+				rw.w(`.RB [ %s ]`, escRoff(fl.Long))
 			} else if fl.Short != "" {
-				w(`.RB [ %s ]`, fl.Short)
+				rw.w(`.RB [ %s ]`, fl.Short)
 			}
 		}
-		w(`.I command`)
-		w(`.RI [ args... ]`)
+		rw.w(`.I command`)
+		rw.w(`.RI [ args... ]`)
 	}
 }
 
