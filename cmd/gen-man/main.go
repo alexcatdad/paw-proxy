@@ -34,7 +34,10 @@ func main() {
 			os.Exit(1)
 		}
 		writeManPage(f, c.cmd, date)
-		f.Close()
+		if err := f.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "error closing %s: %v\n", c.file, err)
+			os.Exit(1)
+		}
 		fmt.Printf("Generated %s\n", c.file)
 	}
 }
@@ -71,11 +74,7 @@ func writeManPage(f *os.File, cmd *help.Command, date string) {
 		for _, sc := range cmd.Subcommands {
 			w(".TP")
 			w(`.B %s`, sc.Name)
-			desc := escRoff(sc.Summary)
-			if sc.RequiresRoot {
-				desc += " Requires sudo."
-			}
-			w("%s", desc)
+			w("%s", escRoff(sc.Summary))
 			for _, fl := range sc.Flags {
 				w(".RS")
 				w(".TP")
@@ -138,7 +137,7 @@ func writeManPage(f *os.File, cmd *help.Command, date string) {
 		w(".SH SEE ALSO")
 		refs := make([]string, len(cmd.SeeAlso))
 		for i, sa := range cmd.SeeAlso {
-			refs[i] = fmt.Sprintf(`.BR %s`, sa)
+			refs[i] = fmt.Sprintf(`.BR %s`, escRoff(sa))
 		}
 		w("%s", strings.Join(refs, ",\n"))
 	}
