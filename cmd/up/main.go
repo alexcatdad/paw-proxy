@@ -23,9 +23,14 @@ import (
 	"github.com/alexcatdad/paw-proxy/internal/help"
 )
 
+// version is set via -ldflags at build time; defaults to "dev" for local builds.
+var version = "dev"
+
 var (
 	nameFlag    = flag.String("n", "", "Custom app name (default: from package.json or directory)")
 	restartFlag = flag.Bool("restart", false, "Auto-restart on crash (non-zero exit)")
+	showVersion = flag.Bool("version", false, "Show version")
+	showVersionShort = flag.Bool("v", false, "")
 )
 
 type routeState struct {
@@ -58,10 +63,18 @@ func (s *routeState) Snapshot() (name string, upstream string, dir string) {
 }
 
 func main() {
+	help.UpCommand.Version = version
+
 	flag.Usage = func() {
 		help.UpCommand.Render(os.Stderr)
 	}
 	flag.Parse()
+
+	// Handle --version/-v flag
+	if *showVersion || *showVersionShort {
+		fmt.Printf("up version %s\n", version)
+		return
+	}
 
 	if flag.NArg() == 0 {
 		help.UpCommand.Render(os.Stderr)

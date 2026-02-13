@@ -135,8 +135,8 @@ jobs:
           lipo -create -output dist/paw-proxy-darwin-universal dist/paw-proxy-darwin-arm64 dist/paw-proxy-darwin-amd64
 
           # up
-          GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/up-darwin-arm64 ./cmd/up
-          GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/up-darwin-amd64 ./cmd/up
+          GOOS=darwin GOARCH=arm64 go build -ldflags="$LDFLAGS" -o dist/up-darwin-arm64 ./cmd/up
+          GOOS=darwin GOARCH=amd64 go build -ldflags="$LDFLAGS" -o dist/up-darwin-amd64 ./cmd/up
           lipo -create -output dist/up-darwin-universal dist/up-darwin-arm64 dist/up-darwin-amd64
 
           # Man pages
