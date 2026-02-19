@@ -33,6 +33,7 @@ up npm run dev
 - **WebSocket support** - Hot reload works out of the box
 - **Smart naming** - Uses package.json name or directory name
 - **Conflict resolution** - Automatic fallback when a domain is already in use (great for git worktrees)
+- **Live dashboard** - Real-time request feed and route status at `https://_paw.test`
 
 ## Installation
 
@@ -59,6 +60,13 @@ paw-proxy status
 ```
 
 Your app is now available at `https://<name>.test`
+
+### Dashboard
+
+Visit `https://_paw.test` to see a live dashboard with:
+- Active routes and their uptime, request counts, and average latency
+- Real-time request feed via Server-Sent Events
+- Filter requests by route (click any route row)
 
 ### Git Worktrees
 

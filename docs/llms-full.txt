@@ -14,6 +14,7 @@ Key features:
 - LaunchAgent integration for automatic daemon start on macOS
 - Smart naming from package.json or directory name
 - Auto-restart on crash with `--restart` flag
+- Live web dashboard at `https://_paw.test` with real-time request feed and route stats
 
 ## Installation
 
@@ -239,6 +240,10 @@ internal/
 ├── api/        # Unix socket API and route registry
 │   ├── server.go     # HTTP handlers, input validation, rate limiting
 │   └── routes.go     # RouteRegistry with RWMutex, CRUD, cleanup
+├── dashboard/  # Live web dashboard
+│   ├── dashboard.go  # HTTP handlers, SSE streaming, embedded static files
+│   ├── metrics.go    # Ring buffer, route stats aggregation, SSE fan-out
+│   └── static/       # Embedded HTML, CSS, JS (Terminal Noir theme)
 ├── daemon/     # Main daemon orchestrator
 │   └── daemon.go     # Launches goroutines, TLS config, graceful shutdown
 ├── dns/        # DNS server for .test TLD
@@ -277,6 +282,30 @@ cmd/
 **TLS Configuration:** TLS 1.2 minimum. Cipher suites: ECDHE with AES-GCM and ChaCha20-Poly1305.
 
 **Network Binding:** HTTP and HTTPS servers bind to `127.0.0.1` (loopback only).
+
+## Dashboard
+
+Visit `https://_paw.test` while the daemon is running to access the live dashboard.
+
+### Features
+
+- **Active Routes table:** Shows each route's name, upstream, working directory, uptime, request count, average latency, and error count
+- **Real-time Request Feed:** SSE-powered live stream of all proxied requests with method, host, path, status code, and latency
+- **Route filtering:** Click any route row to filter the feed to that route's requests
+- **Pause/Resume:** Pause the live feed to inspect entries
+
+### Dashboard API
+
+The dashboard is served by the daemon when a request arrives for `_paw.test`. It exposes these endpoints:
+
+- `GET /` — Dashboard HTML (embedded static files)
+- `GET /api/routes` — JSON array of route stats (name, upstream, dir, uptime, requests, avgMs, errors)
+- `GET /api/stats` — JSON object with version and uptime
+- `GET /events` — SSE stream of new requests (JSON-encoded RequestEntry per event)
+
+### Architecture
+
+The dashboard uses a ring buffer (`Metrics`) to store the last 1000 requests. SSE subscribers receive new entries via non-blocking channel fan-out. Static files (HTML, CSS, JS) are embedded in the binary via `//go:embed`. The `_paw.test` hostname is intercepted in `daemon.handleRequest()` before metrics recording to prevent feedback loops.
 
 ## Unix Socket API
 
