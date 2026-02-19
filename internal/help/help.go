@@ -114,6 +114,17 @@ func (c *Command) Render(w io.Writer) {
 	if len(c.Subcommands) > 0 {
 		fmt.Fprintf(w, "Use \"%s <command> --help\" for more information about a command.\n", c.Name)
 	}
+
+	// Related commands (from SeeAlso for terminal help) — only for binaries with subcommands
+	if len(c.SeeAlso) > 0 && len(c.Subcommands) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "Related commands:")
+		for _, ref := range c.SeeAlso {
+			// Strip man page section number: "up(1)" -> "up"
+			cmdName := strings.Split(ref, "(")[0]
+			fmt.Fprintf(w, "  %s\n", cmdName)
+		}
+	}
 }
 
 // RenderSubcommand writes the help text for a specific subcommand to w.

@@ -32,7 +32,7 @@ up npm run dev
 - **Auto SSL** - Generates trusted certificates on-the-fly
 - **WebSocket support** - Hot reload works out of the box
 - **Smart naming** - Uses package.json name or directory name
-- **Conflict detection** - Warns when domain is already in use
+- **Conflict resolution** - Automatic fallback when a domain is already in use (great for git worktrees)
 
 ## Installation
 
@@ -59,6 +59,29 @@ paw-proxy status
 ```
 
 Your app is now available at `https://<name>.test`
+
+### Git Worktrees
+
+Running multiple branches of the same project? paw-proxy handles it automatically. When two instances of `up` register the same name (e.g., from a shared `package.json`), the second instance falls back to its directory name:
+
+```bash
+# Main checkout: ~/myapp/
+up bun dev
+# → https://myapp.test
+
+# Worktree: ~/myapp-feat-auth/
+up bun dev
+# ⚠️  myapp.test already in use from ~/myapp
+#    Using myapp-feat-auth.test instead
+# → https://myapp-feat-auth.test
+```
+
+You can also set an explicit name with `-n`:
+
+```bash
+up -n staging bun dev
+# → https://staging.test
+```
 
 ## How It Works
 

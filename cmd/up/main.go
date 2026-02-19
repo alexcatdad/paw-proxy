@@ -23,9 +23,14 @@ import (
 	"github.com/alexcatdad/paw-proxy/internal/help"
 )
 
+// version is set via -ldflags at build time; defaults to "dev" for local builds.
+var version = "dev"
+
 var (
 	nameFlag    = flag.String("n", "", "Custom app name (default: from package.json or directory)")
 	restartFlag = flag.Bool("restart", false, "Auto-restart on crash (non-zero exit)")
+	showVersion = flag.Bool("version", false, "Show version")
+	showVersionShort = flag.Bool("v", false, "")
 )
 
 type routeState struct {
@@ -58,10 +63,18 @@ func (s *routeState) Snapshot() (name string, upstream string, dir string) {
 }
 
 func main() {
+	help.UpCommand.Version = version
+
 	flag.Usage = func() {
 		help.UpCommand.Render(os.Stderr)
 	}
 	flag.Parse()
+
+	// Handle --version/-v flag
+	if *showVersion || *showVersionShort {
+		fmt.Printf("up version %s\n", version)
+		return
+	}
 
 	if flag.NArg() == 0 {
 		help.UpCommand.Render(os.Stderr)
@@ -129,23 +142,15 @@ func main() {
 			}
 		}
 
-		// Register route
-		err = registerRoute(client, name, upstream, dir)
+		// Register route (with automatic fallback to directory name on conflict)
+		finalName, err := registerWithFallback(client, name, upstream, dir)
 		if err != nil {
-			if conflictDir := extractConflictDir(err); conflictDir != "" {
-				dirName := sanitizeName(filepath.Base(dir))
-				if dirName != name {
-					fmt.Printf("⚠️  %s.test already in use from %s\n", name, conflictDir)
-					fmt.Printf("   Using %s.test instead\n", dirName)
-					name = dirName
-					state.SetName(name)
-					err = registerRoute(client, name, upstream, dir)
-				}
-			}
-			if err != nil {
-				fmt.Printf("Error registering route: %v\n", err)
-				os.Exit(1)
-			}
+			fmt.Printf("Error registering route: %v\n", err)
+			os.Exit(1)
+		}
+		if finalName != name {
+			name = finalName
+			state.SetName(name)
 		}
 
 		fmt.Printf("🔗 Mapping https://%s.test -> localhost:%d...\n", name, port)
@@ -408,4 +413,32 @@ func extractConflictDir(err error) string {
 		return ce.dir
 	}
 	return ""
+}
+
+// registerWithFallback attempts to register a route. On a name conflict, it
+// falls back to using the directory basename (if different from the original
+// name). Returns the final registered name.
+func registerWithFallback(client *http.Client, name, upstream, dir string) (string, error) {
+	err := registerRoute(client, name, upstream, dir)
+	if err == nil {
+		return name, nil
+	}
+
+	conflictDir := extractConflictDir(err)
+	if conflictDir == "" {
+		return "", err
+	}
+
+	dirName := sanitizeName(filepath.Base(dir))
+	if dirName == name {
+		return "", err
+	}
+
+	fmt.Printf("⚠️  %s.test already in use from %s\n", name, conflictDir)
+	fmt.Printf("   Using %s.test instead\n", dirName)
+
+	if err := registerRoute(client, dirName, upstream, dir); err != nil {
+		return "", err
+	}
+	return dirName, nil
 }
