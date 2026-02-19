@@ -30,7 +30,7 @@ type Dashboard struct {
 }
 
 // New creates a Dashboard instance.
-func New(metrics *Metrics, routes RouteProvider, version string, startTime time.Time) *Dashboard {
+func New(metrics *Metrics, routes RouteProvider, version string, startTime time.Time) (*Dashboard, error) {
 	d := &Dashboard{
 		metrics:   metrics,
 		routes:    routes,
@@ -40,7 +40,7 @@ func New(metrics *Metrics, routes RouteProvider, version string, startTime time.
 
 	staticSub, err := fs.Sub(staticFS, "static")
 	if err != nil {
-		log.Fatalf("dashboard: failed to create sub filesystem: %v", err)
+		return nil, fmt.Errorf("dashboard: create sub filesystem: %w", err)
 	}
 
 	mux := http.NewServeMux()
@@ -50,7 +50,7 @@ func New(metrics *Metrics, routes RouteProvider, version string, startTime time.
 	mux.Handle("GET /", http.FileServerFS(staticSub))
 
 	d.mux = mux
-	return d
+	return d, nil
 }
 
 func (d *Dashboard) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -150,7 +150,9 @@ func (d *Dashboard) handleEvents(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				continue
 			}
-			fmt.Fprintf(w, "data: %s\n\n", data)
+			if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
+				return
+			}
 			flusher.Flush()
 		}
 	}

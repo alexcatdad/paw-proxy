@@ -20,8 +20,17 @@ func (m *mockRouteProvider) List() []api.Route {
 	return m.routes
 }
 
+func newTestDashboard(t *testing.T, metrics *Metrics, routes RouteProvider, version string, startTime time.Time) *Dashboard {
+	t.Helper()
+	d, err := New(metrics, routes, version, startTime)
+	if err != nil {
+		t.Fatalf("failed to create dashboard: %v", err)
+	}
+	return d
+}
+
 func TestDashboard_ServesHTML(t *testing.T) {
-	d := New(NewMetrics(10), &mockRouteProvider{}, "1.0.0", time.Now())
+	d := newTestDashboard(t, NewMetrics(10), &mockRouteProvider{}, "1.0.0", time.Now())
 
 	req := httptest.NewRequest("GET", "https://_paw.test/", nil)
 	w := httptest.NewRecorder()
@@ -40,7 +49,7 @@ func TestDashboard_ServesHTML(t *testing.T) {
 }
 
 func TestDashboard_ServesCSS(t *testing.T) {
-	d := New(NewMetrics(10), &mockRouteProvider{}, "1.0.0", time.Now())
+	d := newTestDashboard(t, NewMetrics(10), &mockRouteProvider{}, "1.0.0", time.Now())
 
 	req := httptest.NewRequest("GET", "https://_paw.test/style.css", nil)
 	w := httptest.NewRecorder()
@@ -56,7 +65,7 @@ func TestDashboard_ServesCSS(t *testing.T) {
 }
 
 func TestDashboard_ServesJS(t *testing.T) {
-	d := New(NewMetrics(10), &mockRouteProvider{}, "1.0.0", time.Now())
+	d := newTestDashboard(t, NewMetrics(10), &mockRouteProvider{}, "1.0.0", time.Now())
 
 	req := httptest.NewRequest("GET", "https://_paw.test/app.js", nil)
 	w := httptest.NewRecorder()
@@ -82,7 +91,7 @@ func TestDashboard_APIRoutes(t *testing.T) {
 	m.Record(RequestEntry{Timestamp: now, Route: "myapp", StatusCode: 200, LatencyMs: 25})
 	m.Record(RequestEntry{Timestamp: now, Route: "myapp", StatusCode: 500, LatencyMs: 100})
 
-	d := New(m, routes, "1.0.0", now)
+	d := newTestDashboard(t, m, routes, "1.0.0", now)
 
 	req := httptest.NewRequest("GET", "https://_paw.test/api/routes", nil)
 	w := httptest.NewRecorder()
@@ -108,6 +117,10 @@ func TestDashboard_APIRoutes(t *testing.T) {
 	if result[0]["requests"].(float64) != 2 {
 		t.Errorf("expected 2 requests, got %v", result[0]["requests"])
 	}
+	// (25 + 100) / 2 = 62 (integer division)
+	if result[0]["avgMs"].(float64) != 62 {
+		t.Errorf("expected avgMs 62, got %v", result[0]["avgMs"])
+	}
 	if result[0]["errors"].(float64) != 1 {
 		t.Errorf("expected 1 error, got %v", result[0]["errors"])
 	}
@@ -115,7 +128,7 @@ func TestDashboard_APIRoutes(t *testing.T) {
 
 func TestDashboard_APIStats(t *testing.T) {
 	startTime := time.Now().Add(-5 * time.Minute)
-	d := New(NewMetrics(10), &mockRouteProvider{}, "1.2.3", startTime)
+	d := newTestDashboard(t, NewMetrics(10), &mockRouteProvider{}, "1.2.3", startTime)
 
 	req := httptest.NewRequest("GET", "https://_paw.test/api/stats", nil)
 	w := httptest.NewRecorder()
@@ -138,7 +151,7 @@ func TestDashboard_APIStats(t *testing.T) {
 }
 
 func TestDashboard_SSEHeaders(t *testing.T) {
-	d := New(NewMetrics(10), &mockRouteProvider{}, "1.0.0", time.Now())
+	d := newTestDashboard(t, NewMetrics(10), &mockRouteProvider{}, "1.0.0", time.Now())
 
 	// Use a real httptest.Server to avoid data races with ResponseRecorder.
 	srv := httptest.NewServer(d)
