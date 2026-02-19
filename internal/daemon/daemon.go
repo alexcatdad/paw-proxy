@@ -505,6 +505,14 @@ func (s *statusCapture) WriteHeader(code int) {
 	s.ResponseWriter.WriteHeader(code)
 }
 
+func (s *statusCapture) Write(b []byte) (int, error) {
+	if !s.written {
+		s.status = 200
+		s.written = true
+	}
+	return s.ResponseWriter.Write(b)
+}
+
 func (s *statusCapture) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	if h, ok := s.ResponseWriter.(http.Hijacker); ok {
 		return h.Hijack()

@@ -102,3 +102,14 @@ func TestStatusCapture_OnlyFirstWriteHeaderCaptured(t *testing.T) {
 		t.Errorf("expected first status 200, got %d", sc.status)
 	}
 }
+
+func TestStatusCapture_WriteImplies200(t *testing.T) {
+	w := httptest.NewRecorder()
+	sc := &statusCapture{ResponseWriter: w}
+
+	sc.Write([]byte("hello"))
+
+	if sc.status != 200 {
+		t.Errorf("expected implicit status 200 from Write, got %d", sc.status)
+	}
+}
