@@ -16,6 +16,7 @@ Two binaries: `paw-proxy` (daemon and management CLI) and `up` (dev server wrapp
 - [Quick start and examples](https://github.com/alexcatdad/paw-proxy#usage): `up bun dev`, `up -n myapp npm run dev`
 - [Environment variables](https://github.com/alexcatdad/paw-proxy#up): PORT, APP_DOMAIN, APP_URL, HTTPS, NODE_EXTRA_CA_CERTS
 - [Command reference](https://github.com/alexcatdad/paw-proxy#commands): setup, uninstall, status, run, logs, doctor, version
+- [Live dashboard](https://github.com/alexcatdad/paw-proxy#dashboard): Real-time request feed and route stats at `https://_paw.test`
 
 ### CLI Quick Reference
 
@@ -45,6 +46,7 @@ Two binaries: `paw-proxy` (daemon and management CLI) and `up` (dev server wrapp
 
 ### Key Source Files
 
+- [dashboard.go](https://github.com/alexcatdad/paw-proxy/blob/main/internal/dashboard/dashboard.go): Web dashboard HTTP handlers, SSE streaming, embedded static files
 - [daemon.go](https://github.com/alexcatdad/paw-proxy/blob/main/internal/daemon/daemon.go): Main daemon lifecycle (DNS, HTTP, HTTPS, cleanup goroutines)
 - [routes.go](https://github.com/alexcatdad/paw-proxy/blob/main/internal/api/routes.go): Route registry with RWMutex, heartbeat timeout
 - [server.go](https://github.com/alexcatdad/paw-proxy/blob/main/internal/api/server.go): Unix socket API, input validation (SSRF prevention)
