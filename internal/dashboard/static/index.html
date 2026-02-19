@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>paw-proxy</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <div class="header-left">
+    <h1>paw-proxy</h1>
+    <span id="version" class="badge"></span>
+  </div>
+  <div class="header-right">
+    <span id="uptime"></span>
+    <span id="sse-dot" class="dot dot-off" title="SSE disconnected"></span>
+  </div>
+</header>
+
+<section id="routes-section">
+  <h2>Active Routes</h2>
+  <table id="routes-table">
+    <thead>
+      <tr>
+        <th>Route</th>
+        <th>Upstream</th>
+        <th>Dir</th>
+        <th>Uptime</th>
+        <th>Reqs</th>
+        <th>Avg</th>
+        <th>Errors</th>
+      </tr>
+    </thead>
+    <tbody id="routes-body"></tbody>
+  </table>
+  <p id="no-routes" class="muted">No active routes. Start a dev server with <code>up &lt;command&gt;</code></p>
+</section>
+
+<section id="feed-section">
+  <div class="feed-header">
+    <h2>Request Feed</h2>
+    <div class="feed-controls">
+      <span id="filter-label" hidden>
+        Filtering: <strong id="filter-name"></strong>
+        <button id="clear-filter" class="btn-small">&times;</button>
+      </span>
+      <button id="pause-btn" class="btn-small">Pause</button>
+    </div>
+  </div>
+  <div id="feed-list"></div>
+</section>
+
+<script src="/app.js"></script>
+</body>
+</html>
