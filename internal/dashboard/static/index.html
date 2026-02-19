@@ -7,43 +7,63 @@
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+<div class="noise"></div>
+
 <header>
   <div class="header-left">
+    <div class="logo-mark">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="7" cy="6" r="2.5" fill="currentColor" opacity="0.8"/>
+        <circle cx="17" cy="6" r="2.5" fill="currentColor" opacity="0.8"/>
+        <circle cx="4" cy="13" r="2" fill="currentColor" opacity="0.6"/>
+        <circle cx="20" cy="13" r="2" fill="currentColor" opacity="0.6"/>
+        <ellipse cx="12" cy="17" rx="5" ry="4" fill="currentColor"/>
+      </svg>
+    </div>
     <h1>paw-proxy</h1>
     <span id="version" class="badge"></span>
   </div>
   <div class="header-right">
-    <span id="uptime"></span>
-    <span id="sse-dot" class="dot dot-off" title="SSE disconnected"></span>
+    <span id="uptime" class="uptime-label"></span>
+    <span class="sse-indicator">
+      <span id="sse-dot" class="dot dot-off" title="SSE disconnected"></span>
+      <span class="sse-label">live</span>
+    </span>
   </div>
 </header>
 
-<section id="routes-section">
-  <h2>Active Routes</h2>
-  <table id="routes-table">
-    <thead>
-      <tr>
-        <th>Route</th>
-        <th>Upstream</th>
-        <th>Dir</th>
-        <th>Uptime</th>
-        <th>Reqs</th>
-        <th>Avg</th>
-        <th>Errors</th>
-      </tr>
-    </thead>
-    <tbody id="routes-body"></tbody>
-  </table>
-  <p id="no-routes" class="muted">No active routes. Start a dev server with <code>up &lt;command&gt;</code></p>
+<section id="routes-section" class="card">
+  <div class="section-header">
+    <h2>Active Routes</h2>
+  </div>
+  <div class="table-wrap">
+    <table id="routes-table">
+      <thead>
+        <tr>
+          <th>Route</th>
+          <th>Upstream</th>
+          <th>Dir</th>
+          <th>Uptime</th>
+          <th class="num">Reqs</th>
+          <th class="num">Avg</th>
+          <th class="num">Errors</th>
+        </tr>
+      </thead>
+      <tbody id="routes-body"></tbody>
+    </table>
+  </div>
+  <p id="no-routes" class="empty-state">No active routes &mdash; start a dev server with <code>up &lt;command&gt;</code></p>
 </section>
 
-<section id="feed-section">
+<section id="feed-section" class="card">
   <div class="feed-header">
     <h2>Request Feed</h2>
     <div class="feed-controls">
       <span id="filter-label" hidden>
-        Filtering: <strong id="filter-name"></strong>
-        <button id="clear-filter" class="btn-small">&times;</button>
+        <span class="filter-badge">
+          <strong id="filter-name"></strong>
+          <button id="clear-filter" class="btn-icon" aria-label="Clear filter">&times;</button>
+        </span>
       </span>
       <button id="pause-btn" class="btn-small">Pause</button>
     </div>
