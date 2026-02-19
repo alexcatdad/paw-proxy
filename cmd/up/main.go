@@ -102,7 +102,15 @@ func main() {
 		resp.Body.Close()
 	}
 
-	// Determine app name
+	// Check for Docker Compose mode
+	args := flag.Args()
+	dc := detectDockerCompose(args)
+	if dc.detected {
+		runDockerComposeMode(client, dc, args, caPath)
+		return
+	}
+
+	// Determine app name (single-app flow)
 	name := determineName(*nameFlag)
 	dir, _ := os.Getwd()
 	state := newRouteState(name, dir)
@@ -162,7 +170,6 @@ func main() {
 		fmt.Println("------------------------------------------------")
 
 		// Build command
-		args := flag.Args()
 		cmd := exec.Command(args[0], args[1:]...)
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout

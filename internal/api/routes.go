@@ -3,6 +3,8 @@ package api
 
 import (
 	"fmt"
+	"net"
+	"strings"
 	"sync"
 	"time"
 )
@@ -98,14 +100,12 @@ func (r *RouteRegistry) Lookup(name string) (Route, bool) {
 }
 
 // ExtractName extracts the route name from a host string like
-// "myapp.test" or "myapp.test:443", returning just "myapp".
+// "myapp.test", "frontend.myapp.test:443", etc. Strips port and .test suffix.
 func ExtractName(host string) string {
-	for i, c := range host {
-		if c == '.' || c == ':' {
-			return host[:i]
-		}
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
 	}
-	return host
+	return strings.TrimSuffix(host, ".test")
 }
 
 // LookupByHost extracts the route name from a host string and looks it up.
