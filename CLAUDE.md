@@ -6,6 +6,16 @@ paw-proxy is a zero-config HTTPS proxy for local macOS development. It provides 
 - `paw-proxy` - Daemon and setup/management CLI
 - `up` - Command wrapper that registers routes and runs dev servers
 
+### Build & Verify
+- `go test -v -race ./...` — run all tests with race detector
+- `go vet ./...` — static analysis
+- `go build ./cmd/paw-proxy && go build ./cmd/up` — build both binaries
+
+### When Adding Features
+- Update `README.md` (features list, usage section, command reference)
+- Update `docs/index.html` (GitHub Pages — features grid, demo sections)
+- Add tests for new functionality
+
 ### PR Workflow
 1. Create branch: `fix/issue-{N}` or `feat/issue-{N}`
 2. Implement the fix (read the GitHub issue: `gh issue view {N}`)

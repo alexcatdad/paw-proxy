@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -278,6 +279,12 @@ func TestBuildComposeRouteNames(t *testing.T) {
 		wantNames   map[string]string // service → expected route name
 	}{
 		{
+			name:        "empty services",
+			services:    []discoveredService{},
+			projectName: "myapp",
+			wantNames:   map[string]string{},
+		},
+		{
 			name: "basic naming",
 			services: []discoveredService{
 				{service: "frontend", publishedPort: "3000"},
@@ -339,6 +346,107 @@ func TestBuildComposeRouteNames(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRegisterComposeRoutes(t *testing.T) {
+	t.Run("registers all routes successfully", func(t *testing.T) {
+		var registered []string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost && r.URL.Path == "/routes" {
+				var body map[string]string
+				json.NewDecoder(r.Body).Decode(&body)
+				registered = append(registered, body["name"])
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+		}))
+		defer server.Close()
+
+		client := unixHostClient(t, server)
+		routes := []composeRoute{
+			{service: "frontend", routeName: "frontend.myapp", upstream: "localhost:3000"},
+			{service: "api", routeName: "api.myapp", upstream: "localhost:8080"},
+		}
+
+		err := registerComposeRoutes(client, routes, "/tmp/project")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(registered) != 2 {
+			t.Fatalf("got %d registrations, want 2", len(registered))
+		}
+		if registered[0] != "frontend.myapp" || registered[1] != "api.myapp" {
+			t.Errorf("registered = %v", registered)
+		}
+	})
+
+	t.Run("stops on first error and wraps route name", func(t *testing.T) {
+		var registered []string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost && r.URL.Path == "/routes" {
+				var body map[string]string
+				json.NewDecoder(r.Body).Decode(&body)
+				registered = append(registered, body["name"])
+				if body["name"] == "api.myapp" {
+					w.WriteHeader(http.StatusInternalServerError)
+					json.NewEncoder(w).Encode(map[string]string{"error": "daemon error"})
+					return
+				}
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+		}))
+		defer server.Close()
+
+		client := unixHostClient(t, server)
+		routes := []composeRoute{
+			{service: "frontend", routeName: "frontend.myapp", upstream: "localhost:3000"},
+			{service: "api", routeName: "api.myapp", upstream: "localhost:8080"},
+			{service: "worker", routeName: "worker.myapp", upstream: "localhost:9090"},
+		}
+
+		err := registerComposeRoutes(client, routes, "/tmp/project")
+		if err == nil {
+			t.Fatal("expected error when second route fails")
+		}
+		if !strings.Contains(err.Error(), "api.myapp") {
+			t.Errorf("error should mention failing route name, got: %v", err)
+		}
+		// Worker should never be attempted since api failed
+		if len(registered) != 2 {
+			t.Fatalf("got %d registrations, want 2 (frontend + api)", len(registered))
+		}
+	})
+}
+
+func TestDeregisterComposeRoutes(t *testing.T) {
+	var deregistered []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/routes/") {
+			name := strings.TrimPrefix(r.URL.Path, "/routes/")
+			deregistered = append(deregistered, name)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client := unixHostClient(t, server)
+	routes := []composeRoute{
+		{service: "frontend", routeName: "frontend.myapp", upstream: "localhost:3000"},
+		{service: "api", routeName: "api.myapp", upstream: "localhost:8080"},
+	}
+
+	deregisterComposeRoutes(client, routes)
+	if len(deregistered) != 2 {
+		t.Fatalf("got %d deregistrations, want 2", len(deregistered))
+	}
+	if deregistered[0] != "frontend.myapp" || deregistered[1] != "api.myapp" {
+		t.Errorf("deregistered = %v", deregistered)
 	}
 }
 
