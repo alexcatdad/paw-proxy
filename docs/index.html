@@ -408,14 +408,63 @@
                     <p style="color: var(--text-secondary)">Uses package.json or directory name</p>
                 </div>
                 <div class="clay-sm feature-card p-6">
-                    <div class="text-3xl mb-4">⚠️</div>
-                    <h3 class="text-lg font-bold mb-2" style="color: var(--text-primary)">Conflict Detection</h3>
-                    <p style="color: var(--text-secondary)">Warns about domain collisions</p>
+                    <div class="text-3xl mb-4">🌳</div>
+                    <h3 class="text-lg font-bold mb-2" style="color: var(--text-primary)">Worktree Friendly</h3>
+                    <p style="color: var(--text-secondary)">Automatic fallback when domains collide — run branches side by side</p>
                 </div>
                 <div class="clay-sm feature-card p-6">
                     <div class="text-3xl mb-4">🛡️</div>
                     <h3 class="text-lg font-bold mb-2" style="color: var(--text-primary)">Security First</h3>
                     <p style="color: var(--text-secondary)">TLS 1.2+, localhost-only binding</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Git Worktrees -->
+        <section class="mb-24 fade-in">
+            <div class="text-center mb-12">
+                <span class="clay-pill px-5 py-2.5 text-sm font-semibold inline-flex items-center gap-2" style="color: var(--text-secondary)">
+                    <span>🌳</span> Git Worktrees
+                </span>
+                <h2 class="text-3xl md:text-4xl font-bold mt-6" style="color: var(--text-primary)">Run multiple branches side by side</h2>
+                <p class="mt-4 text-lg max-w-2xl mx-auto" style="color: var(--text-secondary)">
+                    When two instances share the same project name, paw-proxy automatically falls back to the directory name.
+                </p>
+            </div>
+
+            <div class="clay p-3 max-w-xl mx-auto">
+                <div class="clay-inset overflow-hidden">
+                    <div class="flex items-center gap-2.5 px-4 py-3" style="border-bottom: 1px solid var(--border)">
+                        <div class="flex gap-2">
+                            <div class="terminal-dot bg-red-400"></div>
+                            <div class="terminal-dot bg-amber-400"></div>
+                            <div class="terminal-dot bg-emerald-400"></div>
+                        </div>
+                        <span class="flex-1 text-center text-xs font-mono font-medium" style="color: var(--text-muted)">~ terminal</span>
+                        <div class="w-12"></div>
+                    </div>
+                    <div class="p-5 font-mono text-sm text-left space-y-1">
+                        <div style="color: var(--text-muted)"># Main checkout ~/myapp</div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-emerald-500">❯</span>
+                            <span style="color: var(--text-primary)">up bun dev</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-accent-light font-semibold">→ https://myapp.test</span>
+                        </div>
+                        <div class="pt-3" style="color: var(--text-muted)"># Worktree ~/myapp-feat-auth</div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-emerald-500">❯</span>
+                            <span style="color: var(--text-primary)">up bun dev</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-amber-500">⚠️  myapp.test already in use</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-accent-light font-semibold">→ https://myapp-feat-auth.test</span>
+                            <span class="inline-block w-2.5 h-5 bg-accent rounded-sm cursor-blink"></span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>

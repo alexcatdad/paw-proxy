@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -131,6 +132,101 @@ func TestDeregisterRouteStatusHandling(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for 500 response, got nil")
 	}
+}
+
+func TestRegisterWithFallback(t *testing.T) {
+	t.Run("no conflict registers with original name", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		client := unixHostClient(t, server)
+		name, err := registerWithFallback(client, "myapp", "localhost:3000", "/tmp/myapp")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if name != "myapp" {
+			t.Errorf("got name %q, want %q", name, "myapp")
+		}
+	})
+
+	t.Run("conflict falls back to directory name", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var body map[string]string
+			json.NewDecoder(r.Body).Decode(&body)
+
+			if body["name"] == "myapp" {
+				w.WriteHeader(http.StatusConflict)
+				json.NewEncoder(w).Encode(map[string]string{
+					"existingDir": "/home/user/myapp",
+				})
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		client := unixHostClient(t, server)
+		// Dir basename "myapp-worktree" differs from name "myapp", so fallback kicks in
+		name, err := registerWithFallback(client, "myapp", "localhost:3000", "/tmp/myapp-worktree")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if name != "myapp-worktree" {
+			t.Errorf("got name %q, want %q", name, "myapp-worktree")
+		}
+	})
+
+	t.Run("conflict with same directory name returns error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{
+				"existingDir": "/other/myapp",
+			})
+		}))
+		defer server.Close()
+
+		client := unixHostClient(t, server)
+		// Dir basename "myapp" matches name "myapp" — no fallback possible
+		_, err := registerWithFallback(client, "myapp", "localhost:3000", "/tmp/myapp")
+		if err == nil {
+			t.Fatal("expected error when directory name matches original name")
+		}
+	})
+
+	t.Run("conflict fallback also conflicts returns error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{
+				"existingDir": "/somewhere/else",
+			})
+		}))
+		defer server.Close()
+
+		client := unixHostClient(t, server)
+		// Both "myapp" and fallback "myapp-worktree" get 409
+		_, err := registerWithFallback(client, "myapp", "localhost:3000", "/tmp/myapp-worktree")
+		if err == nil {
+			t.Fatal("expected error when fallback registration also fails")
+		}
+	})
+
+	t.Run("non-conflict error is returned directly", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "internal server error",
+			})
+		}))
+		defer server.Close()
+
+		client := unixHostClient(t, server)
+		_, err := registerWithFallback(client, "myapp", "localhost:3000", "/tmp/myapp-worktree")
+		if err == nil {
+			t.Fatal("expected error for 500 response")
+		}
+	})
 }
 
 func TestExtractConflictDir(t *testing.T) {
