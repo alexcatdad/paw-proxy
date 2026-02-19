@@ -2,6 +2,7 @@
 package daemon
 
 import (
+	"bufio"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/alexcatdad/paw-proxy/internal/api"
+	"github.com/alexcatdad/paw-proxy/internal/dashboard"
 	"github.com/alexcatdad/paw-proxy/internal/dns"
 	"github.com/alexcatdad/paw-proxy/internal/errorpage"
 	"github.com/alexcatdad/paw-proxy/internal/launchd"
@@ -61,6 +63,8 @@ type Daemon struct {
 	proxy     *proxy.Proxy
 	logger    *slog.Logger
 	logFile   *os.File
+	metrics   *dashboard.Metrics
+	dash      *dashboard.Dashboard
 }
 
 func New(config *Config) (*Daemon, error) {
@@ -114,6 +118,13 @@ func New(config *Config) (*Daemon, error) {
 	certCache := ssl.NewCertCache(ca, config.TLD)
 	certCache.SetLogger(logger)
 
+	metrics := dashboard.NewMetrics(1000)
+	dash, err := dashboard.New(metrics, registry, api.Version, time.Now())
+	if err != nil {
+		logFile.Close()
+		return nil, fmt.Errorf("creating dashboard: %w", err)
+	}
+
 	return &Daemon{
 		config:    config,
 		dnsServer: dnsServer,
@@ -123,6 +134,8 @@ func New(config *Config) (*Daemon, error) {
 		proxy:     proxy.New(),
 		logger:    logger,
 		logFile:   logFile,
+		metrics:   metrics,
+		dash:      dash,
 	}, nil
 }
 
@@ -401,30 +414,68 @@ func (d *Daemon) createHTTPSServer() (*http.Server, net.Listener, error) {
 }
 
 func (d *Daemon) handleRequest(w http.ResponseWriter, r *http.Request) {
+	// Dashboard intercept — not recorded in metrics to avoid feedback loop
+	if api.ExtractName(r.Host) == "_paw" {
+		d.dash.ServeHTTP(w, r)
+		return
+	}
+
 	start := time.Now()
 
 	route, ok := d.registry.LookupByHost(r.Host)
 	if !ok {
 		d.serveNotFound(w, r)
+		elapsed := time.Since(start).Milliseconds()
 		d.logger.Info("request",
 			"host", r.Host,
 			"method", r.Method,
 			"path", r.URL.Path,
 			"status", 404,
-			"duration_ms", time.Since(start).Milliseconds(),
+			"duration_ms", elapsed,
 		)
+		d.metrics.Record(dashboard.RequestEntry{
+			Timestamp:  start,
+			Host:       r.Host,
+			Method:     r.Method,
+			Path:       r.URL.Path,
+			StatusCode: 404,
+			LatencyMs:  elapsed,
+		})
 		return
 	}
 
-	d.proxy.ServeHTTP(w, r, route.Upstream)
+	rw := &statusCapture{ResponseWriter: w}
+	d.proxy.ServeHTTP(rw, r, route.Upstream)
+
+	status := rw.status
+	if status == 0 {
+		if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+			status = 101
+		} else {
+			status = 200
+		}
+	}
+
+	elapsed := time.Since(start).Milliseconds()
 	d.logger.Info("request",
 		"host", r.Host,
 		"method", r.Method,
 		"path", r.URL.Path,
 		"route", route.Name,
 		"upstream", route.Upstream,
-		"duration_ms", time.Since(start).Milliseconds(),
+		"status", status,
+		"duration_ms", elapsed,
 	)
+	d.metrics.Record(dashboard.RequestEntry{
+		Timestamp:  start,
+		Host:       r.Host,
+		Method:     r.Method,
+		Path:       r.URL.Path,
+		StatusCode: status,
+		LatencyMs:  elapsed,
+		Route:      route.Name,
+		Upstream:   route.Upstream,
+	})
 }
 
 func (d *Daemon) serveNotFound(w http.ResponseWriter, r *http.Request) {
@@ -435,4 +486,46 @@ func (d *Daemon) serveNotFound(w http.ResponseWriter, r *http.Request) {
 		names = append(names, route.Name)
 	}
 	errorpage.NotFound(w, r.Host, appName, names)
+}
+
+// statusCapture wraps an http.ResponseWriter to capture the status code.
+// It forwards Hijack and Flush to the underlying writer so WebSocket
+// and SSE proxying continue to work.
+type statusCapture struct {
+	http.ResponseWriter
+	status  int
+	written bool
+}
+
+func (s *statusCapture) WriteHeader(code int) {
+	if !s.written {
+		s.status = code
+		s.written = true
+	}
+	s.ResponseWriter.WriteHeader(code)
+}
+
+func (s *statusCapture) Write(b []byte) (int, error) {
+	if !s.written {
+		s.status = 200
+		s.written = true
+	}
+	return s.ResponseWriter.Write(b)
+}
+
+func (s *statusCapture) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if h, ok := s.ResponseWriter.(http.Hijacker); ok {
+		return h.Hijack()
+	}
+	return nil, nil, fmt.Errorf("hijack not supported")
+}
+
+func (s *statusCapture) Flush() {
+	if f, ok := s.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (s *statusCapture) Unwrap() http.ResponseWriter {
+	return s.ResponseWriter
 }

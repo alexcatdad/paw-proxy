@@ -71,5 +71,32 @@ echo "[Test 8] Route removal verification..."
 ! curl -s --unix-socket ~/Library/Application\ Support/paw-proxy/paw-proxy.sock http://unix/routes | grep -q "integration-test"
 echo "  ✓ Route no longer in list"
 
+# Test 9: Dashboard is accessible
+echo "[Test 9] Dashboard at _paw.test..."
+DASH_STATUS=$(curl -sk -o /dev/null -w '%{http_code}' https://_paw.test/)
+if [ "$DASH_STATUS" -ne 200 ]; then
+  echo "  ✗ Dashboard returned $DASH_STATUS, expected 200"
+  exit 1
+fi
+echo "  ✓ Dashboard accessible at _paw.test"
+
+# Test 10: Dashboard API - routes
+echo "[Test 10] Dashboard API routes..."
+ROUTES_JSON=$(curl -sk https://_paw.test/api/routes)
+if ! echo "$ROUTES_JSON" | grep -q '\['; then
+  echo "  ✗ /api/routes did not return JSON array"
+  exit 1
+fi
+echo "  ✓ Dashboard API returns routes"
+
+# Test 11: Dashboard API - stats
+echo "[Test 11] Dashboard API stats..."
+STATS_JSON=$(curl -sk https://_paw.test/api/stats)
+if ! echo "$STATS_JSON" | grep -q '"version"'; then
+  echo "  ✗ /api/stats did not return version"
+  exit 1
+fi
+echo "  ✓ Dashboard API returns stats"
+
 echo ""
 echo "=== All tests passed! ==="
