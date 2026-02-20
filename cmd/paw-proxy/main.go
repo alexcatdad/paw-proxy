@@ -102,6 +102,11 @@ func cmdRun() {
 		os.Exit(1)
 	}
 
+	// Ensure log directory exists (e.g. ~/.local/state/paw-proxy/ on Linux)
+	if err := os.MkdirAll(filepath.Dir(config.LogPath), 0700); err != nil {
+		log.Fatalf("Failed to create log directory: %v", err)
+	}
+
 	// SECURITY: Owner-only log file permissions
 	logFile, err := os.OpenFile(config.LogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
@@ -176,12 +181,12 @@ func cmdUninstall() {
 }
 
 func cmdStatus() {
-	homeDir, err := os.UserHomeDir()
+	config, err := daemon.DefaultConfig()
 	if err != nil {
-		fmt.Printf("Error: cannot determine home directory: %v\n", err)
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
-	socketPath := filepath.Join(homeDir, "Library", "Application Support", "paw-proxy", "paw-proxy.sock")
+	socketPath := config.SocketPath
 
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -240,7 +245,7 @@ func cmdStatus() {
 	}
 
 	// CA info
-	certPath := filepath.Join(homeDir, "Library", "Application Support", "paw-proxy", "ca.crt")
+	certPath := filepath.Join(config.SupportDir, "ca.crt")
 	if certData, err := os.ReadFile(certPath); err == nil {
 		block, _ := pem.Decode(certData)
 		if block != nil {
@@ -371,13 +376,12 @@ func cmdDoctor() {
 		resp.Body.Close()
 	}
 
-	// 3. Check DNS resolver file
-	resolverPath := "/etc/resolver/test"
-	if _, err := os.Stat(resolverPath); err != nil {
-		printCheck(false, "DNS resolver missing (/etc/resolver/test)")
+	// 3. Check DNS resolver (platform-specific)
+	if ok, msg := doctorCheckDNS(); !ok {
+		printCheck(false, "%s", msg)
 		issues++
 	} else {
-		printCheck(true, "DNS resolver configured (/etc/resolver/test)")
+		printCheck(true, "%s", msg)
 	}
 
 	// 4. Check DNS server reachability on port 9353

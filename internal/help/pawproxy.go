@@ -3,7 +3,7 @@ package help
 // PawProxyCommand defines the help content for the paw-proxy binary.
 var PawProxyCommand = Command{
 	Name:    "paw-proxy",
-	Summary: "Zero-config HTTPS proxy for local macOS development",
+	Summary: "Zero-config HTTPS proxy for local development",
 	Usage:   "paw-proxy <command> [options]",
 	Subcommands: []Subcommand{
 		{
@@ -27,7 +27,7 @@ var PawProxyCommand = Command{
 		},
 		{
 			Name:    "run",
-			Summary: "Run daemon in foreground (used by launchd)",
+			Summary: "Run daemon in foreground (used by service manager)",
 		},
 		{
 			Name:    "logs",
@@ -53,11 +53,6 @@ var PawProxyCommand = Command{
 		{Command: "paw-proxy logs -f", Desc: "Follow daemon logs in real time"},
 		{Command: "paw-proxy doctor", Desc: "Diagnose common issues"},
 	},
-	Files: []FilePath{
-		{Path: "~/Library/Application Support/paw-proxy/", Desc: "Support directory (CA, socket, config)"},
-		{Path: "~/Library/Logs/paw-proxy.log", Desc: "Daemon log file"},
-		{Path: "/etc/resolver/test", Desc: "macOS DNS resolver for .test TLD"},
-		{Path: "~/Library/LaunchAgents/com.alexcatdad.paw-proxy.plist", Desc: "LaunchAgent for auto-start"},
-	},
+	// Files is populated per-platform by init() in pawproxy_files_*.go
 	SeeAlso: []string{"up(1)"},
 }
