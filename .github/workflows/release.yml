@@ -7,7 +7,7 @@
 #   - "!:" or "BREAKING CHANGE" -> major
 #   - "docs:", "ci:", "chore:", "test:", "style:" -> skip (no release)
 #
-# Tags the commit, builds universal macOS binaries, and publishes a GitHub release.
+# Tags the commit, builds macOS (universal) and Linux binaries, and publishes a GitHub release.
 
 name: Release
 
@@ -139,11 +139,17 @@ jobs:
           GOOS=darwin GOARCH=amd64 go build -ldflags="$LDFLAGS" -o dist/up-darwin-amd64 ./cmd/up
           lipo -create -output dist/up-darwin-universal dist/up-darwin-arm64 dist/up-darwin-amd64
 
+          # Linux
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="$LDFLAGS" -o dist/paw-proxy-linux-amd64 ./cmd/paw-proxy
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="$LDFLAGS" -o dist/paw-proxy-linux-arm64 ./cmd/paw-proxy
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="$LDFLAGS" -o dist/up-linux-amd64 ./cmd/up
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="$LDFLAGS" -o dist/up-linux-arm64 ./cmd/up
+
           # Man pages
           tar -czf dist/man-pages.tar.gz -C man paw-proxy.1 up.1
 
           # Checksums
-          (cd dist && shasum -a 256 paw-proxy-darwin-arm64 paw-proxy-darwin-amd64 paw-proxy-darwin-universal up-darwin-arm64 up-darwin-amd64 up-darwin-universal man-pages.tar.gz > checksums.txt)
+          (cd dist && shasum -a 256 paw-proxy-darwin-arm64 paw-proxy-darwin-amd64 paw-proxy-darwin-universal paw-proxy-linux-amd64 paw-proxy-linux-arm64 up-darwin-arm64 up-darwin-amd64 up-darwin-universal up-linux-amd64 up-linux-arm64 man-pages.tar.gz > checksums.txt)
 
       - name: Create release
         if: steps.version.outputs.skip != 'true'
@@ -154,9 +160,13 @@ jobs:
             dist/paw-proxy-darwin-arm64
             dist/paw-proxy-darwin-amd64
             dist/paw-proxy-darwin-universal
+            dist/paw-proxy-linux-amd64
+            dist/paw-proxy-linux-arm64
             dist/up-darwin-arm64
             dist/up-darwin-amd64
             dist/up-darwin-universal
+            dist/up-linux-amd64
+            dist/up-linux-arm64
             dist/man-pages.tar.gz
             dist/checksums.txt
           generate_release_notes: true

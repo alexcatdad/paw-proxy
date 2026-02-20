@@ -22,6 +22,7 @@ import (
 	"github.com/alexcatdad/paw-proxy/internal/dns"
 	"github.com/alexcatdad/paw-proxy/internal/errorpage"
 	"github.com/alexcatdad/paw-proxy/internal/launchd"
+	"github.com/alexcatdad/paw-proxy/internal/paths"
 	"github.com/alexcatdad/paw-proxy/internal/proxy"
 	"github.com/alexcatdad/paw-proxy/internal/ssl"
 )
@@ -37,20 +38,19 @@ type Config struct {
 }
 
 func DefaultConfig() (*Config, error) {
-	homeDir, err := os.UserHomeDir()
+	p, err := paths.DefaultPaths()
 	if err != nil {
-		return nil, fmt.Errorf("cannot determine home directory: %w", err)
+		return nil, fmt.Errorf("determining paths: %w", err)
 	}
-	supportDir := filepath.Join(homeDir, "Library", "Application Support", "paw-proxy")
 
 	return &Config{
 		DNSPort:    9353,
 		HTTPPort:   80,
 		HTTPSPort:  443,
 		TLD:        "test",
-		SupportDir: supportDir,
-		SocketPath: filepath.Join(supportDir, "paw-proxy.sock"),
-		LogPath:    filepath.Join(homeDir, "Library", "Logs", "paw-proxy.log"),
+		SupportDir: p.SupportDir,
+		SocketPath: p.SocketPath,
+		LogPath:    p.LogPath,
 	}, nil
 }
 
@@ -84,6 +84,11 @@ func New(config *Config) (*Daemon, error) {
 	ca, err := ssl.LoadCA(certPath, keyPath)
 	if err != nil {
 		return nil, fmt.Errorf("loading CA: %w", err)
+	}
+
+	// Ensure log directory exists (e.g. ~/.local/state/paw-proxy/ on Linux)
+	if err := os.MkdirAll(filepath.Dir(config.LogPath), 0700); err != nil {
+		return nil, fmt.Errorf("creating log dir: %w", err)
 	}
 
 	// Set up structured JSON logger
@@ -324,10 +329,10 @@ func redirectTarget(rawHost, requestURI, tld string) (string, bool) {
 // createHTTPServer creates the HTTP redirect server and its listener.
 // The caller owns the lifecycle of the returned server.
 func (d *Daemon) createHTTPServer() (*http.Server, net.Listener, error) {
-	// Try launchd socket activation first (macOS LaunchAgent)
+	// Try launchd socket activation first (macOS only; no-op on Linux)
 	listener, activated, err := launchd.ActivateSocket("http")
 	if err != nil {
-		d.logger.Warn("launchd socket activation failed, falling back to direct binding",
+		d.logger.Warn("socket activation failed, falling back to direct binding",
 			"socket", "http", "error", err)
 	}
 
@@ -380,11 +385,11 @@ func (d *Daemon) createHTTPSServer() (*http.Server, net.Listener, error) {
 		},
 	}
 
-	// Try launchd socket activation first (macOS LaunchAgent).
+	// Try launchd socket activation first (macOS only; no-op on Linux).
 	// Launchd passes raw TCP sockets — ServeTLS in the caller wraps with TLS.
 	listener, activated, err := launchd.ActivateSocket("https")
 	if err != nil {
-		d.logger.Warn("launchd socket activation failed, falling back to direct binding",
+		d.logger.Warn("socket activation failed, falling back to direct binding",
 			"socket", "https", "error", err)
 	}
 
