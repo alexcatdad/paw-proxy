@@ -272,7 +272,11 @@ func runDockerComposeMode(client *http.Client, dc composeDetection, args []strin
 	// 2. Build route names
 	routes := buildComposeRouteNames(services, projectName, *nameFlag)
 
-	dir, _ := os.Getwd()
+	dir, err := os.Getwd()
+	if err != nil {
+		fmt.Printf("Error: cannot determine working directory: %v\n", err)
+		os.Exit(1)
+	}
 	state := newMultiRouteState(routes, dir)
 
 	// 3. Register all routes
