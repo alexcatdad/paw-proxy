@@ -435,6 +435,248 @@ func TestWebSocket_BothGoroutinesComplete(t *testing.T) {
 	}
 }
 
+// startEchoServer starts a TCP server that reads an HTTP upgrade request,
+// sends a 101 response, then echoes all subsequent data back.
+func startEchoServer(t *testing.T) (addr string, cleanup func()) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("startEchoServer: listen: %v", err)
+	}
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				defer c.Close()
+				buf := make([]byte, 4096)
+				// Read the HTTP upgrade request
+				n, err := c.Read(buf)
+				if err != nil || n == 0 {
+					return
+				}
+				// Send 101 Switching Protocols
+				c.Write([]byte("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n"))
+				// Echo all data back
+				io.Copy(c, c)
+			}(conn)
+		}
+	}()
+	return ln.Addr().String(), func() { ln.Close() }
+}
+
+func TestHandleWebSocket_EndToEnd(t *testing.T) {
+	echoAddr, cleanup := startEchoServer(t)
+	defer cleanup()
+
+	p := New()
+
+	// Create a real HTTP server that wraps proxy.ServeHTTP
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p.ServeHTTP(w, r, echoAddr)
+	}))
+	defer srv.Close()
+
+	// Make a raw TCP connection (http.Client doesn't support WebSocket upgrades)
+	conn, err := net.DialTimeout("tcp", srv.Listener.Addr().String(), 2*time.Second)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+
+	// Send WebSocket upgrade request
+	upgradeReq := "GET /ws HTTP/1.1\r\n" +
+		"Host: myapp.test\r\n" +
+		"Upgrade: websocket\r\n" +
+		"Connection: Upgrade\r\n" +
+		"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n" +
+		"Sec-WebSocket-Version: 13\r\n\r\n"
+	if _, err := conn.Write([]byte(upgradeReq)); err != nil {
+		t.Fatalf("write upgrade: %v", err)
+	}
+
+	// Read the 101 response from upstream (proxied through)
+	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	respBuf := make([]byte, 4096)
+	n, err := conn.Read(respBuf)
+	if err != nil {
+		t.Fatalf("read 101 response: %v", err)
+	}
+	resp := string(respBuf[:n])
+	if !strings.Contains(resp, "101") {
+		t.Fatalf("expected 101 response, got: %s", resp)
+	}
+
+	// Send data through the WebSocket — should be echoed back
+	testData := "hello websocket"
+	if _, err := conn.Write([]byte(testData)); err != nil {
+		t.Fatalf("write test data: %v", err)
+	}
+
+	echoBuf := make([]byte, len(testData))
+	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	if _, err := io.ReadFull(conn, echoBuf); err != nil {
+		t.Fatalf("read echo: %v", err)
+	}
+	if string(echoBuf) != testData {
+		t.Errorf("echo = %q, want %q", string(echoBuf), testData)
+	}
+}
+
+func TestHandleWebSocket_InvalidUpgrade_MissingKey(t *testing.T) {
+	p := New()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p.ServeHTTP(w, r, "127.0.0.1:9999")
+	}))
+	defer srv.Close()
+
+	conn, err := net.DialTimeout("tcp", srv.Listener.Addr().String(), 2*time.Second)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+
+	// WebSocket request missing Sec-WebSocket-Key
+	req := "GET /ws HTTP/1.1\r\n" +
+		"Host: myapp.test\r\n" +
+		"Upgrade: websocket\r\n" +
+		"Connection: Upgrade\r\n" +
+		"Sec-WebSocket-Version: 13\r\n\r\n"
+	conn.Write([]byte(req))
+
+	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	buf := make([]byte, 4096)
+	n, _ := conn.Read(buf)
+	resp := string(buf[:n])
+
+	if !strings.Contains(resp, "400") {
+		t.Errorf("expected 400 for missing Sec-WebSocket-Key, got: %s", resp)
+	}
+}
+
+func TestHandleWebSocket_InvalidUpgrade_WrongVersion(t *testing.T) {
+	p := New()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p.ServeHTTP(w, r, "127.0.0.1:9999")
+	}))
+	defer srv.Close()
+
+	conn, err := net.DialTimeout("tcp", srv.Listener.Addr().String(), 2*time.Second)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+
+	// WebSocket request with wrong version (not 13)
+	req := "GET /ws HTTP/1.1\r\n" +
+		"Host: myapp.test\r\n" +
+		"Upgrade: websocket\r\n" +
+		"Connection: Upgrade\r\n" +
+		"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n" +
+		"Sec-WebSocket-Version: 8\r\n\r\n"
+	conn.Write([]byte(req))
+
+	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	buf := make([]byte, 4096)
+	n, _ := conn.Read(buf)
+	resp := string(buf[:n])
+
+	if !strings.Contains(resp, "400") {
+		t.Errorf("expected 400 for wrong WebSocket version, got: %s", resp)
+	}
+}
+
+func TestHandleWebSocket_UpstreamUnreachable(t *testing.T) {
+	p := New()
+
+	// Use an upstream port that nothing is listening on
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p.ServeHTTP(w, r, "127.0.0.1:1")
+	}))
+	defer srv.Close()
+
+	conn, err := net.DialTimeout("tcp", srv.Listener.Addr().String(), 2*time.Second)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+
+	req := "GET /ws HTTP/1.1\r\n" +
+		"Host: myapp.test\r\n" +
+		"Upgrade: websocket\r\n" +
+		"Connection: Upgrade\r\n" +
+		"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n" +
+		"Sec-WebSocket-Version: 13\r\n\r\n"
+	conn.Write([]byte(req))
+
+	conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	buf := make([]byte, 4096)
+	n, _ := conn.Read(buf)
+	resp := string(buf[:n])
+
+	if !strings.Contains(resp, "502") {
+		t.Errorf("expected 502 for unreachable upstream, got: %s", resp)
+	}
+}
+
+func TestHandleWebSocket_BidirectionalData(t *testing.T) {
+	echoAddr, cleanup := startEchoServer(t)
+	defer cleanup()
+
+	p := New()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p.ServeHTTP(w, r, echoAddr)
+	}))
+	defer srv.Close()
+
+	conn, err := net.DialTimeout("tcp", srv.Listener.Addr().String(), 2*time.Second)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+
+	// Upgrade
+	req := "GET /ws HTTP/1.1\r\n" +
+		"Host: myapp.test\r\n" +
+		"Upgrade: websocket\r\n" +
+		"Connection: Upgrade\r\n" +
+		"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n" +
+		"Sec-WebSocket-Version: 13\r\n\r\n"
+	conn.Write([]byte(req))
+
+	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	respBuf := make([]byte, 4096)
+	n, err := conn.Read(respBuf)
+	if err != nil {
+		t.Fatalf("read 101: %v", err)
+	}
+	if !strings.Contains(string(respBuf[:n]), "101") {
+		t.Fatalf("expected 101, got: %s", string(respBuf[:n]))
+	}
+
+	// Send multiple messages and verify each is echoed
+	messages := []string{"first", "second", "third message with spaces"}
+	for _, msg := range messages {
+		if _, err := conn.Write([]byte(msg)); err != nil {
+			t.Fatalf("write %q: %v", msg, err)
+		}
+
+		buf := make([]byte, len(msg))
+		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+		if _, err := io.ReadFull(conn, buf); err != nil {
+			t.Fatalf("read echo of %q: %v", msg, err)
+		}
+		if string(buf) != msg {
+			t.Errorf("echo = %q, want %q", string(buf), msg)
+		}
+	}
+}
+
 func TestExtractAndValidateUpstreamPort(t *testing.T) {
 	tests := []struct {
 		name    string
