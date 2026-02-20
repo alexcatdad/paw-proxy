@@ -32,6 +32,7 @@ up npm run dev
 - **Auto SSL** - Generates trusted certificates on-the-fly
 - **WebSocket support** - Hot reload works out of the box
 - **Smart naming** - Uses package.json name or directory name
+- **Docker Compose** - Auto-discovers services and creates `service.project.test` routes
 - **Conflict resolution** - Automatic fallback when a domain is already in use (great for git worktrees)
 - **Live dashboard** - Real-time request feed and route status at `https://_paw.test`
 
@@ -60,6 +61,32 @@ paw-proxy status
 ```
 
 Your app is now available at `https://<name>.test`
+
+### Docker Compose
+
+Wrap `docker compose up` to get HTTPS domains for every service with published ports:
+
+```bash
+~/projects/myapp$ up docker compose up
+Mapping https://frontend.myapp.test -> localhost:3000...
+Mapping https://api.myapp.test -> localhost:8080...
+2 services live:
+   https://frontend.myapp.test
+   https://api.myapp.test
+------------------------------------------------
+```
+
+Services without published ports (like databases) are skipped. The project name comes from your compose config — override it with `-n`:
+
+```bash
+# Custom project name
+up -n shop docker compose up
+# → https://frontend.shop.test, https://api.shop.test
+
+# With compose flags (profiles, custom files)
+up docker compose --profile frontend up
+up docker compose -f compose.prod.yml up
+```
 
 ### Dashboard
 
@@ -127,16 +154,22 @@ up -n staging bun dev
 ### up
 
 ```
-up [-n name] <command> [args...]
+up [-n name] [--restart] <command> [args...]
 
 Options:
   -n name    Custom domain name (default: package.json name or directory)
+  --restart  Auto-restart on crash (non-zero exit, single-app mode only)
+
+Docker Compose mode:
+  up docker compose up           Auto-discover services, register routes
+  up -n shop docker compose up   Override project name portion
+  up docker compose --profile frontend up   Compose flags supported
 
 Environment variables set for your command:
-  PORT                 - The port your server should listen on
-  APP_DOMAIN           - e.g., myapp.test
-  APP_URL              - e.g., https://myapp.test
-  HTTPS                - "true"
+  PORT                 - The port your server should listen on (single-app mode)
+  APP_DOMAIN           - e.g., myapp.test (single-app mode)
+  APP_URL              - e.g., https://myapp.test (single-app mode)
+  HTTPS                - "true" (single-app mode)
   NODE_EXTRA_CA_CERTS  - Path to CA cert (for Node.js HTTPS requests)
 ```
 

@@ -22,8 +22,8 @@ var Version = "dev"
 // Max request body size (1MB)
 const maxRequestBodySize = 1024 * 1024
 
-// Route name validation pattern: starts with letter; rest can be alphanumeric, dash, underscore.
-var routeNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]{0,62}$`)
+// Route name validation pattern: starts with letter; rest can be alphanumeric, dash, underscore, or dot.
+var routeNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]{0,62}$`)
 
 type Server struct {
 	socketPath string
@@ -93,7 +93,7 @@ type RegisterRequest struct {
 // validateRouteName ensures route names are safe for DNS, filesystem, and shell use
 func validateRouteName(name string) error {
 	if !routeNamePattern.MatchString(name) {
-		return fmt.Errorf("invalid route name: must start with a letter and contain only letters, numbers, dashes, or underscores (max 63 chars)")
+		return fmt.Errorf("invalid route name: must start with a letter and contain only letters, numbers, dashes, underscores, or dots (max 63 chars)")
 	}
 	return nil
 }

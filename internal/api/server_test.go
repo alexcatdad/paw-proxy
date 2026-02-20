@@ -80,6 +80,11 @@ func TestValidateRouteName(t *testing.T) {
 		{"single-char", "a", false},
 		{"max-length-63", strings.Repeat("a", 63), false},
 
+		// Valid: dotted names for Docker Compose service.project routes
+		{"dotted-single", "my.app", false},
+		{"dotted-compose", "frontend.myapp", false},
+		{"dotted-triple", "a.b.c", false},
+
 		// Invalid: empty or too long
 		{"empty", "", true},
 		{"too-long-64", strings.Repeat("a", 64), true},
@@ -88,6 +93,7 @@ func TestValidateRouteName(t *testing.T) {
 		{"starts-with-dash", "-myapp", true},
 		{"starts-with-underscore", "_myapp", true},
 		{"starts-with-number", "1app", true},
+		{"starts-with-dot", ".myapp", true},
 
 		// Invalid: special characters (injection attempts)
 		{"shell-injection-semicolon", "app;rm -rf /", true},
@@ -98,7 +104,6 @@ func TestValidateRouteName(t *testing.T) {
 		{"null-byte", "app\x00malicious", true},
 		{"newline", "app\nmalicious", true},
 		{"space", "my app", true},
-		{"dot", "my.app", true},
 		{"slash", "my/app", true},
 		{"backslash", "my\\app", true},
 		{"unicode", "app™", true},
@@ -360,12 +365,22 @@ func TestExtractName(t *testing.T) {
 		input string
 		want  string
 	}{
+		// Single-level names (backwards compatible)
 		{"myapp.test:443", "myapp"},
 		{"myapp.test", "myapp"},
 		{"myapp:443", "myapp"},
 		{"myapp", "myapp"},
-		{"a.b.c", "a"},
+
+		// Multi-level names (Docker Compose: service.project.test)
+		{"frontend.myapp.test", "frontend.myapp"},
+		{"frontend.myapp.test:443", "frontend.myapp"},
+		{"api.shop.test", "api.shop"},
+
+		// Edge cases
 		{"", ""},
+		{"a.b.c", "a.b.c"},          // no .test suffix → unchanged
+		{".test", ""},                // just .test → empty
+		{"app.test:8080", "app"},     // port stripping
 	}
 
 	for _, tt := range tests {
