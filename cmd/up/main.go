@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/alexcatdad/paw-proxy/internal/help"
+	"github.com/alexcatdad/paw-proxy/internal/paths"
 )
 
 // version is set via -ldflags at build time; defaults to "dev" for local builds.
@@ -81,14 +82,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Get socket path
-	homeDir, err := os.UserHomeDir()
+	// Get paths
+	p, err := paths.DefaultPaths()
 	if err != nil {
-		fmt.Printf("Error: cannot determine home directory: %v\n", err)
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
-	socketPath := filepath.Join(homeDir, "Library", "Application Support", "paw-proxy", "paw-proxy.sock")
-	caPath := filepath.Join(homeDir, "Library", "Application Support", "paw-proxy", "ca.crt")
+	socketPath := p.SocketPath
+	caPath := p.CAPath
 
 	// Check if daemon is running via health endpoint
 	client := socketClient(socketPath)
