@@ -89,10 +89,16 @@ func TestValidateRouteName(t *testing.T) {
 		{"empty", "", true},
 		{"too-long-64", strings.Repeat("a", 64), true},
 
-		// Invalid: must start with a letter
+		// Valid: digit-prefixed names (RFC 1123 allows digits)
+		{"starts-with-digit", "1app", false},
+		{"digit-prefix-3dprinter", "3dprinter", false},
+		{"digit-prefix-42app", "42app", false},
+		{"digit-prefix-8080-debug", "8080-debug", false},
+		{"all-digits", "8080", false},
+
+		// Invalid: must start with a letter or digit
 		{"starts-with-dash", "-myapp", true},
 		{"starts-with-underscore", "_myapp", true},
-		{"starts-with-number", "1app", true},
 		{"starts-with-dot", ".myapp", true},
 
 		// Invalid: special characters (injection attempts)
