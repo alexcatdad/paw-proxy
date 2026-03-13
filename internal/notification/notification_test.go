@@ -35,7 +35,7 @@ func TestNotify(t *testing.T) {
 		if len(capturedArgs) != 2 || capturedArgs[0] != "-e" {
 			t.Errorf("Unexpected args: %v", capturedArgs)
 		}
-		expectedScriptPart := "display notification \"test-message\" with title \"test-title\""
+		expectedScriptPart := `display notification "test-message" with title "test-title"`
 		if !strings.Contains(capturedArgs[1], expectedScriptPart) {
 			t.Errorf("Script doesn't contain expected part: %q", capturedArgs[1])
 		}
