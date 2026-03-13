@@ -1,11 +1,22 @@
 package daemon
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"log/slog"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/alexcatdad/paw-proxy/internal/ssl"
 )
 
 func TestRedirectTarget(t *testing.T) {
@@ -113,6 +124,69 @@ func TestStatusCapture_WriteImplies200(t *testing.T) {
 
 	if sc.status != 200 {
 		t.Errorf("expected implicit status 200 from Write, got %d", sc.status)
+	}
+}
+
+// testCA generates a self-signed CA certificate for testing.
+func testCA(t *testing.T) *tls.Certificate {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generating CA key: %v", err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "Test CA"},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("creating CA cert: %v", err)
+	}
+	leaf, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("parsing CA cert: %v", err)
+	}
+	return &tls.Certificate{
+		Certificate: [][]byte{der},
+		PrivateKey:  key,
+		Leaf:        leaf,
+	}
+}
+
+func TestMaxHeaderBytes(t *testing.T) {
+	ca := testCA(t)
+	d := &Daemon{
+		config: &Config{
+			HTTPPort:  0, // use any available port
+			HTTPSPort: 0,
+			TLD:       "test",
+		},
+		certCache: ssl.NewCertCache(ca, "test"),
+		logger:    slog.New(slog.NewJSONHandler(os.Stderr, nil)),
+	}
+
+	const want = 1 << 20 // 1MB
+
+	httpSrv, httpLn, err := d.createHTTPServer()
+	if err != nil {
+		t.Fatalf("createHTTPServer: %v", err)
+	}
+	defer httpLn.Close()
+	if httpSrv.MaxHeaderBytes != want {
+		t.Errorf("HTTP server MaxHeaderBytes = %d, want %d", httpSrv.MaxHeaderBytes, want)
+	}
+
+	httpsSrv, httpsLn, err := d.createHTTPSServer()
+	if err != nil {
+		t.Fatalf("createHTTPSServer: %v", err)
+	}
+	defer httpsLn.Close()
+	if httpsSrv.MaxHeaderBytes != want {
+		t.Errorf("HTTPS server MaxHeaderBytes = %d, want %d", httpsSrv.MaxHeaderBytes, want)
 	}
 }
 
