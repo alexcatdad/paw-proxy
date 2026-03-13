@@ -20,6 +20,11 @@ type RouteProvider interface {
 	List() []api.Route
 }
 
+// cspDashboard is the Content-Security-Policy for the dashboard.
+// The dashboard loads external CSS and JS files from 'self' and uses
+// EventSource (SSE) via connect-src. No inline scripts or styles are used.
+const cspDashboard = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'"
+
 // Dashboard serves the web dashboard UI and its API endpoints.
 type Dashboard struct {
 	metrics   *Metrics
@@ -54,6 +59,7 @@ func New(metrics *Metrics, routes RouteProvider, version string, startTime time.
 }
 
 func (d *Dashboard) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Security-Policy", cspDashboard)
 	d.mux.ServeHTTP(w, r)
 }
 
