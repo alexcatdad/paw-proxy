@@ -96,6 +96,10 @@ func New(config *Config) (*Daemon, error) {
 	if err != nil {
 		return nil, fmt.Errorf("opening log file: %w", err)
 	}
+	if err := os.Chmod(config.LogPath, 0600); err != nil {
+		logFile.Close()
+		return nil, fmt.Errorf("setting log file permissions: %w", err)
+	}
 	logger := slog.New(slog.NewJSONHandler(logFile, nil))
 
 	// Warn if CA certificate is near expiry

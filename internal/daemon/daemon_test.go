@@ -117,21 +117,56 @@ func TestStatusCapture_WriteImplies200(t *testing.T) {
 }
 
 func TestLogFilePermissions(t *testing.T) {
-	tmpDir := t.TempDir()
-	logPath := filepath.Join(tmpDir, "paw-proxy.log")
+	t.Run("new file gets 0600", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logPath := filepath.Join(tmpDir, "paw-proxy.log")
 
-	// Open log file the same way New() does
-	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-	if err != nil {
-		t.Fatalf("opening log file: %v", err)
-	}
-	f.Close()
+		// Mirror daemon.go: OpenFile then Chmod
+		f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		if err != nil {
+			t.Fatalf("opening log file: %v", err)
+		}
+		if err := os.Chmod(logPath, 0600); err != nil {
+			f.Close()
+			t.Fatalf("chmod log file: %v", err)
+		}
+		f.Close()
 
-	info, err := os.Stat(logPath)
-	if err != nil {
-		t.Fatalf("stat log file: %v", err)
-	}
-	if perm := info.Mode().Perm(); perm != 0600 {
-		t.Errorf("expected log file permissions 0600, got %04o", perm)
-	}
+		info, err := os.Stat(logPath)
+		if err != nil {
+			t.Fatalf("stat log file: %v", err)
+		}
+		if perm := info.Mode().Perm(); perm != 0600 {
+			t.Errorf("expected log file permissions 0600, got %04o", perm)
+		}
+	})
+
+	t.Run("pre-existing 0644 file is tightened to 0600", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logPath := filepath.Join(tmpDir, "paw-proxy.log")
+
+		// Simulate a log file from an older release with 0644
+		if err := os.WriteFile(logPath, []byte("old log\n"), 0644); err != nil {
+			t.Fatalf("creating pre-existing log: %v", err)
+		}
+
+		// Mirror daemon.go: OpenFile then Chmod
+		f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		if err != nil {
+			t.Fatalf("opening log file: %v", err)
+		}
+		if err := os.Chmod(logPath, 0600); err != nil {
+			f.Close()
+			t.Fatalf("chmod log file: %v", err)
+		}
+		f.Close()
+
+		info, err := os.Stat(logPath)
+		if err != nil {
+			t.Fatalf("stat log file: %v", err)
+		}
+		if perm := info.Mode().Perm(); perm != 0600 {
+			t.Errorf("expected permissions tightened to 0600, got %04o", perm)
+		}
+	})
 }
