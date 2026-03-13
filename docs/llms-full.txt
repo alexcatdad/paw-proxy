@@ -271,7 +271,7 @@ cmd/
 
 **SSRF Prevention:** Upstream URLs validated to localhost only — `127.0.0.1`, `::1`, `localhost`. Prevents proxying to external or internal network hosts.
 
-**Route Name Validation:** Regex `^[a-zA-Z][a-zA-Z0-9_-]{0,62}$` ensures DNS-safe labels. Max 63 characters per DNS label.
+**Route Name Validation:** Regex `^[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}$` ensures DNS-safe labels. Max 63 characters per DNS label.
 
 **Directory Validation:** Must be absolute path (starts with `/`), no path traversal (`..` components rejected).
 
@@ -321,7 +321,7 @@ Request:
 ```
 
 Validation:
-- `name`: matches `^[a-zA-Z][a-zA-Z0-9_-]{0,62}$`
+- `name`: matches `^[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}$`
 - `upstream`: must be localhost (127.0.0.1, ::1, or localhost)
 - `dir`: must be absolute path, no traversal
 
