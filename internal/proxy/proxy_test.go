@@ -159,6 +159,108 @@ func TestProxy_ForwardedHeadersOverwriteClientValues(t *testing.T) {
 	}
 }
 
+func TestProxy_XForwardedFor_LoopbackValidation(t *testing.T) {
+	tests := []struct {
+		name       string
+		remoteAddr string
+		wantXFF    string // expected X-Forwarded-For value; empty means header should be absent
+	}{
+		{
+			name:       "IPv4 loopback sets header",
+			remoteAddr: "127.0.0.1:54321",
+			wantXFF:    "127.0.0.1",
+		},
+		{
+			name:       "IPv6 loopback sets header",
+			remoteAddr: "[::1]:54321",
+			wantXFF:    "::1",
+		},
+		{
+			name:       "non-loopback IP does not set header",
+			remoteAddr: "192.168.1.100:54321",
+			wantXFF:    "",
+		},
+		{
+			name:       "public IP does not set header",
+			remoteAddr: "8.8.8.8:54321",
+			wantXFF:    "",
+		},
+		{
+			name:       "malformed RemoteAddr does not set header",
+			remoteAddr: "not-an-address",
+			wantXFF:    "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var receivedHeaders http.Header
+
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				receivedHeaders = r.Header.Clone()
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer upstream.Close()
+
+			p := New()
+
+			req := httptest.NewRequest("GET", "https://myapp.test/", nil)
+			req.Host = "myapp.test"
+			req.RemoteAddr = tt.remoteAddr
+			w := httptest.NewRecorder()
+
+			p.ServeHTTP(w, req, upstream.URL[7:])
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d", w.Code)
+			}
+
+			got := receivedHeaders.Get("X-Forwarded-For")
+			if tt.wantXFF == "" {
+				if got != "" {
+					t.Errorf("X-Forwarded-For = %q, want header to be absent for non-loopback IP", got)
+				}
+			} else {
+				if got != tt.wantXFF {
+					t.Errorf("X-Forwarded-For = %q, want %q", got, tt.wantXFF)
+				}
+			}
+		})
+	}
+}
+
+func TestProxy_XForwardedFor_SpoofedNonLoopback(t *testing.T) {
+	// Verify that a spoofed X-Forwarded-For from a non-loopback client
+	// is stripped entirely (not forwarded to upstream).
+	var receivedHeaders http.Header
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedHeaders = r.Header.Clone()
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+
+	p := New()
+
+	req := httptest.NewRequest("GET", "https://myapp.test/", nil)
+	req.Host = "myapp.test"
+	req.RemoteAddr = "10.0.0.1:9999"
+	req.Header.Set("X-Forwarded-For", "evil.attacker.com")
+	w := httptest.NewRecorder()
+
+	p.ServeHTTP(w, req, upstream.URL[7:])
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	// Since 10.0.0.1 is not loopback, X-Forwarded-For must be stripped
+	got := receivedHeaders.Get("X-Forwarded-For")
+	if got != "" {
+		t.Errorf("X-Forwarded-For = %q, want empty (non-loopback client should have header stripped)", got)
+	}
+}
+
 func TestProxyPreservesHostHeader(t *testing.T) {
 	var receivedHost string
 
