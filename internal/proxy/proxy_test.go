@@ -43,6 +43,122 @@ func TestProxy_ForwardsRequest(t *testing.T) {
 	}
 }
 
+func TestProxy_ForwardedHeaders(t *testing.T) {
+	var receivedHeaders http.Header
+	var receivedHost string
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedHeaders = r.Header.Clone()
+		receivedHost = r.Host
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+
+	p := New()
+
+	req := httptest.NewRequest("GET", "https://myapp.test/callback", nil)
+	req.Host = "myapp.test"
+	req.RemoteAddr = "127.0.0.1:54321"
+	w := httptest.NewRecorder()
+
+	p.ServeHTTP(w, req, upstream.URL[7:])
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	// X-Forwarded-Proto must always be "https" since paw-proxy terminates TLS
+	if got := receivedHeaders.Get("X-Forwarded-Proto"); got != "https" {
+		t.Errorf("X-Forwarded-Proto = %q, want %q", got, "https")
+	}
+
+	// X-Forwarded-Host must match the original Host header
+	if got := receivedHeaders.Get("X-Forwarded-Host"); got != "myapp.test" {
+		t.Errorf("X-Forwarded-Host = %q, want %q", got, "myapp.test")
+	}
+
+	// X-Forwarded-For must contain the client IP
+	if got := receivedHeaders.Get("X-Forwarded-For"); got != "127.0.0.1" {
+		t.Errorf("X-Forwarded-For = %q, want %q", got, "127.0.0.1")
+	}
+
+	// Host header must be preserved (not rewritten to upstream address)
+	if receivedHost != "myapp.test" {
+		t.Errorf("Host = %q, want %q", receivedHost, "myapp.test")
+	}
+}
+
+func TestProxy_ForwardedHeadersWithPort(t *testing.T) {
+	var receivedHeaders http.Header
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedHeaders = r.Header.Clone()
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+
+	p := New()
+
+	// Simulate a request where Host includes a port
+	req := httptest.NewRequest("GET", "https://myapp.test:443/path", nil)
+	req.Host = "myapp.test:443"
+	req.RemoteAddr = "::1:12345"
+	w := httptest.NewRecorder()
+
+	p.ServeHTTP(w, req, upstream.URL[7:])
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	// X-Forwarded-Host should include the port if the client sent it
+	if got := receivedHeaders.Get("X-Forwarded-Host"); got != "myapp.test:443" {
+		t.Errorf("X-Forwarded-Host = %q, want %q", got, "myapp.test:443")
+	}
+
+	if got := receivedHeaders.Get("X-Forwarded-Proto"); got != "https" {
+		t.Errorf("X-Forwarded-Proto = %q, want %q", got, "https")
+	}
+}
+
+func TestProxy_ForwardedHeadersOverwriteClientValues(t *testing.T) {
+	var receivedHeaders http.Header
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedHeaders = r.Header.Clone()
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+
+	p := New()
+
+	// Client sends spoofed X-Forwarded-* headers — proxy must overwrite them
+	req := httptest.NewRequest("GET", "https://myapp.test/", nil)
+	req.Host = "myapp.test"
+	req.RemoteAddr = "127.0.0.1:9999"
+	req.Header.Set("X-Forwarded-For", "evil.attacker.com")
+	req.Header.Set("X-Forwarded-Proto", "http")
+	req.Header.Set("X-Forwarded-Host", "evil.com")
+	w := httptest.NewRecorder()
+
+	p.ServeHTTP(w, req, upstream.URL[7:])
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	// Proxy must overwrite client-supplied values, not append to them
+	if got := receivedHeaders.Get("X-Forwarded-For"); got != "127.0.0.1" {
+		t.Errorf("X-Forwarded-For = %q, want %q (proxy must overwrite spoofed value)", got, "127.0.0.1")
+	}
+	if got := receivedHeaders.Get("X-Forwarded-Proto"); got != "https" {
+		t.Errorf("X-Forwarded-Proto = %q, want %q (proxy must overwrite spoofed value)", got, "https")
+	}
+	if got := receivedHeaders.Get("X-Forwarded-Host"); got != "myapp.test" {
+		t.Errorf("X-Forwarded-Host = %q, want %q (proxy must overwrite spoofed value)", got, "myapp.test")
+	}
+}
+
 func TestProxyPreservesHostHeader(t *testing.T) {
 	var receivedHost string
 
