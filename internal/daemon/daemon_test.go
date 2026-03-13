@@ -3,6 +3,8 @@ package daemon
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -111,5 +113,25 @@ func TestStatusCapture_WriteImplies200(t *testing.T) {
 
 	if sc.status != 200 {
 		t.Errorf("expected implicit status 200 from Write, got %d", sc.status)
+	}
+}
+
+func TestLogFilePermissions(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "paw-proxy.log")
+
+	// Open log file the same way New() does
+	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		t.Fatalf("opening log file: %v", err)
+	}
+	f.Close()
+
+	info, err := os.Stat(logPath)
+	if err != nil {
+		t.Fatalf("stat log file: %v", err)
+	}
+	if perm := info.Mode().Perm(); perm != 0600 {
+		t.Errorf("expected log file permissions 0600, got %04o", perm)
 	}
 }

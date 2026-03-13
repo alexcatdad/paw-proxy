@@ -92,7 +92,7 @@ func New(config *Config) (*Daemon, error) {
 	}
 
 	// Set up structured JSON logger
-	logFile, err := os.OpenFile(config.LogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	logFile, err := os.OpenFile(config.LogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		return nil, fmt.Errorf("opening log file: %w", err)
 	}
