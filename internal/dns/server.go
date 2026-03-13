@@ -38,13 +38,44 @@ func (s *Server) Stop() error {
 	return s.server.Shutdown()
 }
 
+// maxLabelLen is the maximum length of a single DNS label per RFC 1035 section 2.3.4.
+const maxLabelLen = 63
+
+// maxNameLen is the maximum length of a full domain name (without trailing dot) per RFC 1035.
+const maxNameLen = 253
+
+// validDNSName checks that a fully-qualified DNS name conforms to RFC 1035
+// length limits: each label ≤ 63 octets and total name ≤ 253 characters
+// (excluding the trailing dot).
+func validDNSName(name string) bool {
+	// Strip the trailing dot for length checking (FQDN form)
+	n := strings.TrimSuffix(name, ".")
+	if len(n) > maxNameLen || len(n) == 0 {
+		return false
+	}
+	for _, label := range strings.Split(n, ".") {
+		if len(label) > maxLabelLen || len(label) == 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func (s *Server) handleRequest(w dns.ResponseWriter, r *dns.Msg) {
 	m := new(dns.Msg)
 	m.SetReply(r)
 	m.Authoritative = true
 
 	for _, q := range r.Question {
-		if !strings.HasSuffix(strings.ToLower(q.Name), "."+s.tld+".") {
+		name := strings.ToLower(q.Name)
+
+		// Validate name length per RFC 1035 before processing.
+		if !validDNSName(name) {
+			m.Rcode = dns.RcodeFormatError
+			break
+		}
+
+		if !strings.HasSuffix(name, "."+s.tld+".") {
 			continue
 		}
 
