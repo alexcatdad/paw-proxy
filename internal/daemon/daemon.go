@@ -361,6 +361,7 @@ func (d *Daemon) createHTTPServer() (*http.Server, net.Listener, error) {
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20, // 1MB — explicit limit to prevent header-based DoS
 	}
 
 	return server, listener, nil
@@ -413,6 +414,7 @@ func (d *Daemon) createHTTPSServer() (*http.Server, net.Listener, error) {
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      2 * time.Minute,
 		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20, // 1MB — explicit limit to prevent header-based DoS
 	}
 
 	return server, listener, nil
