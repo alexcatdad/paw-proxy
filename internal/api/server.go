@@ -75,6 +75,18 @@ func (s *Server) Start() error {
 		return err
 	}
 
+	// SECURITY: Post-creation verification — confirm the socket was created
+	// with restrictive permissions. This defends against TOCTOU races where
+	// the umask may have been overridden or the socket replaced between
+	// creation and use.
+	if info, err := os.Stat(s.socketPath); err != nil {
+		s.listener.Close()
+		return fmt.Errorf("cannot verify socket permissions: %w", err)
+	} else if perm := info.Mode().Perm(); perm&0077 != 0 {
+		s.listener.Close()
+		return fmt.Errorf("socket %s has insecure permissions %04o; expected no group/other access", s.socketPath, perm)
+	}
+
 	return s.server.Serve(s.listener)
 }
 
