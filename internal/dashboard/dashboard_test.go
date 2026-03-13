@@ -150,6 +150,40 @@ func TestDashboard_APIStats(t *testing.T) {
 	}
 }
 
+func TestDashboard_CSPHeader(t *testing.T) {
+	d := newTestDashboard(t, NewMetrics(10), &mockRouteProvider{}, "1.0.0", time.Now())
+
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"index", "/"},
+		{"css", "/style.css"},
+		{"js", "/app.js"},
+		{"api_routes", "/api/routes"},
+		{"api_stats", "/api/stats"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "https://_paw.test"+tt.path, nil)
+			w := httptest.NewRecorder()
+			d.ServeHTTP(w, req)
+
+			csp := w.Header().Get("Content-Security-Policy")
+			if csp == "" {
+				t.Fatal("expected Content-Security-Policy header, got empty")
+			}
+			if !strings.Contains(csp, "default-src 'self'") {
+				t.Errorf("CSP should contain default-src 'self', got: %s", csp)
+			}
+			if !strings.Contains(csp, "script-src 'self'") {
+				t.Errorf("CSP should contain script-src 'self', got: %s", csp)
+			}
+		})
+	}
+}
+
 func TestDashboard_SSEHeaders(t *testing.T) {
 	d := newTestDashboard(t, NewMetrics(10), &mockRouteProvider{}, "1.0.0", time.Now())
 
