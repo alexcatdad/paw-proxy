@@ -104,8 +104,19 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request, upstream strin
 	}
 
 	// Set forwarding headers
+	// SECURITY: Only forward X-Forwarded-For if the client IP is actually
+	// a loopback address. paw-proxy only listens on loopback, so this
+	// should always be true, but we validate as defense-in-depth.
+	// If the client IP is not loopback, strip any existing X-Forwarded-For
+	// header to prevent spoofed values from being forwarded.
 	if clientIP, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
-		outReq.Header.Set("X-Forwarded-For", clientIP)
+		if ip := net.ParseIP(clientIP); ip != nil && ip.IsLoopback() {
+			outReq.Header.Set("X-Forwarded-For", clientIP)
+		} else {
+			outReq.Header.Del("X-Forwarded-For")
+		}
+	} else {
+		outReq.Header.Del("X-Forwarded-For")
 	}
 	outReq.Header.Set("X-Forwarded-Proto", "https")
 	outReq.Header.Set("X-Forwarded-Host", r.Host)
