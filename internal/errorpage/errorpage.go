@@ -8,10 +8,15 @@ import (
 	"strings"
 )
 
+// cspErrorPage is the Content-Security-Policy for error pages.
+// Error pages use only inline styles and no scripts.
+const cspErrorPage = "default-src 'none'; style-src 'unsafe-inline'"
+
 // NotFound renders an HTML page when no route is registered for the host.
 // SECURITY: All dynamic content is HTML-escaped to prevent XSS.
 func NotFound(w http.ResponseWriter, host string, appName string, activeRoutes []string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Security-Policy", cspErrorPage)
 	w.WriteHeader(http.StatusBadGateway)
 
 	var routeList string
@@ -56,6 +61,7 @@ li { padding: 4px 0; }
 // SECURITY: All dynamic content is HTML-escaped to prevent XSS.
 func UpstreamDown(w http.ResponseWriter, host string, upstream string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Security-Policy", cspErrorPage)
 	w.WriteHeader(http.StatusBadGateway)
 
 	fmt.Fprintf(w, `<!DOCTYPE html>

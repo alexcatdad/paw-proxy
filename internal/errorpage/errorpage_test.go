@@ -83,3 +83,35 @@ func TestUpstreamDownEscapesHTML(t *testing.T) {
 		t.Error("XSS: unescaped img tag in upstream")
 	}
 }
+
+func TestNotFoundSetsCSPHeader(t *testing.T) {
+	w := httptest.NewRecorder()
+	NotFound(w, "myapp.test", "myapp", nil)
+
+	csp := w.Header().Get("Content-Security-Policy")
+	if csp == "" {
+		t.Fatal("expected Content-Security-Policy header, got empty")
+	}
+	if !strings.Contains(csp, "default-src 'none'") {
+		t.Errorf("CSP should contain default-src 'none', got: %s", csp)
+	}
+	if !strings.Contains(csp, "style-src 'unsafe-inline'") {
+		t.Errorf("CSP should contain style-src 'unsafe-inline', got: %s", csp)
+	}
+}
+
+func TestUpstreamDownSetsCSPHeader(t *testing.T) {
+	w := httptest.NewRecorder()
+	UpstreamDown(w, "myapp.test", "localhost:3000")
+
+	csp := w.Header().Get("Content-Security-Policy")
+	if csp == "" {
+		t.Fatal("expected Content-Security-Policy header, got empty")
+	}
+	if !strings.Contains(csp, "default-src 'none'") {
+		t.Errorf("CSP should contain default-src 'none', got: %s", csp)
+	}
+	if !strings.Contains(csp, "style-src 'unsafe-inline'") {
+		t.Errorf("CSP should contain style-src 'unsafe-inline', got: %s", csp)
+	}
+}
