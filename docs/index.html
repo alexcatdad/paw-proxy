@@ -92,6 +92,8 @@
             --accent: #f97316;
             --accent-glow: rgba(249, 115, 22, 0.15);
             --terminal-glow: rgba(249, 115, 22, 0.04);
+            --terminal-text: #fafafa;
+            --terminal-muted: #71717a;
             --grain-opacity: 0.03;
         }
 
@@ -108,6 +110,8 @@
             --accent: #ea580c;
             --accent-glow: rgba(234, 88, 12, 0.08);
             --terminal-glow: rgba(0, 0, 0, 0.02);
+            --terminal-text: #e7e5e4;
+            --terminal-muted: #78716c;
             --grain-opacity: 0.02;
         }
 
@@ -161,11 +165,18 @@
         /* ─── Terminal blocks ─── */
         .terminal-block {
             background: var(--bg-terminal);
+            color: var(--terminal-text);
             border-radius: 12px;
             border: 1px solid var(--border);
             overflow-x: auto;
             box-shadow: 0 0 40px var(--terminal-glow), 0 4px 16px rgba(0,0,0,0.2);
         }
+
+        /* Inside terminals, --text-muted and --text-primary should stay readable
+           against the dark background regardless of light/dark mode */
+        .terminal-block [style*="--text-muted"] { color: var(--terminal-muted) !important; }
+        .terminal-block [style*="--text-primary"] { color: var(--terminal-text) !important; }
+        .terminal-block [style*="--text-secondary"] { color: var(--terminal-text) !important; }
 
         .terminal-dot {
             width: 10px;
@@ -354,7 +365,7 @@
                 <div class="p-4 font-mono text-sm text-left">
                     <div class="flex items-center gap-2">
                         <span style="color: #22c55e">❯</span>
-                        <span style="color: var(--text-primary)">up npm run dev</span>
+                        <span>up npm run dev</span>
                     </div>
                     <div class="flex items-center gap-2 mt-1">
                         <span class="text-accent-var font-semibold">→ https://myapp.test</span>
