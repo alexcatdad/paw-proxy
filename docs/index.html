@@ -35,7 +35,6 @@
     <meta name="twitter:image:alt" content="paw-proxy: Stop fighting localhost">
 
     <!-- Favicon -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
 
@@ -69,6 +68,14 @@
         "softwareRequirements": "macOS",
         "keywords": ["HTTPS", "local development", "macOS", "proxy", "SSL", "TLS", "dev server", "port conflicts"]
     }
+    </script>
+
+    <!-- Theme detection (in head to prevent FOUC) -->
+    <script>
+        if (localStorage.theme === 'light' ||
+            (!localStorage.theme && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+            document.documentElement.classList.remove('dark');
+        }
     </script>
 
     <!-- Tailwind CSS (compiled) -->
@@ -121,7 +128,7 @@
             background: var(--bg-terminal);
             border-radius: 0.75rem;
             border: 1px solid var(--border);
-            overflow: hidden;
+            overflow-x: auto;
         }
 
         /* Cursor blink */
@@ -508,19 +515,19 @@
             </div>
 
             <div class="flex flex-wrap justify-center gap-4">
-                <a href="https://github.com/FiloSottile/mkcert" target="_blank" rel="noopener" class="font-semibold px-4 py-2 rounded-lg text-sm transition-colors hover:text-accent-var" style="color: var(--text-secondary); border: 1px solid var(--border)">
+                <a href="https://github.com/FiloSottile/mkcert" target="_blank" rel="noopener" class="font-semibold px-4 py-2 rounded-lg text-sm transition-colors hover:[color:var(--accent)]" style="color: var(--text-secondary); border: 1px solid var(--border)">
                     🔐 mkcert
                 </a>
-                <a href="https://github.com/puma/puma-dev" target="_blank" rel="noopener" class="font-semibold px-4 py-2 rounded-lg text-sm transition-colors hover:text-accent-var" style="color: var(--text-secondary); border: 1px solid var(--border)">
+                <a href="https://github.com/puma/puma-dev" target="_blank" rel="noopener" class="font-semibold px-4 py-2 rounded-lg text-sm transition-colors hover:[color:var(--accent)]" style="color: var(--text-secondary); border: 1px solid var(--border)">
                     🐆 puma-dev
                 </a>
-                <a href="https://pow.cx/" target="_blank" rel="noopener" class="font-semibold px-4 py-2 rounded-lg text-sm transition-colors hover:text-accent-var" style="color: var(--text-secondary); border: 1px solid var(--border)">
+                <a href="https://pow.cx/" target="_blank" rel="noopener" class="font-semibold px-4 py-2 rounded-lg text-sm transition-colors hover:[color:var(--accent)]" style="color: var(--text-secondary); border: 1px solid var(--border)">
                     ⚡ pow
                 </a>
-                <a href="https://github.com/typicode/hotel" target="_blank" rel="noopener" class="font-semibold px-4 py-2 rounded-lg text-sm transition-colors hover:text-accent-var" style="color: var(--text-secondary); border: 1px solid var(--border)">
+                <a href="https://github.com/typicode/hotel" target="_blank" rel="noopener" class="font-semibold px-4 py-2 rounded-lg text-sm transition-colors hover:[color:var(--accent)]" style="color: var(--text-secondary); border: 1px solid var(--border)">
                     🏨 hotel
                 </a>
-                <a href="https://caddyserver.com/" target="_blank" rel="noopener" class="font-semibold px-4 py-2 rounded-lg text-sm transition-colors hover:text-accent-var" style="color: var(--text-secondary); border: 1px solid var(--border)">
+                <a href="https://caddyserver.com/" target="_blank" rel="noopener" class="font-semibold px-4 py-2 rounded-lg text-sm transition-colors hover:[color:var(--accent)]" style="color: var(--text-secondary); border: 1px solid var(--border)">
                     🔷 caddy
                 </a>
             </div>
@@ -531,10 +538,10 @@
     <footer class="py-12" style="border-top: 1px solid var(--border)">
         <div class="max-w-4xl mx-auto px-6 text-center">
             <div class="flex flex-wrap justify-center gap-8 mb-8">
-                <a href="https://github.com/alexcatdad/paw-proxy" class="font-semibold text-sm hover:text-accent-var transition-colors" style="color: var(--text-secondary)">GitHub</a>
-                <a href="https://github.com/alexcatdad/paw-proxy/releases" class="font-semibold text-sm hover:text-accent-var transition-colors" style="color: var(--text-secondary)">Releases</a>
-                <a href="https://github.com/alexcatdad/paw-proxy/issues" class="font-semibold text-sm hover:text-accent-var transition-colors" style="color: var(--text-secondary)">Issues</a>
-                <a href="https://github.com/alexcatdad/paw-proxy/blob/main/LICENSE" class="font-semibold text-sm hover:text-accent-var transition-colors" style="color: var(--text-secondary)">MIT License</a>
+                <a href="https://github.com/alexcatdad/paw-proxy" class="font-semibold text-sm hover:[color:var(--accent)] transition-colors" style="color: var(--text-secondary)">GitHub</a>
+                <a href="https://github.com/alexcatdad/paw-proxy/releases" class="font-semibold text-sm hover:[color:var(--accent)] transition-colors" style="color: var(--text-secondary)">Releases</a>
+                <a href="https://github.com/alexcatdad/paw-proxy/issues" class="font-semibold text-sm hover:[color:var(--accent)] transition-colors" style="color: var(--text-secondary)">Issues</a>
+                <a href="https://github.com/alexcatdad/paw-proxy/blob/main/LICENSE" class="font-semibold text-sm hover:[color:var(--accent)] transition-colors" style="color: var(--text-secondary)">MIT License</a>
             </div>
             <p class="text-sm" style="color: var(--text-muted)">
                 Built with 🐾 by <a href="https://github.com/alexcatdad" class="text-accent-var hover:underline font-semibold">alexcatdad</a>
@@ -543,15 +550,9 @@
     </footer>
 
     <script>
-        // Theme toggle — dark is default, light activates by removing .dark from <html>
+        // Theme toggle (detection already ran in <head> to prevent FOUC)
         const toggle = document.getElementById('theme-toggle');
         const html = document.documentElement;
-
-        // Default to dark unless OS prefers light or user explicitly chose light
-        if (localStorage.theme === 'light' ||
-            (!localStorage.theme && window.matchMedia('(prefers-color-scheme: light)').matches)) {
-            html.classList.remove('dark');
-        }
 
         toggle.addEventListener('click', () => {
             html.classList.toggle('dark');
@@ -582,7 +583,12 @@
                         btn.style.color = '';
                     }, 2000);
                 } catch (err) {
-                    console.error('Copy failed:', err);
+                    btn.textContent = 'Failed';
+                    btn.style.color = '#EF4444';
+                    setTimeout(() => {
+                        btn.textContent = original;
+                        btn.style.color = '';
+                    }, 2000);
                 }
             });
         });
