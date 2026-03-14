@@ -6,7 +6,7 @@ module.exports = {
         extend: {
             fontFamily: {
                 sans: ['DM Sans', 'system-ui', 'sans-serif'],
-                display: ['Instrument Serif', 'Georgia', 'serif'],
+                display: ['Familjen Grotesk', 'system-ui', 'sans-serif'],
                 mono: ['JetBrains Mono', 'monospace'],
             },
             colors: {
