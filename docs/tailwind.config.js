@@ -5,7 +5,8 @@ module.exports = {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['system-ui', '-apple-system', 'sans-serif'],
+                sans: ['DM Sans', 'system-ui', 'sans-serif'],
+                display: ['Instrument Serif', 'Georgia', 'serif'],
                 mono: ['JetBrains Mono', 'monospace'],
             },
             colors: {
