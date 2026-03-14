@@ -5,7 +5,8 @@ module.exports = {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Nunito', 'system-ui', 'sans-serif'],
+                sans: ['DM Sans', 'system-ui', 'sans-serif'],
+                display: ['Familjen Grotesk', 'system-ui', 'sans-serif'],
                 mono: ['JetBrains Mono', 'monospace'],
             },
             colors: {

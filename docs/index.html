@@ -1,45 +1,44 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="en" class="scroll-smooth dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>paw-proxy — Zero-config HTTPS for Local Development</title>
+    <title>paw-proxy — Stop Fighting Localhost</title>
 
     <!-- SEO -->
-    <meta name="description" content="Get https://myapp.test working in seconds. Zero-config HTTPS proxy for local macOS development with automatic SSL, WebSocket support, and smart naming.">
-    <meta name="keywords" content="HTTPS, local development, macOS, proxy, SSL, TLS, localhost, dev server, mkcert alternative, paw-proxy">
+    <meta name="description" content="Named HTTPS domains for every local dev server. No more port conflicts, no more localhost confusion. Just prefix with &quot;up&quot;.">
+    <meta name="keywords" content="HTTPS, local development, macOS, proxy, SSL, TLS, localhost, dev server, port conflicts, paw-proxy">
     <meta name="author" content="alexcatdad">
     <meta name="robots" content="index, follow">
     <meta name="color-scheme" content="light dark">
     <link rel="canonical" href="https://alexcatdad.github.io/paw-proxy/">
-    <meta name="theme-color" content="#F97316" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#080B10" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#09090b" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#faf9f7" media="(prefers-color-scheme: light)">
 
     <!-- Open Graph -->
-    <meta property="og:title" content="paw-proxy — Zero-config HTTPS for Local Development">
-    <meta property="og:description" content="Get https://myapp.test working in seconds. Automatic SSL, WebSocket support, zero configuration.">
+    <meta property="og:title" content="paw-proxy — Stop Fighting Localhost">
+    <meta property="og:description" content="Named HTTPS domains for every local dev server. No more port conflicts, no more localhost confusion. Just prefix with &quot;up&quot;.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://alexcatdad.github.io/paw-proxy/">
     <meta property="og:image" content="https://alexcatdad.github.io/paw-proxy/og-image.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="paw-proxy: Zero-config HTTPS for local macOS development">
+    <meta property="og:image:alt" content="paw-proxy: Stop fighting localhost">
     <meta property="og:site_name" content="paw-proxy">
     <meta property="og:locale" content="en_US">
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="paw-proxy — Zero-config HTTPS for Local Development">
-    <meta name="twitter:description" content="Get https://myapp.test working in seconds. Automatic SSL, WebSocket support, zero configuration.">
+    <meta name="twitter:title" content="paw-proxy — Stop Fighting Localhost">
+    <meta name="twitter:description" content="Named HTTPS domains for every local dev server. No more port conflicts, no more localhost confusion. Just prefix with &quot;up&quot;.">
     <meta name="twitter:image" content="https://alexcatdad.github.io/paw-proxy/og-image.png">
-    <meta name="twitter:image:alt" content="paw-proxy: Zero-config HTTPS for local macOS development">
+    <meta name="twitter:image:alt" content="paw-proxy: Stop fighting localhost">
 
     <!-- Favicon -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
 
-    <!-- LLM discoverability (llms.txt standard) -->
+    <!-- LLM discoverability -->
     <link rel="alternate" type="text/plain" href="llms.txt" title="LLM-friendly summary">
     <link rel="alternate" type="text/plain" href="llms-full.txt" title="LLM-friendly full reference">
 
@@ -49,136 +48,189 @@
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
         "name": "paw-proxy",
-        "description": "Zero-config HTTPS proxy for local macOS development. Get https://myapp.test working in seconds with automatic SSL, WebSocket support, and smart naming.",
+        "description": "Named HTTPS domains for local development. Stop fighting port conflicts — get https://myapp.test working in seconds with zero configuration.",
         "url": "https://alexcatdad.github.io/paw-proxy/",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "macOS",
         "license": "https://github.com/alexcatdad/paw-proxy/blob/main/LICENSE",
-        "offers": {
-            "@type": "Offer",
-            "price": "0",
-            "priceCurrency": "USD"
-        },
-        "author": {
-            "@type": "Person",
-            "name": "alexcatdad",
-            "url": "https://github.com/alexcatdad"
-        },
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": { "@type": "Person", "name": "alexcatdad", "url": "https://github.com/alexcatdad" },
         "codeRepository": "https://github.com/alexcatdad/paw-proxy",
         "programmingLanguage": "Go",
         "softwareRequirements": "macOS",
-        "keywords": ["HTTPS", "local development", "macOS", "proxy", "SSL", "TLS", "dev server"]
+        "keywords": ["HTTPS", "local development", "macOS", "proxy", "SSL", "TLS", "dev server", "port conflicts"]
     }
     </script>
 
-    <!-- Tailwind CSS (compiled from tailwind.config.js, not CDN runtime) -->
+    <!-- Theme detection (in head to prevent FOUC) -->
+    <script>
+        if (localStorage.theme === 'light' ||
+            (!localStorage.theme && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+
+    <!-- Tailwind CSS (compiled) -->
     <link rel="stylesheet" href="styles.css">
 
-    <!-- Fonts -->
+    <!-- Fonts: Instrument Serif (display), DM Sans (body), JetBrains Mono (code) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700&family=Familjen+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
     <style>
-        /* Light mode - warm sand */
+        /* ─── Dark mode (flagship) ─── */
         :root {
-            --bg-base: #FDFBF7;
-            --bg-surface: #FAF6EF;
-            --bg-elevated: #F3EBE0;
-            --bg-inset: #E8DCC8;
-            --text-primary: #3D362D;
-            --text-secondary: #5C5142;
-            --text-muted: #8C7A5E;
-            --border: #E8DCC8;
-            --shadow-light: rgba(255, 255, 255, 0.8);
-            --shadow-dark: rgba(0, 0, 0, 0.08);
+            --bg-base: #09090b;
+            --bg-surface: #18181b;
+            --bg-terminal: #0c0c0e;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #52525b;
+            --border: #27272a;
+            --border-accent: #f97316;
+            --accent: #f97316;
+            --accent-glow: rgba(249, 115, 22, 0.15);
+            --terminal-glow: rgba(249, 115, 22, 0.04);
+            --terminal-text: #fafafa;
+            --terminal-muted: #71717a;
+            --grain-opacity: 0.03;
         }
 
-        /* Dark mode - cool slate-blue */
-        .dark {
-            --bg-base: #080B10;
-            --bg-surface: #0D1117;
-            --bg-elevated: #141926;
-            --bg-inset: #1E2433;
-            --text-primary: #E6EDF3;
-            --text-secondary: #9CA3B0;
-            --text-muted: #636E7B;
-            --border: #2D3748;
-            --shadow-light: rgba(255, 255, 255, 0.02);
-            --shadow-dark: rgba(0, 0, 0, 0.4);
+        /* ─── Light mode ─── */
+        :root:not(.dark) {
+            --bg-base: #faf9f7;
+            --bg-surface: #f4f3f0;
+            --bg-terminal: #1c1917;
+            --text-primary: #1c1917;
+            --text-secondary: #57534e;
+            --text-muted: #a8a29e;
+            --border: #e7e5e4;
+            --border-accent: #ea580c;
+            --accent: #ea580c;
+            --accent-glow: rgba(234, 88, 12, 0.08);
+            --terminal-glow: rgba(0, 0, 0, 0.02);
+            --terminal-text: #e7e5e4;
+            --terminal-muted: #78716c;
+            --grain-opacity: 0.02;
         }
+
+        /* ─── Base ─── */
+        * { box-sizing: border-box; }
 
         body {
+            font-family: 'DM Sans', system-ui, sans-serif;
             background: var(--bg-base);
             color: var(--text-primary);
+            transition: background-color 0.4s ease, color 0.4s ease;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
-        /* Clay card styles */
-        .clay {
-            background: var(--bg-surface);
-            border-radius: 1.75rem;
-            box-shadow:
-                12px 12px 24px var(--shadow-dark),
-                -8px -8px 20px var(--shadow-light);
+        /* ─── Grain texture overlay ─── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: var(--grain-opacity);
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            background-repeat: repeat;
+            background-size: 256px;
+        }
+
+        /* ─── Typography ─── */
+        .font-display {
+            font-family: 'Familjen Grotesk', system-ui, sans-serif;
+        }
+
+        .font-body {
+            font-family: 'DM Sans', system-ui, sans-serif;
+        }
+
+        /* ─── Hero glow ─── */
+        .hero-glow {
+            position: absolute;
+            width: 600px;
+            height: 400px;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: radial-gradient(ellipse at center, var(--accent-glow) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ─── Terminal blocks ─── */
+        .terminal-block {
+            background: var(--bg-terminal);
+            color: var(--terminal-text);
+            border-radius: 12px;
             border: 1px solid var(--border);
+            overflow-x: auto;
+            box-shadow: 0 0 40px var(--terminal-glow), 0 4px 16px rgba(0,0,0,0.2);
         }
 
-        .clay-sm {
-            background: var(--bg-surface);
-            border-radius: 1.25rem;
-            box-shadow:
-                8px 8px 16px var(--shadow-dark),
-                -4px -4px 12px var(--shadow-light);
-            border: 1px solid var(--border);
-        }
+        /* Inside terminals, --text-muted and --text-primary should stay readable
+           against the dark background regardless of light/dark mode */
+        .terminal-block [style*="--text-muted"] { color: var(--terminal-muted) !important; }
+        .terminal-block [style*="--text-primary"] { color: var(--terminal-text) !important; }
+        .terminal-block [style*="--text-secondary"] { color: var(--terminal-text) !important; }
 
-        .clay-inset {
-            background: var(--bg-inset);
-            border-radius: 1rem;
-            box-shadow:
-                inset 4px 4px 8px var(--shadow-dark),
-                inset -2px -2px 6px var(--shadow-light);
-        }
-
-        .clay-btn {
-            background: var(--bg-elevated);
-            border-radius: 0.875rem;
-            box-shadow:
-                6px 6px 12px var(--shadow-dark),
-                -3px -3px 8px var(--shadow-light);
-            border: 1px solid var(--border);
-            transition: all 0.15s ease;
-        }
-
-        .clay-btn:hover {
-            box-shadow:
-                4px 4px 8px var(--shadow-dark),
-                -2px -2px 6px var(--shadow-light);
-        }
-
-        .clay-btn:active {
-            box-shadow:
-                inset 3px 3px 6px var(--shadow-dark),
-                inset -2px -2px 4px var(--shadow-light);
-        }
-
-        .clay-pill {
-            background: var(--bg-elevated);
-            border-radius: 9999px;
-            box-shadow:
-                4px 4px 10px var(--shadow-dark),
-                -2px -2px 6px var(--shadow-light);
-            border: 1px solid var(--border);
-        }
-
-        /* Terminal styling */
         .terminal-dot {
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
         }
 
-        /* Animations */
+        /* ─── Beat section styling ─── */
+        .beat-section {
+            position: relative;
+        }
+
+        .beat-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.6875rem;
+            font-weight: 500;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 1.25rem;
+        }
+
+        .beat-prose {
+            border-left: 2px solid var(--border);
+            padding-left: 1.5rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .beat-prose:hover {
+            border-left-color: var(--accent);
+        }
+
+        /* ─── Feature list ─── */
+        .feature-item {
+            position: relative;
+            padding-left: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0.5rem;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+        }
+
+        /* ─── Accent helpers ─── */
+        .text-accent-var { color: var(--accent); }
+
+        /* ─── Animations ─── */
         @keyframes blink {
             50% { opacity: 0; }
         }
@@ -186,21 +238,29 @@
             animation: blink 1s step-end infinite;
         }
 
-        @keyframes paw-bounce {
-            0%, 100% { transform: translateY(0) rotate(0deg); }
-            25% { transform: translateY(-8px) rotate(-8deg); }
-            50% { transform: translateY(0) rotate(0deg); }
-            75% { transform: translateY(-4px) rotate(8deg); }
-        }
-        .paw-animated {
-            display: inline-block;
-            animation: paw-bounce 2s ease-in-out infinite;
-            transform-origin: center bottom;
-        }
-        .paw-animated:hover {
-            animation: paw-bounce 0.5s ease-in-out infinite;
+        @keyframes fade-up {
+            from {
+                opacity: 0;
+                transform: translateY(32px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
+        .hero-animate {
+            opacity: 0;
+            animation: fade-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        .hero-animate-1 { animation-delay: 0s; }
+        .hero-animate-2 { animation-delay: 0.12s; }
+        .hero-animate-3 { animation-delay: 0.24s; }
+        .hero-animate-4 { animation-delay: 0.4s; }
+        .hero-animate-5 { animation-delay: 0.55s; }
+
+        /* Scroll-triggered fade-in */
         .fade-in {
             opacity: 0;
             transform: translateY(24px);
@@ -211,451 +271,415 @@
             transform: translateY(0);
         }
 
-        /* Smooth theme transitions */
-        body, .clay, .clay-sm, .clay-inset, .clay-btn, .clay-pill {
-            transition: background-color 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+        /* ─── Prior art pills ─── */
+        .prior-art-link {
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0.5rem 1.25rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s ease, border-color 0.2s ease;
+            text-decoration: none;
+            font-family: 'DM Sans', system-ui, sans-serif;
+        }
+        .prior-art-link:hover {
+            color: var(--accent);
+            border-color: var(--accent);
         }
 
-        /* Custom scrollbar for dark mode */
-        .dark ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
+        /* ─── Copy button ─── */
+        .copy-btn {
+            font-family: 'DM Sans', system-ui, sans-serif;
+            cursor: pointer;
+            transition: color 0.2s ease, border-color 0.2s ease;
         }
-        .dark ::-webkit-scrollbar-track {
+        .copy-btn:hover {
+            border-color: var(--accent) !important;
+            color: var(--text-secondary) !important;
+        }
+
+        /* ─── Install CTA ─── */
+        .install-cta {
             background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            transition: border-color 0.2s ease;
         }
-        .dark ::-webkit-scrollbar-thumb {
+        .install-cta:hover {
+            border-color: var(--accent);
+        }
+
+        /* ─── Divider ─── */
+        .section-divider {
+            width: 48px;
+            height: 2px;
             background: var(--border);
-            border-radius: 4px;
-        }
-
-        /* Gradient text */
-        .gradient-text {
-            background: linear-gradient(135deg, #F97316 0%, #FF8A4C 50%, #FBBF24 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        /* Feature card hover */
-        .feature-card {
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .feature-card:hover {
-            transform: translateY(-4px);
+            margin: 0 auto;
         }
     </style>
 </head>
-<body class="font-sans min-h-screen antialiased">
+<body class="min-h-screen">
     <!-- Theme Toggle -->
     <div class="fixed top-6 right-6 z-50">
-        <button id="theme-toggle" class="clay-btn p-3 flex items-center justify-center" aria-label="Toggle theme">
-            <svg class="w-5 h-5 hidden dark:block text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+        <button id="theme-toggle" class="p-2.5 rounded-full flex items-center justify-center" style="background: var(--bg-surface); border: 1px solid var(--border); transition: border-color 0.2s ease;" aria-label="Toggle theme" onmouseenter="this.style.borderColor='var(--accent)'" onmouseleave="this.style.borderColor='var(--border)'">
+            <svg class="w-4 h-4 hidden dark:block text-amber-400" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/>
             </svg>
-            <svg class="w-5 h-5 block dark:hidden" style="color: var(--text-secondary)" fill="currentColor" viewBox="0 0 20 20">
+            <svg class="w-4 h-4 block dark:hidden" style="color: var(--text-secondary)" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
             </svg>
         </button>
     </div>
 
-    <div class="max-w-4xl mx-auto px-6 py-20">
-        <!-- Header -->
-        <header class="text-center mb-24">
-            <div class="inline-flex items-center gap-4 mb-8">
-                <span class="text-6xl drop-shadow-lg paw-animated">🐾</span>
-                <h1 class="text-5xl md:text-6xl font-extrabold tracking-tight gradient-text">
-                    paw-proxy
-                </h1>
+    <div class="max-w-3xl mx-auto px-6 pt-24 pb-16 md:pt-32">
+
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- Beat 1 — Hero                              -->
+        <!-- ═══════════════════════════════════════════ -->
+        <header class="text-center mb-36 relative">
+            <div class="hero-glow"></div>
+
+            <div class="hero-animate hero-animate-1 inline-flex items-center gap-2.5 mb-10 relative z-10">
+                <span class="text-3xl">🐾</span>
+                <span class="font-mono text-sm font-medium tracking-wider" style="color: var(--text-muted)">paw-proxy</span>
             </div>
-            <p class="text-xl md:text-2xl font-medium mb-10 max-w-2xl mx-auto leading-relaxed" style="color: var(--text-secondary)">
-                Zero-config HTTPS for local macOS development.<br>
-                Get <span class="text-accent font-bold">https://myapp.test</span> working in seconds.
+
+            <h1 class="font-display text-5xl md:text-7xl tracking-tight mb-6 hero-animate hero-animate-2 relative z-10" style="color: var(--text-primary); line-height: 1.05;">
+                Stop fighting<br>localhost.
+            </h1>
+
+            <p class="text-lg md:text-xl mb-14 max-w-lg mx-auto leading-relaxed hero-animate hero-animate-3 font-body relative z-10" style="color: var(--text-secondary)">
+                Named HTTPS domains for every local dev server.<br class="hidden sm:inline"> Zero config.
             </p>
 
-            <!-- Hero Terminal -->
-            <div class="clay p-3 max-w-xl mx-auto">
-                <div class="clay-inset overflow-hidden">
-                    <div class="flex items-center gap-2.5 px-4 py-3" style="border-bottom: 1px solid var(--border)">
-                        <div class="flex gap-2">
-                            <div class="terminal-dot bg-red-400"></div>
-                            <div class="terminal-dot bg-amber-400"></div>
-                            <div class="terminal-dot bg-emerald-400"></div>
-                        </div>
-                        <span class="flex-1 text-center text-xs font-mono font-medium" style="color: var(--text-muted)">~ terminal</span>
-                        <div class="w-12"></div>
+            <!-- Hero terminal -->
+            <div class="terminal-block max-w-sm mx-auto mb-10 hero-animate hero-animate-4 relative z-10">
+                <div class="flex items-center gap-2 px-4 py-2.5" style="border-bottom: 1px solid var(--border)">
+                    <div class="flex gap-1.5">
+                        <div class="terminal-dot" style="background: #ef4444"></div>
+                        <div class="terminal-dot" style="background: #f59e0b"></div>
+                        <div class="terminal-dot" style="background: #22c55e"></div>
                     </div>
-                    <div class="p-5 font-mono text-sm text-left space-y-1">
-                        <div style="color: var(--text-muted)"># Before: localhost headaches</div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-emerald-500">❯</span>
-                            <span style="color: var(--text-primary)">npm run dev</span>
-                        </div>
-                        <div class="pt-3" style="color: var(--text-muted)"># After: just works</div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-emerald-500">❯</span>
-                            <span style="color: var(--text-primary)">up npm run dev</span>
-                        </div>
-                        <div class="flex items-center gap-2 pt-1">
-                            <span class="text-accent-light font-semibold">→ https://myapp.test</span>
-                            <span class="inline-block w-2.5 h-5 bg-accent rounded-sm cursor-blink"></span>
-                        </div>
+                </div>
+                <div class="p-4 font-mono text-sm text-left">
+                    <div class="flex items-center gap-2">
+                        <span style="color: #22c55e">❯</span>
+                        <span>up npm run dev</span>
                     </div>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="text-accent-var font-semibold">→ https://myapp.test</span>
+                        <span style="color: #22c55e; font-weight: 700">✓</span>
+                        <span class="inline-block w-2 h-4 rounded-sm cursor-blink" style="background: var(--accent)"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Install CTA -->
+            <div class="hero-animate hero-animate-5 relative z-10">
+                <div class="install-cta inline-flex items-center gap-3 font-mono text-sm px-5 py-3">
+                    <span style="color: var(--text-muted)">$</span>
+                    <span style="color: var(--text-primary)">brew install alexcatdad/tap/paw-proxy</span>
+                    <button class="copy-btn ml-1 text-xs font-semibold px-3 py-1 rounded-md" style="background: var(--bg-base); border: 1px solid var(--border); color: var(--text-muted)" data-code="brew install alexcatdad/tap/paw-proxy">Copy</button>
                 </div>
             </div>
         </header>
 
-        <!-- Why Section -->
-        <section class="mb-24 fade-in">
-            <div class="text-center mb-12">
-                <span class="clay-pill px-5 py-2.5 text-sm font-semibold inline-flex items-center gap-2" style="color: var(--text-secondary)">
-                    <span>💡</span> The Problem
-                </span>
-                <h2 class="text-3xl md:text-4xl font-bold mt-6" style="color: var(--text-primary)">Local HTTPS is painful</h2>
-            </div>
-
-            <div class="space-y-5">
-                <div class="clay p-7">
-                    <div class="flex items-start gap-5">
-                        <span class="text-4xl">😤</span>
-                        <div>
-                            <h3 class="text-xl font-bold mb-4" style="color: var(--text-primary)">You need HTTPS locally for...</h3>
-                            <ul class="space-y-3" style="color: var(--text-secondary)">
-                                <li class="flex items-start gap-3">
-                                    <span class="text-accent mt-0.5">→</span>
-                                    <span>OAuth callbacks requiring HTTPS redirect URIs</span>
-                                </li>
-                                <li class="flex items-start gap-3">
-                                    <span class="text-accent mt-0.5">→</span>
-                                    <span>Secure cookies with <code class="font-mono text-sm px-1.5 py-0.5 rounded" style="background: var(--bg-inset)">SameSite=None</code> or <code class="font-mono text-sm px-1.5 py-0.5 rounded" style="background: var(--bg-inset)">Secure</code></span>
-                                </li>
-                                <li class="flex items-start gap-3">
-                                    <span class="text-accent mt-0.5">→</span>
-                                    <span>Service workers that only work on secure origins</span>
-                                </li>
-                                <li class="flex items-start gap-3">
-                                    <span class="text-accent mt-0.5">→</span>
-                                    <span>Testing production behavior locally</span>
-                                </li>
-                            </ul>
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- Beat 2 — The Pain: Port Conflicts          -->
+        <!-- ═══════════════════════════════════════════ -->
+        <section class="mb-28 fade-in beat-section">
+            <div class="beat-label">The problem</div>
+            <div class="grid md:grid-cols-2 gap-10 items-start">
+                <div class="beat-prose">
+                    <h2 class="font-display text-3xl md:text-4xl mb-5" style="color: var(--text-primary); line-height: 1.15;">
+                        Three projects.<br>One port.
+                    </h2>
+                    <p class="leading-relaxed mb-4 font-body" style="color: var(--text-secondary)">
+                        You have three Next.js projects. All of them want port 3000. The second one detects it's taken and silently moves to 3001.
+                    </p>
+                    <p class="leading-relaxed mb-4 font-body" style="color: var(--text-secondary)">
+                        Your OAuth callback is hardcoded to <code class="font-mono text-xs px-1.5 py-0.5 rounded" style="background: var(--bg-surface)">localhost:3000</code>. Your test fixtures expect it. Your env files point to it.
+                    </p>
+                    <p class="leading-relaxed font-body" style="color: var(--text-secondary)">
+                        You've been debugging the wrong app for 20 minutes.
+                    </p>
+                </div>
+                <div class="terminal-block">
+                    <div class="flex items-center gap-2 px-4 py-2.5" style="border-bottom: 1px solid var(--border)">
+                        <div class="flex gap-1.5">
+                            <div class="terminal-dot" style="background: #ef4444"></div>
+                            <div class="terminal-dot" style="background: #f59e0b"></div>
+                            <div class="terminal-dot" style="background: #22c55e"></div>
                         </div>
                     </div>
-                </div>
-
-                <div class="clay p-7">
-                    <div class="flex items-start gap-5">
-                        <span class="text-4xl">😩</span>
-                        <div>
-                            <h3 class="text-xl font-bold mb-4" style="color: var(--text-primary)">Existing solutions are frustrating</h3>
-                            <ul class="space-y-3" style="color: var(--text-secondary)">
-                                <li class="flex items-start gap-3">
-                                    <span style="color: var(--text-muted)" class="mt-0.5">→</span>
-                                    <span><strong class="font-semibold">mkcert</strong> — Great certs, but still need nginx/caddy config per project</span>
-                                </li>
-                                <li class="flex items-start gap-3">
-                                    <span style="color: var(--text-muted)" class="mt-0.5">→</span>
-                                    <span><strong class="font-semibold">ngrok/tunnels</strong> — External dependency, latency, rate limits</span>
-                                </li>
-                                <li class="flex items-start gap-3">
-                                    <span style="color: var(--text-muted)" class="mt-0.5">→</span>
-                                    <span><strong class="font-semibold">Self-signed</strong> — Browser warnings, manual trust, breaks fetch</span>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="clay p-7" style="border: 2px solid rgba(16, 185, 129, 0.3);">
-                    <div class="flex items-start gap-5">
-                        <span class="text-4xl">✨</span>
-                        <div>
-                            <h3 class="text-xl font-bold mb-2 text-emerald-500">paw-proxy: just prefix with "up"</h3>
-                            <p style="color: var(--text-secondary)" class="text-lg">One command. Zero config. Trusted HTTPS. Works with any dev server.</p>
-                        </div>
+                    <div class="p-4 font-mono text-sm text-left leading-relaxed">
+                        <div><span style="color: #22c55e">❯</span> npm run dev <span style="color: var(--text-muted)"># project-a</span></div>
+                        <div>→ localhost:<span style="color: #22c55e">3000</span></div>
+                        <div class="mt-3"><span style="color: #22c55e">❯</span> npm run dev <span style="color: var(--text-muted)"># project-b</span></div>
+                        <div style="color: #f59e0b">⚠ port 3000 in use, using 3001</div>
+                        <div>→ localhost:<span style="color: #f59e0b">3001</span></div>
+                        <div class="mt-3"><span style="color: #22c55e">❯</span> open http://localhost:3001/auth/callback</div>
+                        <div style="color: #ef4444">✗ OAuth error: redirect_uri_mismatch</div>
+                        <div style="color: var(--text-muted)">&nbsp; expected: http://localhost:3000/auth/callback</div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Features -->
-        <section class="mb-24 fade-in">
-            <div class="text-center mb-12">
-                <span class="clay-pill px-5 py-2.5 text-sm font-semibold inline-flex items-center gap-2" style="color: var(--text-secondary)">
-                    <span>⚡</span> Features
-                </span>
-                <h2 class="text-3xl md:text-4xl font-bold mt-6" style="color: var(--text-primary)">Everything you need</h2>
-            </div>
-
-            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                <div class="clay-sm feature-card p-6">
-                    <div class="text-3xl mb-4">⚡</div>
-                    <h3 class="text-lg font-bold mb-2" style="color: var(--text-primary)">Zero Config</h3>
-                    <p style="color: var(--text-secondary)">Just run "up bun dev" and get HTTPS instantly</p>
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- Beat 3 — The Pain: Worktree Confusion      -->
+        <!-- ═══════════════════════════════════════════ -->
+        <section class="mb-28 fade-in beat-section">
+            <div class="beat-label">It gets worse</div>
+            <div class="grid md:grid-cols-2 gap-10 items-start">
+                <div class="beat-prose">
+                    <h2 class="font-display text-3xl md:text-4xl mb-5" style="color: var(--text-primary); line-height: 1.15;">
+                        Same project. Two branches.<br>No idea which is which.
+                    </h2>
+                    <p class="leading-relaxed mb-4 font-body" style="color: var(--text-secondary)">
+                        You're using git worktrees to run two branches of the same project side by side. Both register as "MyApp" on localhost. Both look identical in the browser tab.
+                    </p>
+                    <p class="leading-relaxed font-body" style="color: var(--text-secondary)">
+                        You just spent 10 minutes testing code that hasn't changed — because you're hitting the wrong instance.
+                    </p>
                 </div>
-                <div class="clay-sm feature-card p-6">
-                    <div class="text-3xl mb-4">🔐</div>
-                    <h3 class="text-lg font-bold mb-2" style="color: var(--text-primary)">Auto SSL</h3>
-                    <p style="color: var(--text-secondary)">Trusted certificates generated on-the-fly</p>
-                </div>
-                <div class="clay-sm feature-card p-6">
-                    <div class="text-3xl mb-4">🔄</div>
-                    <h3 class="text-lg font-bold mb-2" style="color: var(--text-primary)">WebSocket Support</h3>
-                    <p style="color: var(--text-secondary)">Hot reload works out of the box</p>
-                </div>
-                <div class="clay-sm feature-card p-6">
-                    <div class="text-3xl mb-4">📦</div>
-                    <h3 class="text-lg font-bold mb-2" style="color: var(--text-primary)">Smart Naming</h3>
-                    <p style="color: var(--text-secondary)">Uses package.json or directory name</p>
-                </div>
-                <div class="clay-sm feature-card p-6">
-                    <div class="text-3xl mb-4">🐳</div>
-                    <h3 class="text-lg font-bold mb-2" style="color: var(--text-primary)">Docker Compose</h3>
-                    <p style="color: var(--text-secondary)">Auto-discovers services and creates <code class="font-mono text-sm px-1.5 py-0.5 rounded" style="background: var(--bg-inset)">service.project.test</code> routes</p>
-                </div>
-                <div class="clay-sm feature-card p-6">
-                    <div class="text-3xl mb-4">🌳</div>
-                    <h3 class="text-lg font-bold mb-2" style="color: var(--text-primary)">Worktree Friendly</h3>
-                    <p style="color: var(--text-secondary)">Automatic fallback when domains collide — run branches side by side</p>
-                </div>
-                <div class="clay-sm feature-card p-6">
-                    <div class="text-3xl mb-4">📊</div>
-                    <h3 class="text-lg font-bold mb-2" style="color: var(--text-primary)">Live Dashboard</h3>
-                    <p style="color: var(--text-secondary)">Real-time request feed and route stats at <code class="font-mono text-sm px-1.5 py-0.5 rounded" style="background: var(--bg-inset)">_paw.test</code></p>
-                </div>
-                <div class="clay-sm feature-card p-6">
-                    <div class="text-3xl mb-4">🛡️</div>
-                    <h3 class="text-lg font-bold mb-2" style="color: var(--text-primary)">Security First</h3>
-                    <p style="color: var(--text-secondary)">TLS 1.2+, localhost-only binding</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Docker Compose -->
-        <section class="mb-24 fade-in">
-            <div class="text-center mb-12">
-                <span class="clay-pill px-5 py-2.5 text-sm font-semibold inline-flex items-center gap-2" style="color: var(--text-secondary)">
-                    <span>🐳</span> Docker Compose
-                </span>
-                <h2 class="text-3xl md:text-4xl font-bold mt-6" style="color: var(--text-primary)">HTTPS for every container</h2>
-                <p class="mt-4 text-lg max-w-2xl mx-auto" style="color: var(--text-secondary)">
-                    Wrap <code class="font-mono text-sm px-1.5 py-0.5 rounded" style="background: var(--bg-inset)">docker compose up</code> to auto-discover services and register routes.
-                </p>
-            </div>
-
-            <div class="clay p-3 max-w-xl mx-auto">
-                <div class="clay-inset overflow-hidden">
-                    <div class="flex items-center gap-2.5 px-4 py-3" style="border-bottom: 1px solid var(--border)">
-                        <div class="flex gap-2">
-                            <div class="terminal-dot bg-red-400"></div>
-                            <div class="terminal-dot bg-amber-400"></div>
-                            <div class="terminal-dot bg-emerald-400"></div>
+                <div class="terminal-block">
+                    <div class="flex items-center gap-2 px-4 py-2.5" style="border-bottom: 1px solid var(--border)">
+                        <div class="flex gap-1.5">
+                            <div class="terminal-dot" style="background: #ef4444"></div>
+                            <div class="terminal-dot" style="background: #f59e0b"></div>
+                            <div class="terminal-dot" style="background: #22c55e"></div>
                         </div>
-                        <span class="flex-1 text-center text-xs font-mono font-medium" style="color: var(--text-muted)">~/projects/myapp</span>
-                        <div class="w-12"></div>
                     </div>
-                    <div class="p-5 font-mono text-sm text-left space-y-1">
-                        <div class="flex items-center gap-2">
-                            <span class="text-emerald-500">❯</span>
-                            <span style="color: var(--text-primary)">up docker compose up</span>
-                        </div>
-                        <div class="pt-1" style="color: var(--text-secondary)">Mapping https://frontend.myapp.test -> localhost:3000...</div>
-                        <div style="color: var(--text-secondary)">Mapping https://api.myapp.test -> localhost:8080...</div>
-                        <div class="pt-1" style="color: var(--text-secondary)">2 services live:</div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-accent-light font-semibold">   https://frontend.myapp.test</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-accent-light font-semibold">   https://api.myapp.test</span>
-                            <span class="inline-block w-2.5 h-5 bg-accent rounded-sm cursor-blink"></span>
-                        </div>
+                    <div class="p-4 font-mono text-sm text-left leading-relaxed">
+                        <div style="color: var(--text-muted)"># ~/myapp (main branch)</div>
+                        <div><span style="color: #22c55e">❯</span> npm run dev → localhost:3000</div>
+                        <div class="mt-3" style="color: var(--text-muted)"># ~/myapp-feat-auth (feature branch)</div>
+                        <div><span style="color: #22c55e">❯</span> npm run dev → localhost:3001</div>
+                        <div class="mt-3" style="color: var(--text-muted)"># two browser tabs, both say "MyApp"</div>
+                        <div style="color: var(--text-muted)"># ...which branch is this again?</div>
+                        <div style="color: var(--text-muted)"># you refresh, nothing changed</div>
+                        <div style="color: #ef4444"># because you're hitting the wrong one</div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Git Worktrees -->
-        <section class="mb-24 fade-in">
-            <div class="text-center mb-12">
-                <span class="clay-pill px-5 py-2.5 text-sm font-semibold inline-flex items-center gap-2" style="color: var(--text-secondary)">
-                    <span>🌳</span> Git Worktrees
-                </span>
-                <h2 class="text-3xl md:text-4xl font-bold mt-6" style="color: var(--text-primary)">Run multiple branches side by side</h2>
-                <p class="mt-4 text-lg max-w-2xl mx-auto" style="color: var(--text-secondary)">
-                    When two instances share the same project name, paw-proxy automatically falls back to the directory name.
-                </p>
-            </div>
-
-            <div class="clay p-3 max-w-xl mx-auto">
-                <div class="clay-inset overflow-hidden">
-                    <div class="flex items-center gap-2.5 px-4 py-3" style="border-bottom: 1px solid var(--border)">
-                        <div class="flex gap-2">
-                            <div class="terminal-dot bg-red-400"></div>
-                            <div class="terminal-dot bg-amber-400"></div>
-                            <div class="terminal-dot bg-emerald-400"></div>
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- Beat 4 — The Insight                       -->
+        <!-- ═══════════════════════════════════════════ -->
+        <section class="mb-28 fade-in beat-section">
+            <div class="beat-label">The insight</div>
+            <div class="grid md:grid-cols-2 gap-10 items-start">
+                <div class="beat-prose">
+                    <h2 class="font-display text-3xl md:text-4xl mb-5" style="color: var(--text-primary); line-height: 1.15;">
+                        The problem isn't ports.<br>It's identity.
+                    </h2>
+                    <p class="leading-relaxed mb-4 font-body" style="color: var(--text-secondary)">
+                        <code class="font-mono text-xs px-1.5 py-0.5 rounded" style="background: var(--bg-surface)">localhost:3000</code> doesn't tell you <em>what</em> you're running. A named domain does.
+                    </p>
+                    <p class="leading-relaxed font-body" style="color: var(--text-secondary)">
+                        And once you have names, HTTPS comes free — real trusted certificates, no browser warnings, OAuth callbacks that just work.
+                    </p>
+                </div>
+                <div class="terminal-block">
+                    <div class="flex items-center gap-2 px-4 py-2.5" style="border-bottom: 1px solid var(--border)">
+                        <div class="flex gap-1.5">
+                            <div class="terminal-dot" style="background: #ef4444"></div>
+                            <div class="terminal-dot" style="background: #f59e0b"></div>
+                            <div class="terminal-dot" style="background: #22c55e"></div>
                         </div>
-                        <span class="flex-1 text-center text-xs font-mono font-medium" style="color: var(--text-muted)">~ terminal</span>
-                        <div class="w-12"></div>
                     </div>
-                    <div class="p-5 font-mono text-sm text-left space-y-1">
-                        <div style="color: var(--text-muted)"># Main checkout ~/myapp</div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-emerald-500">❯</span>
-                            <span style="color: var(--text-primary)">up bun dev</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-accent-light font-semibold">→ https://myapp.test</span>
-                        </div>
-                        <div class="pt-3" style="color: var(--text-muted)"># Worktree ~/myapp-feat-auth</div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-emerald-500">❯</span>
-                            <span style="color: var(--text-primary)">up bun dev</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-amber-500">⚠️  myapp.test already in use</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-accent-light font-semibold">→ https://myapp-feat-auth.test</span>
-                            <span class="inline-block w-2.5 h-5 bg-accent rounded-sm cursor-blink"></span>
-                        </div>
+                    <div class="p-4 font-mono text-sm text-left leading-relaxed">
+                        <div style="color: var(--text-muted)"># ports tell you nothing</div>
+                        <div>localhost:3000 &nbsp;→ <span style="color: var(--text-muted)">???</span></div>
+                        <div>localhost:3001 &nbsp;→ <span style="color: var(--text-muted)">???</span></div>
+                        <div>localhost:3002 &nbsp;→ <span style="color: var(--text-muted)">???</span></div>
+                        <div class="mt-3" style="color: var(--text-muted)"># names tell you everything</div>
+                        <div><span style="color: #22c55e">myapp.test</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; → myapp (main)</div>
+                        <div><span style="color: #22c55e">myapp-feat-auth.test</span> → feature branch</div>
+                        <div><span style="color: #22c55e">api.shop.test</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; → shop's API</div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Install -->
-        <section class="mb-24 fade-in">
-            <div class="text-center mb-12">
-                <span class="clay-pill px-5 py-2.5 text-sm font-semibold inline-flex items-center gap-2" style="color: var(--text-secondary)">
-                    <span>🚀</span> Install
-                </span>
-                <h2 class="text-3xl md:text-4xl font-bold mt-6" style="color: var(--text-primary)">Up and running in 30 seconds</h2>
-            </div>
-
-            <div class="space-y-5">
-                <div class="clay p-3">
-                    <div class="flex items-center justify-between px-4 py-3">
-                        <span class="text-sm font-bold" style="color: var(--text-muted)">1. Install via Homebrew</span>
-                        <button class="copy-btn clay-btn text-xs font-semibold py-2 px-4" style="color: var(--text-secondary)" data-code="brew install alexcatdad/tap/paw-proxy">Copy</button>
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- Beat 5 — The Solution                      -->
+        <!-- ═══════════════════════════════════════════ -->
+        <section class="mb-28 fade-in beat-section">
+            <div class="beat-label">The fix</div>
+            <div class="grid md:grid-cols-2 gap-10 items-start">
+                <div class="beat-prose">
+                    <h2 class="font-display text-3xl md:text-4xl mb-5" style="color: var(--text-primary); line-height: 1.15;">
+                        Just prefix with <code class="font-mono text-accent-var">"up"</code>.
+                    </h2>
+                    <p class="leading-relaxed mb-6 font-body" style="color: var(--text-secondary)">
+                        paw-proxy gives every dev server a named HTTPS domain. It handles DNS, certificates, port allocation, and worktree conflicts automatically. Zero config files. Zero nginx. Zero mkcert.
+                    </p>
+                    <div>
+                        <div class="feature-item">
+                            <div class="font-semibold mb-0.5 text-sm" style="color: var(--text-primary)">Auto SSL</div>
+                            <div class="text-sm font-body" style="color: var(--text-muted)">Trusted certificates generated on-the-fly.</div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="font-semibold mb-0.5 text-sm" style="color: var(--text-primary)">WebSocket &amp; HMR</div>
+                            <div class="text-sm font-body" style="color: var(--text-muted)">Hot module reload just works over HTTPS.</div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="font-semibold mb-0.5 text-sm" style="color: var(--text-primary)">Docker Compose</div>
+                            <div class="text-sm font-body" style="color: var(--text-muted)">Auto-discovers services → <code class="font-mono text-xs">service.project.test</code></div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="font-semibold mb-0.5 text-sm" style="color: var(--text-primary)">Live Dashboard</div>
+                            <div class="text-sm font-body" style="color: var(--text-muted)">Real-time request feed at <code class="font-mono text-xs">_paw.test</code></div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="font-semibold mb-0.5 text-sm" style="color: var(--text-primary)">Worktree Aware</div>
+                            <div class="text-sm font-body" style="color: var(--text-muted)">Automatic fallback when domains collide.</div>
+                        </div>
                     </div>
-                    <div class="clay-inset p-5 font-mono text-sm overflow-x-auto whitespace-pre" style="color: var(--text-primary)">
-<span style="color: var(--text-muted)"># Install paw-proxy and the up command</span>
-brew install alexcatdad/tap/paw-proxy</div>
                 </div>
-
-                <div class="clay p-3">
-                    <div class="flex items-center justify-between px-4 py-3">
-                        <span class="text-sm font-bold" style="color: var(--text-muted)">2. Setup (one time)</span>
-                        <button class="copy-btn clay-btn text-xs font-semibold py-2 px-4" style="color: var(--text-secondary)" data-code="sudo paw-proxy setup">Copy</button>
+                <div class="terminal-block">
+                    <div class="flex items-center gap-2 px-4 py-2.5" style="border-bottom: 1px solid var(--border)">
+                        <div class="flex gap-1.5">
+                            <div class="terminal-dot" style="background: #ef4444"></div>
+                            <div class="terminal-dot" style="background: #f59e0b"></div>
+                            <div class="terminal-dot" style="background: #22c55e"></div>
+                        </div>
                     </div>
-                    <div class="clay-inset p-5 font-mono text-sm whitespace-pre" style="color: var(--text-primary)">
-<span style="color: var(--text-muted)"># Configure DNS, generate CA, install daemon</span>
-sudo paw-proxy setup</div>
-                </div>
-
-                <div class="clay p-3">
-                    <div class="flex items-center justify-between px-4 py-3">
-                        <span class="text-sm font-bold" style="color: var(--text-muted)">3. Use it!</span>
-                        <button class="copy-btn clay-btn text-xs font-semibold py-2 px-4" style="color: var(--text-secondary)" data-code="up npm run dev">Copy</button>
+                    <div class="p-4 font-mono text-sm text-left leading-relaxed">
+                        <div style="color: var(--text-muted)"># any dev server</div>
+                        <div><span style="color: #22c55e">❯</span> up npm run dev</div>
+                        <div><span class="text-accent-var font-semibold">→ https://myapp.test</span> <span style="color: #22c55e; font-weight: 700">✓</span></div>
+                        <div class="mt-3" style="color: var(--text-muted)"># docker compose — every service gets a domain</div>
+                        <div><span style="color: #22c55e">❯</span> up docker compose up</div>
+                        <div><span class="text-accent-var font-semibold">→ https://frontend.shop.test</span> <span style="color: #22c55e; font-weight: 700">✓</span></div>
+                        <div><span class="text-accent-var font-semibold">→ https://api.shop.test</span> <span style="color: #22c55e; font-weight: 700">✓</span></div>
+                        <div class="mt-3" style="color: var(--text-muted)"># worktrees — automatic conflict resolution</div>
+                        <div><span style="color: #22c55e">❯</span> up npm run dev <span style="color: var(--text-muted)"># ~/myapp-feat-auth</span></div>
+                        <div style="color: #f59e0b">⚠ myapp.test in use</div>
+                        <div><span class="text-accent-var font-semibold">→ https://myapp-feat-auth.test</span> <span style="color: #22c55e; font-weight: 700">✓</span></div>
                     </div>
-                    <div class="clay-inset p-5 font-mono text-sm whitespace-pre" style="color: var(--text-primary)">
-<span style="color: var(--text-muted)"># Wrap any dev command</span>
-up npm run dev
-up bun dev
-up -n myapp npm start  <span style="color: var(--text-muted)"># custom domain</span></div>
                 </div>
             </div>
         </section>
 
-        <!-- Architecture -->
-        <section class="mb-24 fade-in">
-            <div class="text-center mb-12">
-                <span class="clay-pill px-5 py-2.5 text-sm font-semibold inline-flex items-center gap-2" style="color: var(--text-secondary)">
-                    <span>🏗️</span> Architecture
-                </span>
-                <h2 class="text-3xl md:text-4xl font-bold mt-6" style="color: var(--text-primary)">How it works</h2>
+        <div class="section-divider mb-28 fade-in"></div>
+
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- Beat 6 — How It Works                      -->
+        <!-- ═══════════════════════════════════════════ -->
+        <section class="mb-28 fade-in">
+            <div class="text-center mb-10">
+                <div class="beat-label">How it works</div>
+                <h2 class="font-display text-3xl md:text-4xl" style="color: var(--text-primary)">Three moving parts</h2>
             </div>
 
-            <div class="clay p-3">
-                <div class="clay-inset p-6 md:p-8 font-mono text-xs sm:text-sm overflow-x-auto whitespace-pre leading-relaxed" style="color: var(--text-secondary)">
+            <div class="terminal-block max-w-2xl mx-auto">
+                <div class="p-6 md:p-8 font-mono text-xs sm:text-sm overflow-x-auto whitespace-pre leading-relaxed" style="color: var(--text-secondary)">
 ┌─────────────┐     ┌──────────────────┐     ┌─────────────┐
-│   <span class="text-accent font-bold">Browser</span>   │────▶│   <span class="text-emerald-500 font-bold">paw-proxy</span>      │────▶│  Dev Server │
-│             │     │   <span style="color: var(--text-muted)">port 443</span>       │     │  <span style="color: var(--text-muted)">dynamic</span>   │
+│   <span style="color: var(--accent)" class="font-bold">Browser</span>   │────▶│   <span style="color: #22c55e" class="font-bold">paw-proxy</span>      │────▶│  Dev Server │
+│             │     │   <span style="color: var(--text-muted)">port 443</span>       │     │  <span style="color: var(--text-muted)">dynamic</span>    │
 └─────────────┘     └──────────────────┘     └─────────────┘
        │                     │
        │              ┌──────┴──────┐
-       │              │  <span class="text-emerald-500 font-bold">DNS Server</span> │  *.test → 127.0.0.1
+       │              │  <span style="color: #22c55e" class="font-bold">DNS Server</span> │  *.test → 127.0.0.1
        │              │  <span style="color: var(--text-muted)">port 9353</span>  │
        │              └─────────────┘
        │
-       └──── <span class="text-accent font-bold">https://myapp.test</span> ✓ Trusted SSL</div>
+       └──── <span style="color: var(--accent)" class="font-bold">https://myapp.test</span> ✓ Trusted SSL</div>
             </div>
         </section>
 
-        <!-- Credits -->
-        <section class="mb-16 fade-in">
-            <div class="text-center mb-12">
-                <span class="clay-pill px-5 py-2.5 text-sm font-semibold inline-flex items-center gap-2" style="color: var(--text-secondary)">
-                    <span>🙏</span> Prior Art
-                </span>
-                <h2 class="text-3xl md:text-4xl font-bold mt-6" style="color: var(--text-primary)">Standing on giants' shoulders</h2>
-                <p class="mt-4 text-lg" style="color: var(--text-secondary)">We modernized the wheel, didn't reinvent it.</p>
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- Install                                    -->
+        <!-- ═══════════════════════════════════════════ -->
+        <section class="mb-28 fade-in">
+            <div class="text-center mb-10">
+                <div class="beat-label">Get started</div>
+                <h2 class="font-display text-3xl md:text-4xl" style="color: var(--text-primary)">Up and running in 30 seconds</h2>
             </div>
 
-            <div class="flex flex-wrap justify-center gap-4">
-                <a href="https://github.com/FiloSottile/mkcert" target="_blank" rel="noopener" class="clay-pill px-5 py-3 font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">
-                    🔐 mkcert
-                </a>
-                <a href="https://github.com/puma/puma-dev" target="_blank" rel="noopener" class="clay-pill px-5 py-3 font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">
-                    🐆 puma-dev
-                </a>
-                <a href="https://pow.cx/" target="_blank" rel="noopener" class="clay-pill px-5 py-3 font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">
-                    ⚡ pow
-                </a>
-                <a href="https://github.com/typicode/hotel" target="_blank" rel="noopener" class="clay-pill px-5 py-3 font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">
-                    🏨 hotel
-                </a>
-                <a href="https://caddyserver.com/" target="_blank" rel="noopener" class="clay-pill px-5 py-3 font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">
-                    🔷 caddy
-                </a>
+            <div class="space-y-3 max-w-lg mx-auto">
+                <div class="terminal-block">
+                    <div class="flex items-center justify-between px-4 py-2.5" style="border-bottom: 1px solid var(--border)">
+                        <span class="text-xs font-mono font-medium" style="color: var(--text-muted)">1 — install</span>
+                        <button class="copy-btn text-xs font-semibold py-1 px-3 rounded-md" style="background: var(--bg-base); border: 1px solid var(--border); color: var(--text-muted)" data-code="brew install alexcatdad/tap/paw-proxy">Copy</button>
+                    </div>
+                    <div class="p-4 font-mono text-sm" style="color: var(--text-primary)">brew install alexcatdad/tap/paw-proxy</div>
+                </div>
+
+                <div class="terminal-block">
+                    <div class="flex items-center justify-between px-4 py-2.5" style="border-bottom: 1px solid var(--border)">
+                        <span class="text-xs font-mono font-medium" style="color: var(--text-muted)">2 — setup (once)</span>
+                        <button class="copy-btn text-xs font-semibold py-1 px-3 rounded-md" style="background: var(--bg-base); border: 1px solid var(--border); color: var(--text-muted)" data-code="sudo paw-proxy setup">Copy</button>
+                    </div>
+                    <div class="p-4 font-mono text-sm" style="color: var(--text-primary)">sudo paw-proxy setup</div>
+                </div>
+
+                <div class="terminal-block">
+                    <div class="flex items-center justify-between px-4 py-2.5" style="border-bottom: 1px solid var(--border)">
+                        <span class="text-xs font-mono font-medium" style="color: var(--text-muted)">3 — use it</span>
+                        <button class="copy-btn text-xs font-semibold py-1 px-3 rounded-md" style="background: var(--bg-base); border: 1px solid var(--border); color: var(--text-muted)" data-code="up npm run dev">Copy</button>
+                    </div>
+                    <div class="p-4 font-mono text-sm" style="color: var(--text-primary)">up npm run dev</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- Prior Art                                  -->
+        <!-- ═══════════════════════════════════════════ -->
+        <section class="mb-16 fade-in">
+            <div class="text-center mb-8">
+                <div class="beat-label">Prior art</div>
+                <h2 class="font-display text-2xl md:text-3xl mb-2" style="color: var(--text-primary)">Standing on giants' shoulders</h2>
+                <p class="text-sm font-body" style="color: var(--text-muted)">We modernized the wheel, didn't reinvent it.</p>
+            </div>
+
+            <div class="flex flex-wrap justify-center gap-3">
+                <a href="https://github.com/FiloSottile/mkcert" target="_blank" rel="noopener" class="prior-art-link">🔐 mkcert</a>
+                <a href="https://github.com/puma/puma-dev" target="_blank" rel="noopener" class="prior-art-link">🐆 puma-dev</a>
+                <a href="https://pow.cx/" target="_blank" rel="noopener" class="prior-art-link">⚡ pow</a>
+                <a href="https://github.com/typicode/hotel" target="_blank" rel="noopener" class="prior-art-link">🏨 hotel</a>
+                <a href="https://caddyserver.com/" target="_blank" rel="noopener" class="prior-art-link">🔷 caddy</a>
             </div>
         </section>
     </div>
 
     <!-- Footer -->
-    <footer class="py-12" style="border-top: 1px solid var(--border)">
-        <div class="max-w-4xl mx-auto px-6 text-center">
-            <div class="flex flex-wrap justify-center gap-8 mb-8">
-                <a href="https://github.com/alexcatdad/paw-proxy" class="font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">GitHub</a>
-                <a href="https://github.com/alexcatdad/paw-proxy/releases" class="font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">Releases</a>
-                <a href="https://github.com/alexcatdad/paw-proxy/issues" class="font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">Issues</a>
-                <a href="https://github.com/alexcatdad/paw-proxy/blob/main/LICENSE" class="font-semibold hover:text-accent transition-colors" style="color: var(--text-secondary)">MIT License</a>
+    <footer class="py-10" style="border-top: 1px solid var(--border)">
+        <div class="max-w-3xl mx-auto px-6 text-center">
+            <div class="flex flex-wrap justify-center gap-6 mb-6">
+                <a href="https://github.com/alexcatdad/paw-proxy" class="font-medium text-sm font-body transition-colors" style="color: var(--text-muted)" onmouseenter="this.style.color='var(--accent)'" onmouseleave="this.style.color='var(--text-muted)'">GitHub</a>
+                <a href="https://github.com/alexcatdad/paw-proxy/releases" class="font-medium text-sm font-body transition-colors" style="color: var(--text-muted)" onmouseenter="this.style.color='var(--accent)'" onmouseleave="this.style.color='var(--text-muted)'">Releases</a>
+                <a href="https://github.com/alexcatdad/paw-proxy/issues" class="font-medium text-sm font-body transition-colors" style="color: var(--text-muted)" onmouseenter="this.style.color='var(--accent)'" onmouseleave="this.style.color='var(--text-muted)'">Issues</a>
+                <a href="https://github.com/alexcatdad/paw-proxy/blob/main/LICENSE" class="font-medium text-sm font-body transition-colors" style="color: var(--text-muted)" onmouseenter="this.style.color='var(--accent)'" onmouseleave="this.style.color='var(--text-muted)'">MIT License</a>
             </div>
-            <p class="text-sm" style="color: var(--text-muted)">
-                Built with 🐾 by <a href="https://github.com/alexcatdad" class="text-accent hover:underline font-semibold">alexcatdad</a>
+            <p class="text-sm font-body" style="color: var(--text-muted)">
+                Built with 🐾 by <a href="https://github.com/alexcatdad" class="text-accent-var font-semibold" style="text-decoration: none;" onmouseenter="this.style.textDecoration='underline'" onmouseleave="this.style.textDecoration='none'">alexcatdad</a>
             </p>
         </div>
     </footer>
 
     <script>
-        // Theme toggle
+        // Theme toggle (detection already ran in <head> to prevent FOUC)
         const toggle = document.getElementById('theme-toggle');
         const html = document.documentElement;
-
-        // Check for saved preference or system preference
-        if (localStorage.theme === 'dark' || (!localStorage.theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            html.classList.add('dark');
-        }
 
         toggle.addEventListener('click', () => {
             html.classList.toggle('dark');
             localStorage.theme = html.classList.contains('dark') ? 'dark' : 'light';
         });
 
-        // Fade-in observer
+        // Fade-in on scroll
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
                     entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
                 }
             });
         }, { threshold: 0.1, rootMargin: '-40px' });
@@ -665,17 +689,16 @@ up -n myapp npm start  <span style="color: var(--text-muted)"># custom domain</s
         // Copy buttons
         document.querySelectorAll('.copy-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
+                const original = btn.textContent;
                 try {
                     await navigator.clipboard.writeText(btn.dataset.code);
-                    const original = btn.textContent;
                     btn.textContent = 'Copied!';
-                    btn.style.color = '#10B981';
-                    setTimeout(() => {
-                        btn.textContent = original;
-                        btn.style.color = '';
-                    }, 2000);
+                    btn.style.color = '#22c55e';
+                    setTimeout(() => { btn.textContent = original; btn.style.color = ''; }, 2000);
                 } catch (err) {
-                    console.error('Copy failed:', err);
+                    btn.textContent = 'Failed';
+                    btn.style.color = '#ef4444';
+                    setTimeout(() => { btn.textContent = original; btn.style.color = ''; }, 2000);
                 }
             });
         });

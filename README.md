@@ -1,29 +1,21 @@
 # paw-proxy
 
-Zero-config HTTPS proxy for local macOS development. Get `https://myapp.test` working in seconds.
+Stop fighting localhost. Named HTTPS domains for every local dev server.
 
 ## Why paw-proxy?
 
-Local development with HTTPS is painful. You need it for:
-- **OAuth callbacks** that require HTTPS redirect URIs
-- **Secure cookies** with `SameSite=None` or `Secure` flags
-- **Service workers** that only work on secure origins
-- **Mixed content** issues when your API is HTTPS but dev server is HTTP
-- **Production parity** - test how your app actually behaves
+Three Next.js projects. All want port 3000. The second one silently bumps to 3001. Your OAuth callback is hardcoded to `localhost:3000`. Your test fixtures expect it. You've been debugging the wrong app for 20 minutes.
 
-Existing solutions are frustrating:
-- **mkcert** - Great for certs, but you still need nginx/caddy config per project
-- **ngrok/Cloudflare Tunnel** - External dependency, latency, rate limits
-- **Self-signed certs** - Browser warnings, manual trust, breaks fetch/curl
+Using git worktrees? Same project, two branches, both on localhost — which tab is which? You just spent 10 minutes testing code that hasn't changed because you're hitting the wrong instance.
 
-paw-proxy gives you `https://myapp.test` with zero config. Just prefix your dev command with `up`:
+**The problem isn't ports. It's identity.** `localhost:3000` doesn't tell you what you're running. A named domain does. And once you have names, HTTPS comes free — real trusted certificates, no browser warnings, OAuth callbacks that just work.
 
 ```bash
-# Before: http://localhost:3000 with HTTPS headaches
-npm run dev
+# Before: port conflicts and confusion
+npm run dev  # → localhost:3000... or 3001? which project is this?
 
-# After: https://myapp.test just works
-up npm run dev
+# After: named domains, just works
+up npm run dev  # → https://myapp.test ✓
 ```
 
 ## Features
@@ -229,7 +221,7 @@ paw-proxy stands on the shoulders of giants. This project wouldn't exist without
 - **[hotel](https://github.com/typicode/hotel)** - Cross-platform proxy with a nice UI. Inspired our zero-config approach.
 - **[caddy](https://caddyserver.com/)** - Automatic HTTPS done right. We borrowed their "just works" philosophy.
 
-We didn't reinvent the wheel - we just modernized it for 2024+ dev workflows where every project needs HTTPS yesterday.
+We didn't reinvent the wheel — we just modernized it for modern dev workflows where every project needs named HTTPS domains.
 
 ## License
 
