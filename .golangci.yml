@@ -1,13 +1,9 @@
+version: "2"
+
 linters:
-  disable:
-    - errcheck  # Too strict for simple CLI tools
+  default: none
   enable:
+    - govet
     - staticcheck
     - unused
     - ineffassign
-
-linters-settings:
-  govet:
-    disable:
-      - fieldalignment
-      - shadow

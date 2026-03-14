@@ -20,8 +20,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24.13'
-      - uses: golangci/golangci-lint-action@v4
+          go-version: '1.26.1'
+      - uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.11.3
 
   test:
     runs-on: ubuntu-latest
@@ -29,19 +31,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24.13'
+          go-version: '1.26.1'
       - run: go test -v -race ./...
 
   vulncheck:
     runs-on: ubuntu-latest
-    # Advisory only — Go stdlib vulns (GO-2026-4601, GO-2026-4602) require
-    # a Go release newer than 1.24.x. Remove continue-on-error once Go is bumped.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24.13'
+          go-version: '1.26.1'
       - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
   build:
@@ -50,7 +49,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24.13'
+          go-version: '1.26.1'
       - name: Build binaries
         run: |
           LDFLAGS="-X main.version=${GITHUB_REF_NAME:-dev} -X github.com/alexcatdad/paw-proxy/internal/api.Version=${GITHUB_REF_NAME:-dev}"
@@ -72,7 +71,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24.13'
+          go-version: '1.26.1'
       - name: Build
         run: |
           go build -o paw-proxy ./cmd/paw-proxy

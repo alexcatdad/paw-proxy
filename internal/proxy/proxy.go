@@ -166,14 +166,14 @@ type idleTimeoutConn struct {
 }
 
 func (c *idleTimeoutConn) Read(b []byte) (int, error) {
-	if err := c.Conn.SetDeadline(time.Now().Add(c.timeout)); err != nil {
+	if err := c.SetDeadline(time.Now().Add(c.timeout)); err != nil {
 		return 0, fmt.Errorf("set read deadline: %w", err)
 	}
 	return c.Conn.Read(b)
 }
 
 func (c *idleTimeoutConn) Write(b []byte) (int, error) {
-	if err := c.Conn.SetDeadline(time.Now().Add(c.timeout)); err != nil {
+	if err := c.SetDeadline(time.Now().Add(c.timeout)); err != nil {
 		return 0, fmt.Errorf("set write deadline: %w", err)
 	}
 	return c.Conn.Write(b)
