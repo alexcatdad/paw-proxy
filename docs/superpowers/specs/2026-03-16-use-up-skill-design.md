@@ -42,6 +42,8 @@ A global Claude Code skill (`~/.claude/skills/use-up.md`) that teaches Claude to
 4. **For Docker Compose** — use `up docker compose up` instead of bare `docker compose up`
 5. **Reference the app by its `.test` URL** — when telling the user their app is running, say `https://myapp.test` not `http://localhost:3000`
 6. **Don't configure HTTPS in the dev server itself** — paw-proxy handles TLS termination
+7. **Use `--restart` for crash-prone dev servers** — `up --restart npm run dev` auto-restarts on non-zero exit when the user wants a server to stay up through crashes
+8. **Name conflicts resolve automatically** — if the auto-detected name is already registered (common with git worktrees), `up` falls back to the directory name. Use `-n` with an explicit unique name to avoid confusion
 
 ## Usage Patterns
 
@@ -69,6 +71,8 @@ up docker compose up
 up -n shop docker compose up
 ```
 
+Docker Compose creates routes as `{service}.{project}.test` (e.g., `frontend.myapp.test`, `api.myapp.test`). The project name comes from the compose config (or `-n` override).
+
 ### Monorepo (multiple services)
 
 ```bash
@@ -86,8 +90,11 @@ For monorepos, Claude should:
 
 ## What Claude should tell the user
 
-After starting a dev server:
+After starting a single-app dev server:
 > "Your app is running at `https://myapp.test`"
+
+After starting Docker Compose:
+> "Your services are running at `https://frontend.myapp.test` and `https://api.myapp.test`"
 
 NOT `http://localhost:XXXXX`.
 
@@ -111,13 +118,14 @@ When exploring a project, Claude should recognize these signals that `up` is rel
 - `main.go` importing `net/http` or a web framework (gin, echo, fiber, chi)
 - `Cargo.toml` with `actix-web`, `axum`, `rocket` dependencies
 - `requirements.txt` or `pyproject.toml` with `flask`, `fastapi`, `django`
+- `astro.config.*`, `hugo.toml`/`hugo.yaml`, `.eleventy.js` (static site generators with dev servers)
 
 When these signals are present, Claude should proactively mention `up` if the user asks to run the project.
 
 ### No detection needed
 
 - CLI tools, libraries, or packages without HTTP servers
-- Static sites without a dev server
+- Static files served without a dev server process (e.g., opening `index.html` directly)
 - Scripts or one-off utilities
 
 ## Environment Variables (reference)
@@ -132,8 +140,17 @@ When these signals are present, Claude should proactively mention `up` if the us
 | `HTTPS` | `true` | Signal to frameworks |
 | `NODE_EXTRA_CA_CERTS` | Path to CA cert | Trust paw-proxy CA for outbound HTTPS |
 
+**Note:** In Docker Compose mode, only `NODE_EXTRA_CA_CERTS` is set. The other variables (`PORT`, `APP_DOMAIN`, etc.) apply only to single-app mode. Compose services use their own published ports as defined in the compose file.
+
+## Fallback Behavior
+
+If `up` is not found in `$PATH`, inform the user and suggest installation (`brew install alexcatdad/tap/paw-proxy`). Do NOT fall back to bare dev server commands silently — the whole point of this skill is to enforce `up` usage.
+
+If `up` reports the daemon is not running or `.test` domains don't resolve, suggest running `paw-proxy doctor` to diagnose the issue.
+
 ## Assumptions
 
 - `up` is installed globally and available in `$PATH` (via Homebrew)
 - `paw-proxy` daemon is running (installed via `sudo paw-proxy setup`)
 - The `.test` TLD is resolved by paw-proxy's DNS server
+- Run `up --version` to check the installed version
