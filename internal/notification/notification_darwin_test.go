@@ -8,7 +8,68 @@ import (
 	"testing"
 )
 
+func TestNotifyUsesTerminalNotifierWhenAvailable(t *testing.T) {
+	// Only run when terminal-notifier is actually installed.
+	if _, err := exec.LookPath("terminal-notifier"); err != nil {
+		t.Skip("terminal-notifier not installed")
+	}
+
+	var capturedCmd string
+	var capturedArgs []string
+	commandRunner = func(name string, arg ...string) *exec.Cmd {
+		capturedCmd = name
+		capturedArgs = arg
+		return exec.Command("true")
+	}
+
+	if err := Notify("paw-proxy", "hello"); err != nil {
+		t.Fatalf("Notify failed: %v", err)
+	}
+
+	if !strings.HasSuffix(capturedCmd, "terminal-notifier") {
+		t.Errorf("Expected terminal-notifier, got %q", capturedCmd)
+	}
+	if len(capturedArgs) < 4 {
+		t.Fatalf("Expected at least 4 args, got %v", capturedArgs)
+	}
+	if capturedArgs[0] != "-title" || capturedArgs[1] != "paw-proxy" {
+		t.Errorf("Unexpected title args: %v", capturedArgs)
+	}
+	if capturedArgs[2] != "-message" || capturedArgs[3] != "hello" {
+		t.Errorf("Unexpected message args: %v", capturedArgs)
+	}
+}
+
+func TestNotifyFallbackUsesSystemEvents(t *testing.T) {
+	// Temporarily override PATH so terminal-notifier is not found.
+	t.Setenv("PATH", "/nonexistent")
+
+	var capturedArgs []string
+	commandRunner = func(name string, arg ...string) *exec.Cmd {
+		capturedArgs = arg
+		return exec.Command("true")
+	}
+
+	if err := Notify("paw-proxy", "test"); err != nil {
+		t.Fatalf("Notify failed: %v", err)
+	}
+
+	if len(capturedArgs) < 2 {
+		t.Fatal("Expected at least 2 args")
+	}
+	script := capturedArgs[1]
+	if !strings.Contains(script, `tell application "System Events"`) {
+		t.Errorf("Fallback should use System Events, got: %q", script)
+	}
+	if !strings.Contains(script, `display notification`) {
+		t.Errorf("Script should contain display notification, got: %q", script)
+	}
+}
+
 func TestNotifyAppleScriptInjection(t *testing.T) {
+	// Force osascript fallback path.
+	t.Setenv("PATH", "/nonexistent")
+
 	tests := []struct {
 		name            string
 		title           string

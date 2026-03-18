@@ -29,15 +29,14 @@ func TestNotify(t *testing.T) {
 
 	switch runtime.GOOS {
 	case "darwin":
-		if capturedCmd != "osascript" {
-			t.Errorf("Expected command 'osascript', got %q", capturedCmd)
+		// May use terminal-notifier or osascript depending on what's installed.
+		// Either way, verify a command was invoked with the title and message.
+		if capturedCmd == "" {
+			t.Fatal("Expected a command to be invoked on darwin")
 		}
-		if len(capturedArgs) != 2 || capturedArgs[0] != "-e" {
-			t.Errorf("Unexpected args: %v", capturedArgs)
-		}
-		expectedScriptPart := `display notification "test-message" with title "test-title"`
-		if !strings.Contains(capturedArgs[1], expectedScriptPart) {
-			t.Errorf("Script doesn't contain expected part: %q", capturedArgs[1])
+		fullArgs := strings.Join(capturedArgs, " ")
+		if !strings.Contains(fullArgs, title) || !strings.Contains(fullArgs, message) {
+			t.Errorf("Args should contain title and message: %v", capturedArgs)
 		}
 	case "linux":
 		if capturedCmd != "notify-send" {
