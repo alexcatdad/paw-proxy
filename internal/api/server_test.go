@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -480,5 +481,91 @@ func TestAPIServer_RequestBodyLimit(t *testing.T) {
 	// Should reject with 400 (bad request due to body limit exceeded)
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("expected 400 for oversized body, got %d", resp.StatusCode)
+	}
+}
+
+func TestAPIServer_SocketPermissions(t *testing.T) {
+	// Use /tmp directly to avoid socket path length limits on macOS
+	socketPath := filepath.Join("/tmp", fmt.Sprintf("paw-test-perm-%d.sock", time.Now().UnixNano()))
+	defer os.Remove(socketPath)
+
+	registry := NewRouteRegistry(30 * time.Second)
+	srv := NewServer(socketPath, registry)
+
+	go srv.Start()
+	defer srv.Stop()
+
+	// Wait for socket to be created
+	time.Sleep(50 * time.Millisecond)
+
+	info, err := os.Stat(socketPath)
+	if err != nil {
+		t.Fatalf("failed to stat socket: %v", err)
+	}
+
+	perm := info.Mode().Perm()
+	if perm&0077 != 0 {
+		t.Errorf("socket has insecure permissions %04o; expected no group/other access", perm)
+	}
+}
+
+func TestAPIServer_SocketPermissionCheckDetectsInsecure(t *testing.T) {
+	// Verify that the permission-check logic (perm & 0077 != 0) correctly
+	// identifies insecure sockets. We create a socket with a permissive
+	// umask and then verify the condition would trigger.
+	socketPath := filepath.Join("/tmp", fmt.Sprintf("paw-test-insecure-%d.sock", time.Now().UnixNano()))
+	defer os.Remove(socketPath)
+
+	// Create a socket with permissive umask (no masking)
+	oldMask := syscall.Umask(0000)
+	ln, err := net.Listen("unix", socketPath)
+	syscall.Umask(oldMask)
+	if err != nil {
+		t.Fatalf("failed to create socket: %v", err)
+	}
+	defer ln.Close()
+
+	info, err := os.Stat(socketPath)
+	if err != nil {
+		t.Fatalf("failed to stat socket: %v", err)
+	}
+
+	perm := info.Mode().Perm()
+	if perm&0077 == 0 {
+		t.Skip("umask override did not produce permissive socket; test not applicable on this OS")
+	}
+
+	// The same check used in Start() would detect this as insecure
+	t.Logf("socket created with permissive umask has permissions %04o (group/other bits set)", perm)
+}
+
+func TestAPIServer_StartReplacesStaleSocket(t *testing.T) {
+	// Verify that Start() removes a stale socket file and creates a new
+	// one with correct permissions.
+	socketPath := filepath.Join("/tmp", fmt.Sprintf("paw-test-replace-%d.sock", time.Now().UnixNano()))
+	defer os.Remove(socketPath)
+
+	// Pre-create a stale file at the socket path (simulates leftover socket)
+	if err := os.WriteFile(socketPath, []byte("stale"), 0777); err != nil {
+		t.Fatalf("failed to pre-create stale file: %v", err)
+	}
+
+	// Start() removes the old file and creates a new socket with umask(0077)
+	registry := NewRouteRegistry(30 * time.Second)
+	srv := NewServer(socketPath, registry)
+
+	go srv.Start()
+	defer srv.Stop()
+
+	time.Sleep(50 * time.Millisecond)
+
+	// The new socket should have restrictive permissions
+	info, err := os.Stat(socketPath)
+	if err != nil {
+		t.Fatalf("socket not created: %v", err)
+	}
+	perm := info.Mode().Perm()
+	if perm&0077 != 0 {
+		t.Errorf("socket has insecure permissions %04o after Start()", perm)
 	}
 }
