@@ -93,16 +93,9 @@ func (s *Server) handleRequest(w dns.ResponseWriter, r *dns.Msg) {
 			m.Answer = append(m.Answer, rr)
 
 		case dns.TypeAAAA:
-			rr := &dns.AAAA{
-				Hdr: dns.RR_Header{
-					Name:   q.Name,
-					Rrtype: dns.TypeAAAA,
-					Class:  dns.ClassINET,
-					Ttl:    60,
-				},
-				AAAA: net.ParseIP("::1"),
-			}
-			m.Answer = append(m.Answer, rr)
+			// HTTP/HTTPS bind to 127.0.0.1, including launchd activation.
+			// Return NOERROR/NODATA rather than advertising an IPv6 address
+			// that may belong to another local service. Keep A available.
 		}
 	}
 

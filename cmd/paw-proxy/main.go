@@ -384,18 +384,33 @@ func cmdDoctor() {
 		printCheck(true, "%s", msg)
 	}
 
-	// 4. Check DNS server reachability on port 9353
-	dnsConn, err := net.DialTimeout("udp", "127.0.0.1:9353", 2*time.Second)
+	// 4. Check actual A and AAAA answers, not just UDP socket creation.
+	host := "doctor." + config.TLD
+	addresses, err := doctorDNSAddresses(net.JoinHostPort("127.0.0.1", fmt.Sprint(config.DNSPort)), host)
 	if err != nil {
-		printCheck(false, "DNS server not reachable on port 9353")
+		printCheck(false, "DNS queries failed: %v", err)
 		issues++
 	} else {
-		dnsConn.Close()
-		printCheck(true, "DNS server reachable on port 9353")
+		printCheck(true, "DNS A/AAAA answers for %s: %v", host, addresses)
+	}
+	// Also catch stale AAAA records or a broken system resolver. Browsers use
+	// the system resolution path, which can differ from direct DNS queries.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	resolved, lookupErr := net.DefaultResolver.LookupIPAddr(ctx, host)
+	cancel()
+	if lookupErr != nil || len(resolved) == 0 {
+		printCheck(false, "System DNS resolution failed for %s: %v", host, lookupErr)
+		issues++
+	} else {
+		printCheck(true, "System DNS addresses for %s: %v", host, resolved)
+		for _, addr := range resolved {
+			addresses = append(addresses, addr.IP)
+		}
 	}
 
 	// 5. Check CA certificate exists, is parseable, and not expired/expiring
 	certPath := filepath.Join(config.SupportDir, "ca.crt")
+	var roots *x509.CertPool
 	certData, err := os.ReadFile(certPath)
 	if err != nil {
 		printCheck(false, "CA certificate not found")
@@ -411,6 +426,8 @@ func cmdDoctor() {
 				printCheck(false, "CA certificate invalid: %v", parseErr)
 				issues++
 			} else {
+				roots = x509.NewCertPool()
+				roots.AddCert(cert)
 				daysLeft := int(time.Until(cert.NotAfter).Hours() / 24)
 				if daysLeft < 0 {
 					printCheck(false, "CA certificate expired %d days ago", -daysLeft)
@@ -437,12 +454,29 @@ func cmdDoctor() {
 		}
 	}
 
+	// 7. Every advertised/resolved address must serve TLS for our hostname
+	// under our CA, regardless of whether any application backend is running.
+	seen := make(map[string]bool)
+	for _, ip := range addresses {
+		address := net.JoinHostPort(ip.String(), fmt.Sprint(config.HTTPSPort))
+		if seen[address] {
+			continue
+		}
+		seen[address] = true
+		if err := doctorTLS(host, address, roots); err != nil {
+			printCheck(false, "HTTPS TLS failed at %s for %s: %v", address, host, err)
+			issues++
+		} else {
+			printCheck(true, "HTTPS TLS verified with paw-proxy CA at %s", address)
+		}
+	}
+
 	// Summary
 	fmt.Println()
 	if issues == 0 {
 		fmt.Println("All checks passed!")
 	} else {
-		fmt.Printf("%d issue(s) found. Try: sudo paw-proxy setup\n", issues)
+		fmt.Printf("%d issue(s) found. Review the failures above before re-running setup.\n", issues)
 	}
 }
 

@@ -112,7 +112,7 @@ up -n staging bun dev
 
 ## How It Works
 
-1. **DNS** - A local DNS server resolves `*.test` to `127.0.0.1`
+1. **DNS** - A local DNS server resolves `*.test` to `127.0.0.1`. AAAA queries return no addresses because the proxy listens on IPv4 loopback only; browsers use the A record even on dual-stack hosts.
 2. **SSL** - A trusted CA generates certificates for each domain on-the-fly
 3. **Proxy** - HTTPS requests are proxied to your dev server's local port
 4. **Auto-port** - `up` finds a free port and sets `PORT` environment variable
@@ -140,6 +140,7 @@ up -n staging bun dev
 | `setup` | Configure DNS, CA, and install daemon (requires sudo) |
 | `uninstall` | Remove all paw-proxy components |
 | `status` | Show daemon status and registered routes |
+| `doctor` | Query DNS and verify HTTPS TLS on every advertised/system-resolved address, independently of backend availability |
 | `run` | Run daemon in foreground (for launchd) |
 | `version` | Show version |
 
