@@ -226,7 +226,7 @@ Prints version string (injected at build time via ldflags).
 
 1. Browser queries DNS for `myapp.test`
 2. macOS reads `/etc/resolver/test`, forwards to `127.0.0.1:9353`
-3. paw-proxy DNS server responds: A record → 127.0.0.1, AAAA → ::1
+3. paw-proxy DNS server responds: A record → 127.0.0.1, AAAA → NOERROR with no answers (IPv4-only listeners)
 4. Browser connects to `127.0.0.1:443`
 5. TLS handshake: daemon generates ECDSA P-256 cert for `myapp.test`, signed by CA, cached in LRU cache (max 1000 entries)
 6. Daemon extracts Host header, strips `.test` suffix, looks up route in registry
@@ -247,7 +247,7 @@ internal/
 ├── daemon/     # Main daemon orchestrator
 │   └── daemon.go     # Launches goroutines, TLS config, graceful shutdown
 ├── dns/        # DNS server for .test TLD
-│   └── server.go     # UDP-only, A/AAAA responses for *.test
+│   └── server.go     # UDP-only, A responses and AAAA NODATA for *.test
 ├── proxy/      # Reverse proxy with WebSocket support
 │   └── proxy.go      # HTTP forwarding + raw TCP WebSocket proxy
 ├── setup/      # macOS setup/uninstall (darwin-only)

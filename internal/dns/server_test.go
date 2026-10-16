@@ -46,8 +46,8 @@ func TestDNSServer_ResolvesTestDomain(t *testing.T) {
 	}
 }
 
-// TestAAAAQuery sends a DNS AAAA query for "example.test" and verifies
-// it returns ::1 (IPv6 loopback).
+// The HTTP/HTTPS listeners bind only IPv4 loopback. Advertising ::1 would
+// route browsers to an unrelated service (or an unbound port).
 func TestAAAAQuery(t *testing.T) {
 	srv, err := NewServer("127.0.0.1:19354", "test")
 	if err != nil {
@@ -70,18 +70,22 @@ func TestAAAAQuery(t *testing.T) {
 		t.Fatalf("DNS AAAA query failed: %v", err)
 	}
 
-	if len(r.Answer) == 0 {
-		t.Fatal("expected AAAA answer, got none")
+	if r.Rcode != dns.RcodeSuccess || !r.Authoritative || len(r.Answer) != 0 {
+		t.Fatalf("expected authoritative NOERROR/NODATA for AAAA, got %v", r)
 	}
 
-	aaaa, ok := r.Answer[0].(*dns.AAAA)
-	if !ok {
-		t.Fatalf("expected AAAA record, got %T", r.Answer[0])
+	// NODATA must not make the name nonexistent: A still resolves normally.
+	m.SetQuestion("example.test.", dns.TypeA)
+	r, _, err = c.Exchange(m, "127.0.0.1:19354")
+	if err != nil {
+		t.Fatalf("DNS A query after AAAA failed: %v", err)
 	}
-
-	expected := net.ParseIP("::1")
-	if !aaaa.AAAA.Equal(expected) {
-		t.Errorf("expected ::1, got %v", aaaa.AAAA)
+	if r.Rcode != dns.RcodeSuccess || len(r.Answer) != 1 {
+		t.Fatalf("expected one A answer after AAAA, got %v", r)
+	}
+	a, ok := r.Answer[0].(*dns.A)
+	if !ok || !a.A.Equal(net.ParseIP("127.0.0.1")) {
+		t.Fatalf("expected IPv4 loopback, got %v", r.Answer)
 	}
 }
 
