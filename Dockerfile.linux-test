@@ -4,7 +4,7 @@
 #   docker build -f Dockerfile.test -t paw-proxy-linux-test .
 #   docker run --rm paw-proxy-linux-test
 
-FROM golang:1.24-bookworm
+FROM golang:1.26.9-bookworm
 
 # Install curl for health check smoke test
 RUN apt-get update -qq && apt-get install -y -qq curl > /dev/null 2>&1
