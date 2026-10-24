@@ -17,7 +17,13 @@ tasks:
     desc: Vet and run the unit tests
     cmds:
       - go vet ./...
-      - go test -race ./...
+      # Unix socket paths are limited to about 100 bytes; the release work
+      # directory is too deep for the API tests, so use a short temp dir.
+      - |
+        set -eu
+        short=$(mktemp -d /tmp/pawproxy-check.XXXXXX)
+        trap 'rm -rf "$short"' EXIT
+        TMPDIR="$short" go test -race ./...
 
   vulncheck:
     desc: Scan dependencies for known vulnerabilities (needs network)
