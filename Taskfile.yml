@@ -90,7 +90,6 @@ tasks:
         test "$("$pp" version)" = "paw-proxy version $RELEASE_VERSION"
         "$upb" --version | grep -q -- "$RELEASE_VERSION"
         "$pp" help >/dev/null
-        "$upb" --help >/dev/null 2>&1 || true
 
   validate:darwin-universal:
     cmds:
