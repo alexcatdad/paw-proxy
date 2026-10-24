@@ -92,6 +92,19 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 - Add tests for new functionality
 - Keep functions focused and small
 
+## Releasing
+
+Releases are local and explicit. CI never builds, signs, tags or publishes a release, and no workflow dispatches one. Maintainers release from a coordinator Mac with a checkout of `release-tools` next to this repository (default `../release-tools`, tag fetched) and a local config at `~/.config/release-tools/config.json` (or `$XDG_CONFIG_HOME/release-tools/config.json`); the config lives outside the checkout and holds machine-specific settings only.
+
+```bash
+task release:check    # read-only preflight: clean tree, next version, target placement
+task release:prepare  # reserve the version, run checks, build every target (no publication)
+task release          # prepare, then draft release, SHA-256 verified upload, publish, tap update
+task release:resume   # continue an interrupted release with the same version and artifacts
+```
+
+Versions are CalVer (`YYYY.M.N`, tags `vYYYY.M.N`, counter per UTC month) allocated by `release-tools` and passed to builds as `RELEASE_VERSION`; they sort above the earlier `1.x` tags. Run `release` only from a clean checkout of a commit that is pushed to GitHub. SSH build workers are optional (`task release:prepare -- --workers`); every target builds on the coordinator by default. See the release-tools documentation for the local config, recovery and worker details.
+
 ## Reporting Issues
 
 - Check existing issues first
