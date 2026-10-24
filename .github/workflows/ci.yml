@@ -52,7 +52,7 @@ jobs:
           go-version-file: go.mod
       - name: Build binaries
         run: |
-          LDFLAGS="-X main.version=${GITHUB_REF_NAME:-dev} -X github.com/alexcatdad/paw-proxy/internal/api.Version=${GITHUB_REF_NAME:-dev}"
+          LDFLAGS="-X main.version=ci-${GITHUB_SHA::7} -X github.com/alexcatdad/paw-proxy/internal/api.Version=ci-${GITHUB_SHA::7}"
           # macOS
           GOOS=darwin GOARCH=arm64 go build -ldflags "$LDFLAGS" -o paw-proxy-darwin-arm64 ./cmd/paw-proxy
           GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o paw-proxy-darwin-amd64 ./cmd/paw-proxy

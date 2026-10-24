@@ -1,0 +1,136 @@
+version: "3"
+
+# Releases are local and explicit: `task release:check`, `task release:prepare`,
+# `task release`, `task release:resume`. CI never builds or publishes releases.
+# See CONTRIBUTING.md ("Releasing").
+
+vars:
+  RELTOOL_TAG: v0.2.0
+  RELTOOL_COMMIT: 6036a85828711fbfb908f67e159482597c4434c0 # commit of RELTOOL_TAG
+  RELTOOL_SRC: ../release-tools
+  RELTOOL:
+    sh: echo "${XDG_CACHE_HOME:-$HOME/.cache}/release-tools/{{.RELTOOL_COMMIT}}/reltool"
+
+tasks:
+  # --- app-owned recipes ---
+  check:
+    desc: Vet and run the unit tests
+    cmds:
+      - go vet ./...
+      # Unix socket paths are limited to about 100 bytes; the release work
+      # directory is too deep for the API tests, so use a short temp dir.
+      - |
+        set -eu
+        short=$(mktemp -d /tmp/pawproxy-check.XXXXXX)
+        trap 'rm -rf "$short"' EXIT
+        TMPDIR="$short" go test -race ./...
+
+  vulncheck:
+    desc: Scan dependencies for known vulnerabilities (needs network)
+    cmds:
+      - go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  # Builds one binary into $RELEASE_OUT.
+  # Usage: bin GOOS GOARCH CGO CMD DEST
+  bin:
+    internal: true
+    vars:
+      LDFLAGS: -s -w -X main.version=$RELEASE_VERSION -X github.com/alexcatdad/paw-proxy/internal/api.Version=$RELEASE_VERSION
+    cmds:
+      - >-
+        CGO_ENABLED={{.CGO}} GOOS={{.GOOS}} GOARCH={{.GOARCH}}
+        go build -ldflags "{{.LDFLAGS}}" -o "$RELEASE_OUT/{{.DEST}}" ./cmd/{{.CMD}}
+      - go version -m "$RELEASE_OUT/{{.DEST}}" | grep -q -- "main.version=$RELEASE_VERSION"
+
+  build:darwin-arm64:
+    cmds:
+      - task: bin
+        vars: { GOOS: darwin, GOARCH: arm64, CGO: "1", CMD: paw-proxy, DEST: "paw-proxy-darwin-arm64" }
+      - task: bin
+        vars: { GOOS: darwin, GOARCH: arm64, CGO: "1", CMD: up, DEST: "up-darwin-arm64" }
+
+  build:darwin-amd64:
+    cmds:
+      - task: bin
+        vars: { GOOS: darwin, GOARCH: amd64, CGO: "1", CMD: paw-proxy, DEST: "paw-proxy-darwin-amd64" }
+      - task: bin
+        vars: { GOOS: darwin, GOARCH: amd64, CGO: "1", CMD: up, DEST: "up-darwin-amd64" }
+
+  build:darwin-universal:
+    cmds:
+      - |
+        set -eu
+        for cmd in paw-proxy up; do
+          for arch in arm64 amd64; do
+            CGO_ENABLED=1 GOOS=darwin GOARCH=$arch go build \
+              -ldflags "-s -w -X main.version=$RELEASE_VERSION -X github.com/alexcatdad/paw-proxy/internal/api.Version=$RELEASE_VERSION" \
+              -o "$TMPDIR/$cmd-$arch" "./cmd/$cmd"
+          done
+          lipo -create -output "$RELEASE_OUT/$cmd-darwin-universal" "$TMPDIR/$cmd-arm64" "$TMPDIR/$cmd-amd64"
+          lipo -archs "$RELEASE_OUT/$cmd-darwin-universal" | grep -q arm64
+          lipo -archs "$RELEASE_OUT/$cmd-darwin-universal" | grep -q x86_64
+        done
+        tar -czf "$RELEASE_OUT/man-pages.tar.gz" -C man paw-proxy.1 up.1
+
+  build:linux-amd64:
+    cmds:
+      - task: bin
+        vars: { GOOS: linux, GOARCH: amd64, CGO: "0", CMD: paw-proxy, DEST: "paw-proxy-linux-amd64" }
+      - task: bin
+        vars: { GOOS: linux, GOARCH: amd64, CGO: "0", CMD: up, DEST: "up-linux-amd64" }
+
+  build:linux-arm64:
+    cmds:
+      - task: bin
+        vars: { GOOS: linux, GOARCH: arm64, CGO: "0", CMD: paw-proxy, DEST: "paw-proxy-linux-arm64" }
+      - task: bin
+        vars: { GOOS: linux, GOARCH: arm64, CGO: "0", CMD: up, DEST: "up-linux-arm64" }
+
+  # Runs the built binaries on this host: reported version must be the release version.
+  validate:darwin-arm64:
+    cmds:
+      - &validate |
+        set -eu
+        pp="$RELEASE_OUT/paw-proxy-$RELEASE_OS-$RELEASE_ARCH"
+        upb="$RELEASE_OUT/up-$RELEASE_OS-$RELEASE_ARCH"
+        test "$("$pp" version)" = "paw-proxy version $RELEASE_VERSION"
+        "$upb" --version | grep -q -- "$RELEASE_VERSION"
+        "$pp" help >/dev/null
+
+  validate:darwin-universal:
+    cmds:
+      - *validate
+      - tar -tzf "$RELEASE_OUT/man-pages.tar.gz" | sort | tr '\n' ' ' | grep -qx 'paw-proxy.1 up.1 '
+
+  # --- release-tools consumer snippet ---
+  reltool:install:
+    internal: true
+    status:
+      - test -x "{{.RELTOOL}}"
+    cmds:
+      - git -C "{{.RELTOOL_SRC}}" show "{{.RELTOOL_COMMIT}}:scripts/install-reltool.sh" | sh -s -- "{{.RELTOOL_SRC}}" "{{.RELTOOL_TAG}}" "{{.RELTOOL_COMMIT}}"
+
+  release:check:
+    deps: [reltool:install]
+    cmds:
+      - '"{{.RELTOOL}}" release check --task-exe "{{.TASK_EXE}}" {{.CLI_ARGS}}'
+
+  release:prepare:
+    deps: [reltool:install]
+    cmds:
+      - '"{{.RELTOOL}}" release prepare --task-exe "{{.TASK_EXE}}" {{.CLI_ARGS}}'
+
+  release:
+    deps: [reltool:install]
+    cmds:
+      - '"{{.RELTOOL}}" release run --task-exe "{{.TASK_EXE}}" {{.CLI_ARGS}}'
+
+  release:resume:
+    deps: [reltool:install]
+    cmds:
+      - '"{{.RELTOOL}}" release resume --task-exe "{{.TASK_EXE}}" {{.CLI_ARGS}}'
+
+  release:abandon:
+    deps: [reltool:install]
+    cmds:
+      - '"{{.RELTOOL}}" release abandon {{.CLI_ARGS}}'

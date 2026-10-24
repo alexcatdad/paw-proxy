@@ -212,6 +212,10 @@ sudo ./paw-proxy setup
 ./integration-tests.sh
 ```
 
+## Releases
+
+Releases are cut locally by a maintainer with `task release` (see "Releasing" in [CONTRIBUTING.md](CONTRIBUTING.md)); GitHub Actions only validates. Versions use CalVer (`YYYY.M.N`).
+
 ## Inspiration & Prior Art
 
 paw-proxy stands on the shoulders of giants. This project wouldn't exist without:
