@@ -13,8 +13,8 @@
       "build_task": "build:darwin-arm64",
       "validate_task": "validate:darwin-arm64",
       "artifacts": [
-        { "name": "paw-proxy-{version}-darwin-arm64", "kind": "binary" },
-        { "name": "up-{version}-darwin-arm64", "kind": "binary" }
+        { "name": "paw-proxy-darwin-arm64", "kind": "binary" },
+        { "name": "up-darwin-arm64", "kind": "binary" }
       ]
     },
     {
@@ -25,8 +25,8 @@
       "runs": "local",
       "build_task": "build:darwin-amd64",
       "artifacts": [
-        { "name": "paw-proxy-{version}-darwin-amd64", "kind": "binary" },
-        { "name": "up-{version}-darwin-amd64", "kind": "binary" }
+        { "name": "paw-proxy-darwin-amd64", "kind": "binary" },
+        { "name": "up-darwin-amd64", "kind": "binary" }
       ]
     },
     {
@@ -38,9 +38,9 @@
       "build_task": "build:darwin-universal",
       "validate_task": "validate:darwin-universal",
       "artifacts": [
-        { "name": "paw-proxy-{version}-darwin-universal", "kind": "binary" },
-        { "name": "up-{version}-darwin-universal", "kind": "binary" },
-        { "name": "man-pages-{version}.tar.gz", "kind": "tar.gz" }
+        { "name": "paw-proxy-darwin-universal", "kind": "binary" },
+        { "name": "up-darwin-universal", "kind": "binary" },
+        { "name": "man-pages.tar.gz", "kind": "tar.gz" }
       ]
     },
     {
@@ -51,8 +51,8 @@
       "runs": "any",
       "build_task": "build:linux-amd64",
       "artifacts": [
-        { "name": "paw-proxy-{version}-linux-amd64", "kind": "binary" },
-        { "name": "up-{version}-linux-amd64", "kind": "binary" }
+        { "name": "paw-proxy-linux-amd64", "kind": "binary" },
+        { "name": "up-linux-amd64", "kind": "binary" }
       ]
     },
     {
@@ -63,8 +63,8 @@
       "runs": "any",
       "build_task": "build:linux-arm64",
       "artifacts": [
-        { "name": "paw-proxy-{version}-linux-arm64", "kind": "binary" },
-        { "name": "up-{version}-linux-arm64", "kind": "binary" }
+        { "name": "paw-proxy-linux-arm64", "kind": "binary" },
+        { "name": "up-linux-arm64", "kind": "binary" }
       ]
     }
   ],
