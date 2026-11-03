@@ -26,6 +26,10 @@ var PawProxyCommand = Command{
 			Summary: "Show daemon status and registered routes",
 		},
 		{
+			Name:    "restart",
+			Summary: "Restart the daemon (e.g. to pick up an upgraded binary)",
+		},
+		{
 			Name:    "run",
 			Summary: "Run daemon in foreground (used by service manager)",
 		},

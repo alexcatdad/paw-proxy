@@ -66,6 +66,13 @@ func main() {
 			}
 			cmdStatus()
 			return
+		case "restart":
+			if hasHelpFlag(os.Args[2:]) {
+				help.PawProxyCommand.RenderSubcommand(os.Stdout, "restart")
+				return
+			}
+			cmdRestart()
+			return
 		case "run":
 			if hasHelpFlag(os.Args[2:]) {
 				help.PawProxyCommand.RenderSubcommand(os.Stdout, "run")

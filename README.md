@@ -136,6 +136,7 @@ up -n staging bun dev
 | `setup` | Configure DNS, CA, and install daemon (requires sudo) |
 | `uninstall` | Remove all paw-proxy components |
 | `status` | Show daemon status and registered routes |
+| `restart` | Restart the daemon (e.g. after an upgrade) |
 | `doctor` | Query DNS and verify HTTPS TLS on every advertised/system-resolved address, independently of backend availability |
 | `run` | Run daemon in foreground (for launchd) |
 | `version` | Show version |
