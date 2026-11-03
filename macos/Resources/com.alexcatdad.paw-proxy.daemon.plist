@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key><string>com.alexcatdad.paw-proxy.daemon</string>
+	<key>BundleProgram</key><string>Contents/Helpers/paw-proxy</string>
+	<key>ProgramArguments</key><array><string>paw-proxy</string><string>run</string></array>
+	<key>RunAtLoad</key><true/>
+	<key>KeepAlive</key><true/>
+	<key>ProcessType</key><string>Interactive</string>
+	<key>Sockets</key>
+	<dict>
+		<key>http</key>
+		<dict>
+			<key>SockNodeName</key><string>127.0.0.1</string>
+			<key>SockServiceName</key><string>80</string>
+			<key>SockType</key><string>stream</string>
+			<key>SockPassive</key><true/>
+		</dict>
+		<key>https</key>
+		<dict>
+			<key>SockNodeName</key><string>127.0.0.1</string>
+			<key>SockServiceName</key><string>443</string>
+			<key>SockType</key><string>stream</string>
+			<key>SockPassive</key><true/>
+		</dict>
+	</dict>
+</dict>
+</plist>
