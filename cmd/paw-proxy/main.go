@@ -25,6 +25,18 @@ import (
 // version is set via -ldflags at build time; defaults to "dev" for local builds.
 var version = "dev"
 
+// build is the macOS app build number (CFBundleVersion); empty outside the
+// app bundle, in which case version output is unchanged.
+var build = ""
+
+// versionString renders "<name> version X" plus " (build N)" when set.
+func versionString(name string) string {
+	if build == "" {
+		return fmt.Sprintf("%s version %s", name, version)
+	}
+	return fmt.Sprintf("%s version %s (build %s)", name, version, build)
+}
+
 func main() {
 	help.PawProxyCommand.Version = version
 
@@ -76,7 +88,7 @@ func main() {
 			cmdDoctor()
 			return
 		case "version":
-			fmt.Printf("paw-proxy version %s\n", version)
+			fmt.Println(versionString("paw-proxy"))
 			return
 		}
 	}

@@ -482,3 +482,34 @@ func TestAPIServer_RequestBodyLimit(t *testing.T) {
 		t.Errorf("expected 400 for oversized body, got %d", resp.StatusCode)
 	}
 }
+
+func TestAPIServer_HealthReportsVersionAndBuild(t *testing.T) {
+	oldVersion, oldBuild := Version, Build
+	Version, Build = "2026.11.1", "7"
+	defer func() { Version, Build = oldVersion, oldBuild }()
+
+	socketPath := filepath.Join(t.TempDir(), "test.sock")
+	srv := NewServer(socketPath, NewRouteRegistry(30*time.Second))
+	go srv.Start()
+	defer srv.Stop()
+	time.Sleep(50 * time.Millisecond)
+
+	client := &http.Client{Transport: &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return net.Dial("unix", socketPath)
+		},
+	}}
+	resp, err := client.Get("http://unix/health")
+	if err != nil {
+		t.Fatalf("GET /health: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var body map[string]string
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decoding /health: %v", err)
+	}
+	if body["version"] != "2026.11.1" || body["build"] != "7" || body["status"] != "ok" {
+		t.Errorf("unexpected /health body: %v", body)
+	}
+}
