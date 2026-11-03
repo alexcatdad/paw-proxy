@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/alexcatdad/paw-proxy/internal/api"
-	"github.com/alexcatdad/paw-proxy/internal/dashboard"
 	"github.com/alexcatdad/paw-proxy/internal/dns"
 	"github.com/alexcatdad/paw-proxy/internal/errorpage"
 	"github.com/alexcatdad/paw-proxy/internal/launchd"
@@ -63,8 +62,6 @@ type Daemon struct {
 	proxy     *proxy.Proxy
 	logger    *slog.Logger
 	logFile   *os.File
-	metrics   *dashboard.Metrics
-	dash      *dashboard.Dashboard
 }
 
 func New(config *Config) (*Daemon, error) {
@@ -123,13 +120,6 @@ func New(config *Config) (*Daemon, error) {
 	certCache := ssl.NewCertCache(ca, config.TLD)
 	certCache.SetLogger(logger)
 
-	metrics := dashboard.NewMetrics(1000)
-	dash, err := dashboard.New(metrics, registry, api.Version, time.Now())
-	if err != nil {
-		logFile.Close()
-		return nil, fmt.Errorf("creating dashboard: %w", err)
-	}
-
 	return &Daemon{
 		config:    config,
 		dnsServer: dnsServer,
@@ -139,8 +129,6 @@ func New(config *Config) (*Daemon, error) {
 		proxy:     proxy.New(),
 		logger:    logger,
 		logFile:   logFile,
-		metrics:   metrics,
-		dash:      dash,
 	}, nil
 }
 
@@ -421,12 +409,6 @@ func (d *Daemon) createHTTPSServer() (*http.Server, net.Listener, error) {
 }
 
 func (d *Daemon) handleRequest(w http.ResponseWriter, r *http.Request) {
-	// Dashboard intercept — not recorded in metrics to avoid feedback loop
-	if api.ExtractName(r.Host) == "_paw" {
-		d.dash.ServeHTTP(w, r)
-		return
-	}
-
 	start := time.Now()
 
 	route, ok := d.registry.LookupByHost(r.Host)
@@ -440,14 +422,6 @@ func (d *Daemon) handleRequest(w http.ResponseWriter, r *http.Request) {
 			"status", 404,
 			"duration_ms", elapsed,
 		)
-		d.metrics.Record(dashboard.RequestEntry{
-			Timestamp:  start,
-			Host:       r.Host,
-			Method:     r.Method,
-			Path:       r.URL.Path,
-			StatusCode: 404,
-			LatencyMs:  elapsed,
-		})
 		return
 	}
 
@@ -473,16 +447,6 @@ func (d *Daemon) handleRequest(w http.ResponseWriter, r *http.Request) {
 		"status", status,
 		"duration_ms", elapsed,
 	)
-	d.metrics.Record(dashboard.RequestEntry{
-		Timestamp:  start,
-		Host:       r.Host,
-		Method:     r.Method,
-		Path:       r.URL.Path,
-		StatusCode: status,
-		LatencyMs:  elapsed,
-		Route:      route.Name,
-		Upstream:   route.Upstream,
-	})
 }
 
 func (d *Daemon) serveNotFound(w http.ResponseWriter, r *http.Request) {

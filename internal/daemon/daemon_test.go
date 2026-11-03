@@ -7,15 +7,18 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"io"
 	"log/slog"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/alexcatdad/paw-proxy/internal/api"
 	"github.com/alexcatdad/paw-proxy/internal/ssl"
 )
 
@@ -207,5 +210,29 @@ func TestLogFilePermissions(t *testing.T) {
 	}
 	if perm := info.Mode().Perm(); perm != 0600 {
 		t.Errorf("expected log file permissions 0600, got %04o", perm)
+	}
+}
+
+// The web dashboard was retired; _paw.test must get the ordinary not-found
+// page instead of being intercepted.
+func TestPawHostReturnsNotFound(t *testing.T) {
+	d := &Daemon{
+		registry: api.NewRouteRegistry(30 * time.Second),
+		logger:   slog.New(slog.NewJSONHandler(io.Discard, nil)),
+	}
+
+	for _, path := range []string{"/", "/api/routes", "/api/stats", "/events"} {
+		req := httptest.NewRequest("GET", "https://_paw.test"+path, nil)
+		req.Host = "_paw.test"
+		rec := httptest.NewRecorder()
+		d.handleRequest(rec, req)
+		// errorpage.NotFound answers 502 (no upstream); what matters is that
+		// it is the error page, not dashboard content.
+		if rec.Code != http.StatusBadGateway {
+			t.Errorf("GET _paw.test%s = %d, want 502 from the not-found page", path, rec.Code)
+		}
+		if !strings.Contains(rec.Body.String(), "Not Found - _paw.test") {
+			t.Errorf("GET _paw.test%s did not render the not-found page", path)
+		}
 	}
 }
