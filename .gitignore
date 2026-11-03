@@ -21,3 +21,7 @@ coverage.out
 
 # Build
 bin/
+
+# macOS app build output
+macos/.build/
+macos/build/

@@ -25,6 +25,29 @@ tasks:
         trap 'rm -rf "$short"' EXIT
         TMPDIR="$short" go test -race ./...
 
+  macos:test:
+    desc: Run the menu-bar app's Swift tests, including the live socket test against the Go fixture
+    dir: macos
+    env:
+      PAWPROXY_TEST_DAEMON: "1"
+    cmds:
+      - swift test
+
+  macos:package-test:
+    desc: Test package-app.sh, validate-bundle.sh and dev builds (ad-hoc signed, temp dirs)
+    cmds:
+      - sh macos/Scripts/test-package-app.sh
+
+  macos:dev:
+    desc: Build and launch 'Paw Proxy Dev.app' (no LaunchAgents; never registers services)
+    cmds:
+      - sh macos/Scripts/dev-app.sh --run
+
+  macos:package:
+    desc: "Build a local Paw Proxy.app candidate (APP_VERSION, BUILD_NUMBER, optional SIGNING_IDENTITY)"
+    cmds:
+      - sh macos/Scripts/package-app.sh "{{.DEST | default "macos/.build/release-candidate/Paw Proxy.app"}}"
+
   vulncheck:
     desc: Scan dependencies for known vulnerabilities (needs network)
     cmds:
