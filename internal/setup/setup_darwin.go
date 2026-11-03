@@ -11,6 +11,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/alexcatdad/paw-proxy/internal/appbundle"
 	"github.com/alexcatdad/paw-proxy/internal/ssl"
 )
 
@@ -63,12 +64,13 @@ func Run(config *Config) error {
 	}
 	fmt.Printf("  ✓ /etc/resolver/%s created\n", config.TLD)
 
-	// 5. Install LaunchAgent
+	// 5. Install or register the daemon
 	fmt.Printf("\n[5/5] Installing daemon...\n")
-	if err := installLaunchAgent(config); err != nil {
-		return fmt.Errorf("installing LaunchAgent: %w", err)
+	msg, err := installDaemon(config, defaultDaemonDeps(config), appRequired)
+	if err != nil {
+		return err
 	}
-	fmt.Printf("  ✓ LaunchAgent installed and started\n")
+	fmt.Printf("  ✓ %s\n", msg)
 
 	fmt.Println("\n================")
 	fmt.Println("Setup complete!")
@@ -222,14 +224,19 @@ func launchctlAsUser(args ...string) error {
 	return exec.Command("launchctl", args...).Run()
 }
 
-// launchctlBootout removes a launchd service and releases its socket
+// launchctlBootout removes the legacy launchd service and releases its socket
 // reservations. Uses the modern bootout command instead of the deprecated
 // unload, which leaves socket bindings active.
 func launchctlBootout() error {
+	return launchctlBootoutLabel(appbundle.LegacyLabel)
+}
+
+// launchctlBootoutLabel boots out gui/<real uid>/<label>.
+func launchctlBootoutLabel(label string) error {
 	uid, err := resolveRealUID()
 	if err != nil {
 		return err
 	}
-	target := fmt.Sprintf("gui/%d/dev.paw-proxy", uid)
+	target := fmt.Sprintf("gui/%d/%s", uid, label)
 	return launchctlAsUser("bootout", target)
 }

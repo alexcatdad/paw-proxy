@@ -6,4 +6,9 @@ type Config struct {
 	BinaryPath string
 	DNSPort    int
 	TLD        string
+
+	// LegacyLaunchAgent forces the CLI-written ~/Library/LaunchAgents
+	// agent (dev.paw-proxy) instead of registration through Paw Proxy.app.
+	// macOS only; kept for development and the transition period.
+	LegacyLaunchAgent bool
 }

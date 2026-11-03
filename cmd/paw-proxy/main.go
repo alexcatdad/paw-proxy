@@ -173,6 +173,11 @@ func cmdSetup() {
 		DNSPort:    9353,
 		TLD:        "test",
 	}
+	for _, arg := range os.Args[2:] {
+		if arg == "--legacy-launchagent" {
+			config.LegacyLaunchAgent = true
+		}
+	}
 
 	if err := setup.Run(config); err != nil {
 		fmt.Printf("Setup failed: %v\n", err)
