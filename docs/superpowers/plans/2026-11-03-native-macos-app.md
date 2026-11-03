@@ -70,7 +70,7 @@ Steps:
   - `internal/api/server_test.go`: assert the field is present
 - `cmd/paw-proxy/main.go`: `paw-proxy version` prints `paw-proxy version X (build N)`.
 - `cmd/up/main.go`: `-version` prints the same format.
-- Taskfile `bin` LDFLAGS: add `-X …/internal/api.Build=$RELEASE_BUILD`, defaulting to `1` when unset. Check that `reltool` exposes a build number; if it does not, use `1` and note it.
+- *Implemented:* `reltool` exposes no build number, so the Taskfile is unchanged and `Build` stays empty for standalone binaries (version output and release validation are unchanged). `macos/Scripts/package-app.sh` (P2) sets `main.build` and `api.Build` to `CFBundleVersion`.
 
 ### 1.3 Bundle discovery
 
@@ -91,7 +91,8 @@ Steps:
 
 - New package `internal/desktop`:
   - `Request{Version:1, ID, Op}` with ops `register`, `unregister` and `status`.
-  - `Reply{Version, ID, Outcome, Detail}` with outcomes `registered`, `requiresApproval`, `unregistered`, `failed` and `rolledBack`.
+  - `Reply{Version, ID, Outcome, Detail}` with outcomes `registered`, `requiresApproval`, `unregistered`, `notRegistered`, `failed` and `rolledBack`.
+  - *Implemented:* the opener runs `open -n -g -a <bundle path> --args --request <file>`. `-n` is required because `open` drops `--args` for an already-running app, and `-a <path>` targets the exact bundle the CLI runs from. Shared vectors live in `internal/desktop/testdata/vectors.json`.
   - `Send(ctx, bundle, req) (Reply, error)`:
     1. Write the request (0600) to `<support>/requests/<id>.json`, with the directory at 0700.
     2. Run `open -g -b <bundleID> --args --request <path>`, as `SUDO_USER` when running under sudo. Reuse the logic of `launchctlAsUser` and generalize it as `runAsRealUser` in `internal/setup/helpers.go`.
@@ -112,7 +113,7 @@ Steps:
     - neither → an error saying "install the cask (`brew install --cask alexcatdad/tap/paw-proxy`) or pass --legacy-launchagent"
 - `uninstall_darwin.go`: in a bundle, `desktop.Send(unregister)` first. Always also run `bootout` on both labels and remove `~/Library/LaunchAgents/dev.paw-proxy.plist` if present, so leftovers are cleaned whichever path installed them.
 - `internal/setup/setup_darwin_test.go`: table tests for the three branches, using injected `locate`/`send`/`install` functions. Introduce a small struct of function fields so the tests need neither root nor launchctl.
-- `lifecycle-tests.sh` and the CI macOS job: pass `--legacy-launchagent`, since CI runs a bare binary.
+- *Implemented with a transition gate:* the "neither" branch is controlled by `appRequired` in `internal/setup/daemon_install_darwin.go`, which is **false** until the cask ships, so formula installs keep writing the legacy agent. P4 flips it (a test guards against flipping early) and adds `--legacy-launchagent` to `lifecycle-tests.sh` and the CI macOS job at the same time.
 
 **Verify:** `task check`, `go build ./cmd/paw-proxy ./cmd/up`, and the lifecycle tests on the macOS CI runner.
 
@@ -202,7 +203,7 @@ macos/Resources/
 ### 3.2 Request handling in the app
 
 - `DesktopRequest.swift` (Native) parses and validates the request file: version 1, known op, the ID matching the file name, owner equal to the current UID, mode 0600, size ≤64 KiB. The rules are shared with the Go side through a test vector file, `testdata/desktop-request-vectors.json`, which both test suites read.
-- `PawProxyApp`: when launched with `--request <path>`, it handles the op (register → `Migrator.run`, unregister → `Registrar.unregister` plus `.mainApp` unregister) and writes the reply (0600).
+- `PawProxyApp`: when launched with `--request <path>`, it must handle the request **before creating any UI** (it is a second instance started with `open -n`, so it must not add a second menu-bar icon). It handles the op (register → `Migrator.run`, unregister → `Registrar.unregister` plus `.mainApp` unregister) and writes the reply (0600).
   - If the app was launched only for the request, it exits; otherwise the menu stays open.
   - This is Tapas's one-shot pattern: no listener, no broker.
 - Menu actions:
@@ -247,6 +248,8 @@ Record the outcome in Scratchpad.
   ```
 - Bump `RELTOOL_TAG` if `taps[]` needs a release newer than the pinned v0.2.0 (`6036a85` is the commit that added it, and it is the current pin, so likely no bump is needed).
 - Run `task release:check` (read-only) and `task release:prepare` locally. **Do not run `task release` without the owner's explicit go-ahead.**
+
+- Flip `appRequired` to `true` in `internal/setup/daemon_install_darwin.go`, update `TestAppRequiredStaysOffUntilCaskShips` accordingly, and pass `--legacy-launchagent` in `lifecycle-tests.sh` and the CI macOS job. Ship this in the same release that publishes the cask.
 
 ### 4.2 Homebrew tap (`../homebrew-tap`)
 
