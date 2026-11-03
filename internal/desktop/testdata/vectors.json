@@ -1,0 +1,24 @@
+{
+  "_comment": "Shared request/reply vectors for the CLI (Go) and Paw Proxy.app (Swift). Both test suites must agree on every case.",
+  "id": "0123456789abcdef0123456789abcdef",
+  "requests": [
+    {"name": "register", "json": "{\"version\":1,\"id\":\"0123456789abcdef0123456789abcdef\",\"op\":\"register\"}", "valid": true},
+    {"name": "unregister", "json": "{\"version\":1,\"id\":\"0123456789abcdef0123456789abcdef\",\"op\":\"unregister\"}", "valid": true},
+    {"name": "status", "json": "{\"version\":1,\"id\":\"0123456789abcdef0123456789abcdef\",\"op\":\"status\"}", "valid": true},
+    {"name": "unknown op", "json": "{\"version\":1,\"id\":\"0123456789abcdef0123456789abcdef\",\"op\":\"exec\"}", "valid": false},
+    {"name": "future version", "json": "{\"version\":2,\"id\":\"0123456789abcdef0123456789abcdef\",\"op\":\"register\"}", "valid": false},
+    {"name": "bad id", "json": "{\"version\":1,\"id\":\"../../etc\",\"op\":\"register\"}", "valid": false}
+  ],
+  "replies": [
+    {"name": "registered", "json": "{\"version\":1,\"id\":\"0123456789abcdef0123456789abcdef\",\"outcome\":\"registered\"}", "valid": true},
+    {"name": "requires approval", "json": "{\"version\":1,\"id\":\"0123456789abcdef0123456789abcdef\",\"outcome\":\"requiresApproval\",\"detail\":\"Approve in Login Items\"}", "valid": true},
+    {"name": "unregistered", "json": "{\"version\":1,\"id\":\"0123456789abcdef0123456789abcdef\",\"outcome\":\"unregistered\"}", "valid": true},
+    {"name": "not registered", "json": "{\"version\":1,\"id\":\"0123456789abcdef0123456789abcdef\",\"outcome\":\"notRegistered\"}", "valid": true},
+    {"name": "rolled back", "json": "{\"version\":1,\"id\":\"0123456789abcdef0123456789abcdef\",\"outcome\":\"rolledBack\",\"detail\":\"register failed\"}", "valid": true},
+    {"name": "failed", "json": "{\"version\":1,\"id\":\"0123456789abcdef0123456789abcdef\",\"outcome\":\"failed\",\"detail\":\"x\"}", "valid": true},
+    {"name": "unknown outcome", "json": "{\"version\":1,\"id\":\"0123456789abcdef0123456789abcdef\",\"outcome\":\"ok\"}", "valid": false},
+    {"name": "wrong id", "json": "{\"version\":1,\"id\":\"ffffffffffffffffffffffffffffffff\",\"outcome\":\"registered\"}", "valid": false},
+    {"name": "future version", "json": "{\"version\":2,\"id\":\"0123456789abcdef0123456789abcdef\",\"outcome\":\"registered\"}", "valid": false},
+    {"name": "not json", "json": "registered", "valid": false}
+  ]
+}

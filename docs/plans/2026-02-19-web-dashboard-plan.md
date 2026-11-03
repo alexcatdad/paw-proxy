@@ -1,5 +1,7 @@
 # Web Dashboard Implementation Plan
 
+> **Superseded (2026-11-03):** the `_paw.test` dashboard was retired in favor of a menu-bar route view in the native macOS app. See [the native app design](../superpowers/specs/2026-11-03-native-macos-app-design.md). Kept for history.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Add a live web dashboard at `https://_paw.test` showing active routes, per-route metrics, and a real-time request feed via SSE.

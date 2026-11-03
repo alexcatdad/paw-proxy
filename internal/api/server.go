@@ -19,6 +19,10 @@ import (
 // Version is set via -ldflags at build time; defaults to "dev" for local builds.
 var Version = "dev"
 
+// Build is the bundle build number (CFBundleVersion) when the binary ships
+// inside the macOS app; empty for standalone builds. Set via -ldflags.
+var Build = ""
+
 // Max request body size (1MB)
 const maxRequestBodySize = 1024 * 1024
 
@@ -244,6 +248,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":  "ok",
 		"version": Version,
+		"build":   Build,
 		"uptime":  uptime.String(),
 	}); err != nil {
 		log.Printf("api: failed to encode health response: %v", err)

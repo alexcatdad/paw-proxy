@@ -26,7 +26,6 @@ up npm run dev  # → https://myapp.test ✓
 - **Smart naming** - Uses package.json name or directory name
 - **Docker Compose** - Auto-discovers services and creates `service.project.test` routes
 - **Conflict resolution** - Automatic fallback when a domain is already in use (great for git worktrees)
-- **Live dashboard** - Real-time request feed and route status at `https://_paw.test`
 
 ## Installation
 
@@ -80,12 +79,9 @@ up docker compose --profile frontend up
 up docker compose -f compose.prod.yml up
 ```
 
-### Dashboard
+### Seeing what is routed
 
-Visit `https://_paw.test` to see a live dashboard with:
-- Active routes and their uptime, request counts, and average latency
-- Real-time request feed via Server-Sent Events
-- Filter requests by route (click any route row)
+`paw-proxy status` lists registered routes and their upstreams; `paw-proxy logs -f` follows requests as they arrive. (The `https://_paw.test` web dashboard has been retired; a menu-bar view of current routes is planned for the macOS app.)
 
 ### Git Worktrees
 
@@ -140,6 +136,7 @@ up -n staging bun dev
 | `setup` | Configure DNS, CA, and install daemon (requires sudo) |
 | `uninstall` | Remove all paw-proxy components |
 | `status` | Show daemon status and registered routes |
+| `restart` | Restart the daemon (e.g. after an upgrade) |
 | `doctor` | Query DNS and verify HTTPS TLS on every advertised/system-resolved address, independently of backend availability |
 | `run` | Run daemon in foreground (for launchd) |
 | `version` | Show version |

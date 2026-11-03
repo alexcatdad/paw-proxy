@@ -11,6 +11,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/alexcatdad/paw-proxy/internal/appbundle"
+	"github.com/alexcatdad/paw-proxy/internal/desktop"
 )
 
 func Uninstall(supportDir, tld string, fromBrew bool) error {
@@ -26,8 +29,26 @@ func Uninstall(supportDir, tld string, fromBrew bool) error {
 	fmt.Println("paw-proxy uninstall")
 	fmt.Println("===================")
 
-	// 1. Stop and remove LaunchAgent (bootout releases socket reservations, unlike unload)
+	// 1. Stop and remove the daemon. Ask Paw Proxy.app to unregister its
+	// agent first (an SMAppService registration survives a bootout), then
+	// boot out both labels and remove the legacy plist so leftovers are
+	// cleaned whichever path installed them. bootout releases socket
+	// reservations, unlike unload.
 	fmt.Printf("\n[1/3] Removing daemon...\n")
+	inApp, appErr := unregisterFromApp(supportDir, appbundle.Locate, func(b appbundle.Bundle, op desktop.Op) (desktop.Reply, error) {
+		return sendToApp(supportDir, b, op)
+	})
+	switch {
+	case appErr != nil:
+		fmt.Fprintf(os.Stderr, "  warning: Paw Proxy.app could not unregister the daemon: %v\n", appErr)
+	case inApp:
+		fmt.Printf("  Daemon unregistered by Paw Proxy.app\n")
+	}
+	if !inApp || appErr != nil {
+		// Fallback: stop an app agent that could not be unregistered (or
+		// whose app is gone). Usually not loaded, so the error is ignored.
+		launchctlBootoutLabel(appbundle.DaemonLabel) //nolint:errcheck
+	}
 	if err := launchctlBootout(); err != nil {
 		fmt.Fprintf(os.Stderr, "  warning: could not bootout LaunchAgent: %v\n", err)
 		// Not fatal — agent may not be loaded

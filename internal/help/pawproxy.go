@@ -9,8 +9,11 @@ var PawProxyCommand = Command{
 		{
 			Name:         "setup",
 			Summary:      "Configure DNS, CA, and install daemon (requires sudo)",
-			Usage:        "sudo paw-proxy setup",
+			Usage:        "sudo paw-proxy setup [--legacy-launchagent]",
 			RequiresRoot: true,
+			Flags: []Flag{
+				{Long: "--legacy-launchagent", Desc: "macOS: write ~/Library/LaunchAgents/dev.paw-proxy.plist instead of registering through Paw Proxy.app"},
+			},
 		},
 		{
 			Name:         "uninstall",
@@ -24,6 +27,10 @@ var PawProxyCommand = Command{
 		{
 			Name:    "status",
 			Summary: "Show daemon status and registered routes",
+		},
+		{
+			Name:    "restart",
+			Summary: "Restart the daemon (e.g. to pick up an upgraded binary)",
 		},
 		{
 			Name:    "run",
