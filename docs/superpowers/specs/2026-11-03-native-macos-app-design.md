@@ -27,7 +27,7 @@ Scratchpad and Tapas have already solved this pattern. Tapas's macOS notes expli
 
 1. A signed, notarized `Paw Proxy.app` that owns the daemon's LaunchAgent through `SMAppService`, so macOS attributes it to Paw Proxy.
 2. An optional menu-bar icon that lists the current route mappings and daemon health. The proxy runs whether or not the tray is open.
-3. A one-way, rollback-safe migration from `dev.paw-proxy` that never runs two proxies at once.
+3. A simple one-way switch from `dev.paw-proxy`: remove the old agent, then register the new one.
 4. The CLI keeps working (`up`, `paw-proxy setup|status|logs|doctor|uninstall`), including how it is invoked.
 
 ## Non-goals
@@ -129,17 +129,12 @@ A single `StatusPresentation(health:routes:registration:bundleVersion:)` drives 
 
 ### Migration from `dev.paw-proxy`
 
-The migration runs inside the app when it receives a `register` request and finds `~/Library/LaunchAgents/dev.paw-proxy.plist` or a loaded `gui/<uid>/dev.paw-proxy`. It never leaves both agents loaded, and it rolls back on failure.
+paw-proxy is a dev tool, so the switch is deliberately simple (owner decision, 2026-11-04). When the app receives a `register` request, or the user clicks "Turn on proxy", it:
 
-1. **Preflight:** verify the app's own signature (`codesign --verify --deep --strict`). Refuse if it is invalid, except in dev builds, which never register (see below).
-2. **Backup:** copy the legacy plist to `~/Library/Application Support/paw-proxy/migration/dev.paw-proxy.plist` (0600) and record its loaded state.
-3. **Stop legacy:** `launchctl bootout gui/<uid>/dev.paw-proxy`. Wait until the API socket stops answering and 127.0.0.1:443 is free, polling at 250 ms with a 10 s timeout. `bootout` releases launchd's socket reservations; `unload` does not.
-4. **Register new:** `SMAppService.agent(plistName:).register()`.
-5. **Verify:** within 10 s, `/health` answers and the daemon's executable path (via `proc_pidpath` on the PID from `launchctl print`) is inside the bundle. `.requiresApproval` counts as a pending success: the legacy agent stays booted out, the plist backup is kept, and the CLI and tray say approval is pending.
-6. **Commit:** delete the legacy plist and leave the backup in place for one release.
-7. **Roll back** on any failure in steps 4–5: `unregister()`, restore the plist, `launchctl bootstrap gui/<uid>` it, confirm `/health` answers again, and report the original error.
+1. Boots out `gui/<uid>/dev.paw-proxy` if it is loaded, and deletes `~/Library/LaunchAgents/dev.paw-proxy.plist`.
+2. Registers the bundled agent with `SMAppService.agent(plistName:).register()` (skipped if already enabled).
 
-The CA, resolver file, support directory and logs are unchanged by the migration. Their paths stay identical.
+`.requiresApproval` is reported as pending. There is no backup or rollback: if registration fails, the reply tells the user to run `sudo paw-proxy setup --legacy-launchagent` to get the old agent back. The CA, resolver file, support directory and logs are untouched; their paths stay identical.
 
 ### Uninstall
 
@@ -200,7 +195,7 @@ Notarization, stapling, zipping (`ditto`), the draft release with SHA-256 verifi
   - the stale-reply revision counter
   - request/reply file parsing, which rejects unknown ops, oversize input and wrong owner/mode
   - a socket client test against a Go fixture daemon started on a temp socket (gated by an env var, as Scratchpad's `ServiceProcessSmokeTests` is)
-  - the migration state machine (it runs in the app) with a fake `launchctl` runner and a fake registrar, covering the success path, `requiresApproval`, a register failure followed by rollback, and a verify timeout followed by rollback
+  - `DaemonAgent.turnOn` with a fake `launchctl` runner and a fake registrar, covering legacy removal before register, `requiresApproval` and register failure
 - Go tests:
   - bundle discovery through symlinks
   - the `--legacy-launchagent` gate
@@ -212,7 +207,7 @@ Notarization, stapling, zipping (`ditto`), the draft release with SHA-256 verifi
 
 - [ ] A bundled agent with `Sockets` receives activated sockets (Phase 0), or the direct-bind fallback is chosen.
 - [ ] Login Items lists "Paw Proxy" with its icon, not an anonymous item.
-- [ ] Migration from a live `dev.paw-proxy` leaves exactly one proxy, with no window where both run. Rollback restores the legacy agent when registration is forced to fail.
+- [ ] Turning on from a live `dev.paw-proxy` leaves exactly one proxy, running from the bundle.
 - [ ] Login, crash (`kill -9`) and `brew upgrade` each leave exactly one daemon. The tray detects the update, and Restart picks up the new binary.
 - [ ] Tray quit leaves the proxy running. "Show in menu bar at login" works.
 - [ ] `paw-proxy uninstall` and then `brew uninstall --cask` leave no agent, login item, resolver file or CA trust.

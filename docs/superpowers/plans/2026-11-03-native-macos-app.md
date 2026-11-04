@@ -190,37 +190,24 @@ macos/Resources/
 
 ## Phase 3: Registration and migration
 
-**Branch:** `feat/native-app-registration` · **Depends on:** P1, P2 · **PR title:** `feat: register the daemon from Paw Proxy.app and migrate dev.paw-proxy`
+**Branch:** `feat/native-app-registration` · **Depends on:** P1, P2 · **PR title:** `feat: register the daemon from Paw Proxy.app`
 
 ### 3.1 Native registration (`PawProxyNative`)
 
-- `Registrar` protocol: `status`, `register()`, `unregister()`, `openLoginItems()`.
-  - Production: `SMAppServiceRegistrar` wraps `SMAppService.agent(plistName:)`; a second instance wraps `.mainApp` for "Show in menu bar at login".
-  - The dev build injects `DisabledRegistrar`, which throws "Dev build — registration disabled".
-- `LaunchctlRunner` protocol: `print(label) -> (pid, program)?`, `bootout(label)` and `bootstrap(plistPath)`, run through `/bin/launchctl` with `gui/<uid>`.
-- `PortProbe`: checks whether 127.0.0.1:443 accepts a connection (the old daemon still holds it).
-- `Migrator`: the state machine from the spec's migration section. Its states are `preflight → backup → stopLegacy → register → verify → commit`, plus `rollback`. Every side effect goes through an injected protocol (registrar, launchctl, file system, daemon client, clock).
-- `MigratorTests` cover:
-  - a clean install with no legacy agent
-  - legacy present → success
-  - `requiresApproval` → pending, with the backup kept and the legacy plist still on disk but not loaded
-  - `register()` throws → rollback restores and re-bootstraps the legacy agent, and the test asserts `/health` is probed again
-  - verify timeout → rollback
-  - port never freed → abort before register, with legacy re-bootstrapped
-  - the bundle signature fails preflight → refuse, with nothing touched
-  - a test asserting no sequence ever leaves both labels loaded, checked against the fake runner's recorded call log
+*Simplified during implementation (owner, 2026-11-04): paw-proxy is a dev tool, so switching agents is "remove the old one, register the new one". No backup, port wait, verify loop or rollback. If registration fails, the reply says to run `sudo paw-proxy setup --legacy-launchagent`.*
+
+- `Registrar` (exists from P2) wraps `SMAppService.agent`; `LoginItem`/`MainAppLoginItem` wraps `.mainApp` for "Show in menu bar at login". The dev build injects `DisabledRegistrar`.
+- `LaunchctlRunner`/`SystemLaunchctl`: `pid`, `bootout`, `bootstrap`, `kickstart` on `gui/<uid>`.
+- `DaemonAgent`:
+  - `turnOn()`: boot out `dev.paw-proxy` if loaded, delete its plist, then `register()` unless the agent is already enabled. Outcomes: `registered`, `requiresApproval`, or `failed` with the fallback hint.
+  - `turnOff()` and `status()` map the registrar state to reply outcomes.
+- `DaemonAgentTests` cover a clean install, legacy removal before register, approval, register failure, an agent missing from the bundle, idempotence, and the dev build touching nothing.
 
 ### 3.2 Request handling in the app
 
-- `DesktopRequest.swift` (Native) parses and validates the request file: version 1, known op, the ID matching the file name, owner equal to the current UID, mode 0600, size ≤64 KiB. The rules are shared with the Go side through a test vector file, `testdata/desktop-request-vectors.json`, which both test suites read.
-- `PawProxyApp`: when launched with `--request <path>`, it must handle the request **before creating any UI** (it is a second instance started with `open -n`, so it must not add a second menu-bar icon). It handles the op (register → `Migrator.run`, unregister → `Registrar.unregister` plus `.mainApp` unregister) and writes the reply (0600).
-  - If the app was launched only for the request, it exits; otherwise the menu stays open.
-  - This is Tapas's one-shot pattern: no listener, no broker.
-- Menu actions:
-  - "Turn on proxy" runs the same `Migrator.run`.
-  - "Turn off proxy" unregisters.
-  - "Restart proxy" runs `launchctl kickstart -k`.
-  - "Open Login Items" is shown in the approval state.
+- `DesktopRequest.swift` validates the request file: inside `<support>/requests`, named `<id>.json`, a regular file owned by the current UID, mode 0600, ≤64 KiB, version 1, known op, and an ID matching the file name. Swift tests read the same `internal/desktop/testdata/vectors.json` as Go.
+- `Entry.swift` is the process entry point: with `--request <path>` it handles the request and exits **before any SwiftUI scene exists**, so an `open -n` instance never adds a second menu-bar icon. A request that fails validation still gets a `failed` reply, but only when its path is a well-formed request in the requests directory.
+- Menu actions: "Turn on proxy" (`DaemonAgent.turnOn`), "Turn proxy off", "Restart proxy" (`kickstart -k`), "Open Login Items" in the approval state, and a "Show in menu bar at login" checkbox.
 
 ### 3.3 Go integration test
 
@@ -302,7 +289,7 @@ Record the outcome in Scratchpad.
 | Risk | Mitigation |
 |---|---|
 | Bundled agent ignores `Sockets` | P0 decides; the daemon already falls back to direct binding |
-| Two proxies during migration | `Migrator` frees port 443 before register; a test asserts on the fake call log; rollback re-bootstraps the legacy agent |
+| Two proxies during migration | `turnOn` boots out and deletes the legacy agent before `register()`; no rollback, the failure reply names `--legacy-launchagent` |
 | Users on the formula upgrade and lose the daemon | The formula `odie` message names the exact commands; the cask's first `setup` migrates the agent |
 | Login Items approval stalls `setup` | The `requiresApproval` reply is a pending success with clear instructions; the 60 s timeout is followed by a clear message |
 | Dev app clobbers the installed agent | The dev bundle has no LaunchAgents and a `DisabledRegistrar`; the validator enforces both |

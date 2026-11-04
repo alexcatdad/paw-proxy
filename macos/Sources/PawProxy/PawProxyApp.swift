@@ -2,7 +2,6 @@ import AppKit
 import PawProxyNative
 import SwiftUI
 
-@main
 struct PawProxyApp: App {
     @StateObject private var model = AppModel()
 

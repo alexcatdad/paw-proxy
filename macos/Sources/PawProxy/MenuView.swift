@@ -61,6 +61,14 @@ struct MenuView: View {
             HStack {
                 Button("Restart proxy") { model.restart() }.disabled(model.isDevelopment && model.health == nil)
                 Button("Open logs") { model.openLogs() }
+                if model.registration == .enabled || model.registration == .requiresApproval {
+                    Button("Turn proxy off") { model.turnOff() }
+                }
+            }
+            if !model.isDevelopment {
+                Toggle("Show in menu bar at login", isOn: Binding(
+                    get: { model.showAtLogin }, set: { model.setShowAtLogin($0) }))
+                    .toggleStyle(.checkbox)
             }
             HStack {
                 Text(versionLine).font(.caption2).foregroundStyle(.tertiary)

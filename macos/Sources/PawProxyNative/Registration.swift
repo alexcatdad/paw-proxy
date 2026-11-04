@@ -23,6 +23,7 @@ public protocol Registrar: Sendable {
 
 public struct DisabledRegistrar: Registrar {
     public struct DevBuild: Error, CustomStringConvertible {
+        public init() {}
         public var description: String { "Dev build — registration disabled" }
     }
     public init() {}
@@ -32,7 +33,27 @@ public struct DisabledRegistrar: Registrar {
     public func openLoginItems() {}
 }
 
+/// "Show in menu bar at login" — the app itself as a login item.
+public protocol LoginItem: Sendable {
+    var isEnabled: Bool { get }
+    func setEnabled(_ enabled: Bool) throws
+}
+
 #if canImport(ServiceManagement)
+/// Wraps SMAppService.mainApp.
+public struct MainAppLoginItem: LoginItem {
+    public init() {}
+    public var isEnabled: Bool { SMAppService.mainApp.status == .enabled }
+    public func setEnabled(_ enabled: Bool) throws {
+        let app = SMAppService.mainApp
+        if enabled {
+            if app.status != .enabled { try app.register() }
+        } else if app.status == .enabled || app.status == .requiresApproval {
+            try app.unregister()
+        }
+    }
+}
+
 /// Wraps SMAppService.agent for the bundled daemon plist.
 public struct AgentRegistrar: Registrar {
     public var plistName: String

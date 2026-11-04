@@ -7,24 +7,25 @@ final class AppModel: ObservableObject {
     @Published private(set) var presentation = StatusPresentation(tone: .off, headline: "Checking…")
     @Published private(set) var rows: [RouteRow] = []
     @Published private(set) var health: Health?
+    @Published private(set) var registration: RegistrationState = .notRegistered
+    @Published private(set) var showAtLogin = false
     @Published var message: String?
 
     let isDevelopment: Bool
     let bundleVersion: String
     let bundleBuild: String
 
-    private let paths = Paths()
-    private let registrar: Registrar
+    private let services: Services
+    private var paths: Paths { services.paths }
     private var revision = ObservationRevision()
     private var timer: Timer?
-    private var routes: [Route] = []
 
-    init() {
+    init(services: Services = .live()) {
+        self.services = services
         let info = Bundle.main.infoDictionary ?? [:]
-        isDevelopment = Identity.isDevelopment(bundleID: Bundle.main.bundleIdentifier)
+        isDevelopment = services.isDevelopment
         bundleVersion = info["CFBundleShortVersionString"] as? String ?? "dev"
         bundleBuild = info["CFBundleVersion"] as? String ?? ""
-        registrar = isDevelopment ? DisabledRegistrar() : AgentRegistrar()
 
         timer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refresh() }
@@ -51,9 +52,10 @@ final class AppModel: ObservableObject {
 
     private func apply(health: Health?, routes: [Route], setupComplete: Bool) {
         self.health = health
-        self.routes = routes
         rows = RouteRow.rows(routes, now: Date())
-        presentation = .make(setupComplete: setupComplete, registration: registrar.state,
+        registration = services.registrar.state
+        showAtLogin = services.loginItem?.isEnabled ?? false
+        presentation = .make(setupComplete: setupComplete, registration: registration,
                              health: health, routeCount: routes.count,
                              bundleVersion: bundleVersion, bundleBuild: bundleBuild)
     }
@@ -66,12 +68,9 @@ final class AppModel: ObservableObject {
             copy("sudo paw-proxy setup")
             message = "Copied `sudo paw-proxy setup` — run it in Terminal."
         case .openLoginItems:
-            registrar.openLoginItems()
+            services.registrar.openLoginItems()
         case .turnOn:
-            // Registration and migration from the legacy agent land with the
-            // next phase; until then setup is the supported path.
-            copy("sudo paw-proxy setup")
-            message = "Copied `sudo paw-proxy setup` — run it in Terminal to turn the proxy on."
+            turnOn()
         case .restart:
             restart()
         case .openLogs:
@@ -79,27 +78,70 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func restart() {
+    /// Replaces the legacy agent (if any) with the app's agent.
+    func turnOn() {
+        change("Turning on…") { $0.turnOn() }
+    }
+
+    func turnOff() {
+        change("Turning off…") { $0.turnOff() }
+    }
+
+    private func change(_ headline: String, _ op: @escaping @Sendable (DaemonAgent) -> (Desktop.Outcome, String?)) {
+        guard !isDevelopment else { message = DisabledRegistrar.DevBuild().description; return }
         revision.bump()
-        presentation = StatusPresentation(tone: presentation.tone, headline: "Restarting…")
-        let uid = getuid()
+        presentation = StatusPresentation(tone: presentation.tone, headline: headline)
+        let agent = services.agent
         Task.detached {
-            let result = Launchctl.kickstart(uid: uid)
+            let (_, detail) = op(agent)
             await MainActor.run { [weak self] in
                 guard let self else { return }
-                if case .failure(let error) = result { self.message = error.description }
-                self.pollAfterRestart(remaining: 20)
+                self.message = detail
+                self.pollAfterChange(remaining: 20)
             }
         }
     }
 
-    private func pollAfterRestart(remaining: Int) {
+    func setShowAtLogin(_ enabled: Bool) {
+        guard let item = services.loginItem else { return }
+        do {
+            try item.setEnabled(enabled)
+        } catch {
+            message = "Could not change the login item: \(error.localizedDescription)"
+        }
+        showAtLogin = item.isEnabled
+    }
+
+    func restart() {
+        revision.bump()
+        presentation = StatusPresentation(tone: presentation.tone, headline: "Restarting…")
+        let launchctl = services.launchctl
+        Task.detached {
+            let error = Self.kickstart(launchctl)
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                if let error { self.message = error }
+                self.pollAfterChange(remaining: 20)
+            }
+        }
+    }
+
+    /// Restart through launchctl (SMAppService has no restart call): the app
+    /// agent if loaded, otherwise the legacy one.
+    nonisolated static func kickstart(_ launchctl: LaunchctlRunner) -> String? {
+        for label in [Identity.daemonLabel, Identity.legacyLabel] where launchctl.isLoaded(label) {
+            do { try launchctl.kickstart(label); return nil } catch { return "Restart failed: \(error)" }
+        }
+        return "No paw-proxy daemon is installed."
+    }
+
+    private func pollAfterChange(remaining: Int) {
         refresh()
         guard remaining > 0 else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
             guard let self else { return }
-            if self.health == nil || self.presentation.headline == "Restarting…" {
-                self.pollAfterRestart(remaining: remaining - 1)
+            if self.health == nil || self.presentation.headline.hasSuffix("…") {
+                self.pollAfterChange(remaining: remaining - 1)
             }
         }
     }
@@ -121,33 +163,5 @@ final class AppModel: ObservableObject {
     private func copy(_ s: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(s, forType: .string)
-    }
-}
-
-/// Restart through launchctl: SMAppService has no restart call.
-enum Launchctl {
-    struct Failure: Error, CustomStringConvertible { var description: String }
-
-    static func kickstart(uid: uid_t) -> Result<Void, Failure> {
-        for label in [Identity.daemonLabel, Identity.legacyLabel] {
-            let target = "gui/\(uid)/\(label)"
-            guard run(["print", target]).status == 0 else { continue }
-            let r = run(["kickstart", "-k", target])
-            return r.status == 0 ? .success(()) : .failure(Failure(description: "Restart failed: \(r.output)"))
-        }
-        return .failure(Failure(description: "No paw-proxy daemon is installed."))
-    }
-
-    private static func run(_ args: [String]) -> (status: Int32, output: String) {
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        p.arguments = args
-        let pipe = Pipe()
-        p.standardOutput = pipe
-        p.standardError = pipe
-        do { try p.run() } catch { return (-1, "\(error)") }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        p.waitUntilExit()
-        return (p.terminationStatus, String(decoding: data, as: UTF8.self))
     }
 }
