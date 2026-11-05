@@ -1,3 +1,4 @@
+import MenubarKit
 import Testing
 @testable import PawProxyNative
 
@@ -47,4 +48,35 @@ private func status(setup: Bool = true, reg: RegistrationState = .enabled, healt
     #expect(status(routes: 0) == .init(tone: .ok, headline: "Running — no routes"))
     #expect(status(routes: 1).headline == "Running — 1 route")
     #expect(status(reg: .disabled, routes: 5) == .init(tone: .ok, headline: "Running — 5 routes"))
+}
+
+/// Every paw-proxy state maps to one MenubarKit tone; only running is badge-free.
+@Test func statesMapOntoMenubarKitTones() {
+    let cases: [(StatusPresentation, StatusTone, String)] = [
+        (status(), .ok, "Running"),
+        (status(setup: false), .error, "Setup needed"),
+        (status(reg: .requiresApproval), .warning, "Waiting for approval"),
+        (status(reg: .enabled, health: nil), .error, "Proxy not responding"),
+        (status(reg: .notRegistered, health: nil), .off, "Proxy is off"),
+        (status(version: "2026.11.2"), .update, "Restart to finish update"),
+        (status(reg: .notRegistered), .warning, "Running — 2 routes"),
+    ]
+    for (presentation, tone, word) in cases {
+        let menubar = presentation.status
+        #expect(menubar.tone == tone)
+        #expect(menubar.word == word)
+        #expect(menubar.headline == presentation.headline)
+        #expect(menubar.tone.needsAttention == (tone != .ok))
+    }
+}
+
+@Test func headerDetailDropsCodeMarkup() {
+    #expect(status(setup: false).status.detail
+        == "Run sudo paw-proxy setup once to trust the local CA and configure DNS.")
+    #expect(status().status.detail == "")
+}
+
+@Test func voiceOverLabelNamesTheState() {
+    #expect(TrayAccessibility.label(appName: "Paw Proxy", statusWord: status(setup: false).status.word)
+        == "Paw Proxy, Setup needed")
 }
