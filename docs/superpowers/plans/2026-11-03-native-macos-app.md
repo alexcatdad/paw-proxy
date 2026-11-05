@@ -248,6 +248,15 @@ Record the outcome in Scratchpad.
 
 - Flip `appRequired` to `true` in `internal/setup/daemon_install_darwin.go`, update `TestAppRequiredStaysOffUntilCaskShips` accordingly, and pass `--legacy-launchagent` in `lifecycle-tests.sh` and the CI macOS job. Ship this in the same release that publishes the cask.
 
+### 4.x Implementation notes
+
+- `build:darwin-arm64` requires `MACOS_SIGNING_IDENTITY` (reltool passes it from the local config), runs `package-app.sh` with it and zips with `ditto -c -k --keepParent`. reltool notarizes and staples. `BUILD_NUMBER` stays 1; versions are unique per release.
+- The bundle now carries `Contents/Resources/man/{paw-proxy,up}.1`, and `validate-bundle.sh` checks them, so the cask installs man pages through `manpage`.
+- `taps[]`: the cask gets darwin targets by default; the formula is limited to `linux-amd64` and `linux-arm64`. `man-pages.tar.gz` moved to `linux-amd64`.
+- `Formula/paw.rb` is the separate dotfiles tool, not paw-proxy, so there is nothing to decide about it.
+- The tap updater only rewrites existing `url`/`sha256` slots, so the tap PR seeds `Casks/paw-proxy.rb` with a placeholder slot for `Paw-Proxy.app.zip` at v1.12.3 and makes the formula Linux-only (`depends_on :linux`) with v1.12.3's real Linux assets. **Merge the tap PR right before `task release`**: before that, the cask points at a zip that does not exist yet and macOS formula users would lose upgrades.
+- Release order: merge P3, then this PR, add the paw-proxy signing entry to `~/.config/release-tools/config.json`, merge the tap PR, then `task release` (owner's go-ahead only).
+
 ### 4.2 Homebrew tap (`../homebrew-tap`)
 
 - New `Casks/paw-proxy.rb`:

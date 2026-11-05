@@ -94,7 +94,7 @@ jobs:
       - name: Lifecycle Tests (setup/uninstall)
         run: sudo ./lifecycle-tests.sh ./paw-proxy
       - name: Setup for runtime tests
-        run: sudo ./paw-proxy setup
+        run: sudo ./paw-proxy setup --legacy-launchagent
       - name: Start daemon
         run: |
           # In CI, launchd may not start the daemon reliably — start manually.

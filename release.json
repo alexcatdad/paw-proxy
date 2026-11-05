@@ -2,7 +2,10 @@
   "schema": "release-tools/app/v1",
   "app": "paw-proxy",
   "repo": "alexcatdad/paw-proxy",
-  "checks": ["check", "vulncheck"],
+  "checks": [
+    "check",
+    "vulncheck"
+  ],
   "targets": [
     {
       "id": "darwin-arm64",
@@ -13,34 +16,10 @@
       "build_task": "build:darwin-arm64",
       "validate_task": "validate:darwin-arm64",
       "artifacts": [
-        { "name": "paw-proxy-darwin-arm64", "kind": "binary" },
-        { "name": "up-darwin-arm64", "kind": "binary" }
-      ]
-    },
-    {
-      "id": "darwin-amd64",
-      "os": "darwin",
-      "arch": "amd64",
-      "min_os": "13.0",
-      "runs": "local",
-      "build_task": "build:darwin-amd64",
-      "artifacts": [
-        { "name": "paw-proxy-darwin-amd64", "kind": "binary" },
-        { "name": "up-darwin-amd64", "kind": "binary" }
-      ]
-    },
-    {
-      "id": "darwin-universal",
-      "os": "darwin",
-      "arch": "universal",
-      "min_os": "13.0",
-      "runs": "local",
-      "build_task": "build:darwin-universal",
-      "validate_task": "validate:darwin-universal",
-      "artifacts": [
-        { "name": "paw-proxy-darwin-universal", "kind": "binary" },
-        { "name": "up-darwin-universal", "kind": "binary" },
-        { "name": "man-pages.tar.gz", "kind": "tar.gz" }
+        {
+          "name": "Paw-Proxy.app.zip",
+          "kind": "zip"
+        }
       ]
     },
     {
@@ -51,8 +30,18 @@
       "runs": "any",
       "build_task": "build:linux-amd64",
       "artifacts": [
-        { "name": "paw-proxy-linux-amd64", "kind": "binary" },
-        { "name": "up-linux-amd64", "kind": "binary" }
+        {
+          "name": "paw-proxy-linux-amd64",
+          "kind": "binary"
+        },
+        {
+          "name": "up-linux-amd64",
+          "kind": "binary"
+        },
+        {
+          "name": "man-pages.tar.gz",
+          "kind": "tar.gz"
+        }
       ]
     },
     {
@@ -63,11 +52,43 @@
       "runs": "any",
       "build_task": "build:linux-arm64",
       "artifacts": [
-        { "name": "paw-proxy-linux-arm64", "kind": "binary" },
-        { "name": "up-linux-arm64", "kind": "binary" }
+        {
+          "name": "paw-proxy-linux-arm64",
+          "kind": "binary"
+        },
+        {
+          "name": "up-linux-arm64",
+          "kind": "binary"
+        }
       ]
     }
   ],
-  "migration": { "floor": "1.12.3" },
-  "tap": { "repo": "alexcatdad/homebrew-tap", "kind": "formula", "package": "paw-proxy" }
+  "signing": {
+    "macos": {
+      "targets": [
+        "darwin-arm64"
+      ],
+      "notarize": true,
+      "staple": true
+    }
+  },
+  "migration": {
+    "floor": "1.12.3"
+  },
+  "taps": [
+    {
+      "repo": "alexcatdad/homebrew-tap",
+      "kind": "cask",
+      "package": "paw-proxy"
+    },
+    {
+      "repo": "alexcatdad/homebrew-tap",
+      "kind": "formula",
+      "package": "paw-proxy",
+      "targets": [
+        "linux-amd64",
+        "linux-arm64"
+      ]
+    }
+  ]
 }

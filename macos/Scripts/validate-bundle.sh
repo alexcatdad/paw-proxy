@@ -18,6 +18,7 @@ for exe in MacOS/PawProxy Helpers/paw-proxy Helpers/up; do
   [ -f "$C/$exe" ] && [ -x "$C/$exe" ] || fail "missing executable $exe"
 done
 [ -f "$C/Resources/AppIcon.icns" ] || fail "missing AppIcon.icns"
+for m in paw-proxy.1 up.1; do [ -f "$C/Resources/man/$m" ] || fail "missing man page $m"; done
 
 want_pp="paw-proxy version $VERSION (build $BUILD)"
 got_pp=$("$C/Helpers/paw-proxy" version)

@@ -16,9 +16,9 @@ import (
 
 // appRequired makes macOS setup refuse to write the legacy LaunchAgent from
 // a binary that is not inside Paw Proxy.app (unless --legacy-launchagent is
-// passed). It stays false until the cask ships, so formula installs keep
-// working; flip it in the distribution phase of the native app plan.
-const appRequired = false
+// passed). macOS installs come from the cask, whose paw-proxy lives inside
+// the app; bare binaries are for development only.
+const appRequired = true
 
 // daemonDeps holds the side effects of installing the daemon, so the
 // decision logic can be tested without root, launchctl or the app.

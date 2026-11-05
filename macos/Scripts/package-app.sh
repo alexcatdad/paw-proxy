@@ -64,6 +64,8 @@ done
 echo "==> Assembling $NAME"
 cp "$BIN/PawProxy" "$APP/Contents/MacOS/PawProxy"
 cp "$MACOS/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+mkdir -p "$APP/Contents/Resources/man"
+cp "$ROOT/man/paw-proxy.1" "$ROOT/man/up.1" "$APP/Contents/Resources/man/"
 cp "$MACOS/Resources/Info.plist" "$APP/Contents/Info.plist"
 PB=/usr/libexec/PlistBuddy
 $PB -c "Set :CFBundleIdentifier $BUNDLE_ID" \

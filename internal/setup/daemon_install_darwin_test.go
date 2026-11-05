@@ -84,10 +84,10 @@ func TestInstallDaemon(t *testing.T) {
 	}
 }
 
-func TestAppRequiredStaysOffUntilCaskShips(t *testing.T) {
-	// Flipping this before the cask exists breaks every formula install.
-	if appRequired {
-		t.Fatal("appRequired must stay false until the cask is published")
+func TestAppRequiredOnMacOS(t *testing.T) {
+	// The cask is the macOS install path; a bare binary needs --legacy-launchagent.
+	if !appRequired {
+		t.Fatal("appRequired must be true now that macOS ships as a cask")
 	}
 }
 

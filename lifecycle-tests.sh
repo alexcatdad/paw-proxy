@@ -58,7 +58,7 @@ fi
 echo ""
 echo "[Phase 2] Testing setup..."
 
-"$BINARY" setup
+"$BINARY" setup --legacy-launchagent
 SETUP_EXIT=$?
 
 if [ "$SETUP_EXIT" -eq 0 ]; then
@@ -164,7 +164,7 @@ fi
 echo ""
 echo "[Phase 3] Testing idempotent setup (running setup again)..."
 
-"$BINARY" setup
+"$BINARY" setup --legacy-launchagent
 SETUP2_EXIT=$?
 
 if [ "$SETUP2_EXIT" -eq 0 ]; then
@@ -269,7 +269,7 @@ fi
 echo ""
 echo "[Phase 6] Testing reinstall (setup after uninstall)..."
 
-"$BINARY" setup
+"$BINARY" setup --legacy-launchagent
 REINSTALL_EXIT=$?
 
 if [ "$REINSTALL_EXIT" -eq 0 ]; then
