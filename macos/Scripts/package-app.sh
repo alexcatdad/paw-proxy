@@ -30,7 +30,8 @@ else
   BUILD_NUMBER=${BUILD_NUMBER:-1}
   echo "$APP_VERSION" | grep -Eq '^[0-9]+(\.[0-9]+){1,2}$' || { echo "invalid APP_VERSION: $APP_VERSION" >&2; exit 2; }
 fi
-echo "$BUILD_NUMBER" | grep -Eq '^[0-9]+$' || { echo "invalid BUILD_NUMBER: $BUILD_NUMBER" >&2; exit 2; }
+# CFBundleVersion: up to three integers (release-tools passes YYYY.MMDD.N).
+echo "$BUILD_NUMBER" | grep -Eq '^[0-9]+(\.[0-9]+){0,2}$' || { echo "invalid BUILD_NUMBER: $BUILD_NUMBER" >&2; exit 2; }
 
 plist_get() { /usr/libexec/PlistBuddy -c "Print :$2" "$1" 2>/dev/null || true; }
 

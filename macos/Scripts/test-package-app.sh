@@ -26,9 +26,11 @@ codesign --verify --deep --strict "$T/Paw Proxy.app" || fail "signature"
 [ "$(stat -f %Lp "$R/Resources/AppIcon.icns")" = 644 ] && [ "$(stat -f %Lp "$R/Helpers/paw-proxy")" = 755 ] || fail "modes"
 pass "release bundle assembled, versioned, signed (ad-hoc)"
 
-echo "[3] rebuild in place"
-APP_VERSION=2026.11.2 BUILD_NUMBER=8 sh "$S/package-app.sh" "$T/Paw Proxy.app" >/dev/null
-[ "$(get "$R/Info.plist" CFBundleShortVersionString)" = 2026.11.2 ] || fail "in-place replace"
+echo "[3] rebuild in place with release-tools' Apple encoding of v2026.11.05.2"
+APP_VERSION=2026.1105.2 BUILD_NUMBER=2026.1105.2 sh "$S/package-app.sh" "$T/Paw Proxy.app" >/dev/null
+[ "$(get "$R/Info.plist" CFBundleShortVersionString)" = 2026.1105.2 ] || fail "in-place replace"
+[ "$(get "$R/Info.plist" CFBundleVersion)" = 2026.1105.2 ] || fail "dotted CFBundleVersion"
+[ "$("$R/Helpers/paw-proxy" version)" = "paw-proxy version 2026.1105.2 (build 2026.1105.2)" ] || fail "encoded helper version"
 [ -z "$(ls -A "$T" | grep '^\.paw-proxy-stage' || true)" ] || fail "staging dir left behind"
 pass "same-ID bundle replaced atomically, no staging left"
 
@@ -39,6 +41,9 @@ cp "$ROOT/macos/Resources/Info.plist" "$T/Other.app/Contents/Info.plist"
 if APP_VERSION=1.0.0 sh "$S/package-app.sh" "$T/Other.app" >/dev/null 2>&1; then fail "replaced a foreign bundle"; fi
 [ "$(get "$T/Other.app/Contents/Info.plist" CFBundleIdentifier)" = com.example.other ] || fail "foreign bundle modified"
 if APP_VERSION=1.x sh "$S/package-app.sh" "$T/Bad.app" >/dev/null 2>&1; then fail "accepted invalid version"; fi
+# Apple versions take at most three integers; the four-part CalVer stays in the tag.
+if APP_VERSION=2026.11.05.2 sh "$S/package-app.sh" "$T/Bad.app" >/dev/null 2>&1; then fail "accepted four-part version"; fi
+if APP_VERSION=2026.1105.2 BUILD_NUMBER=2026.11.05.2 sh "$S/package-app.sh" "$T/Bad.app" >/dev/null 2>&1; then fail "accepted four-part build"; fi
 if DEV_BUILD=1 sh "$S/package-app.sh" "$T/Paw Proxy.app" >/dev/null 2>&1; then fail "dev build replaced the release bundle"; fi
 pass "foreign bundle, invalid version and dev-over-release refused"
 
