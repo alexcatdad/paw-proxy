@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/alexcatdad/paw-proxy/internal/notification"
+	"github.com/alexcatdad/paw-proxy/internal/api"
 )
 
 // composeDetection holds the result of scanning args for Docker Compose mode.
@@ -296,7 +296,7 @@ func runDockerComposeMode(client *http.Client, dc composeDetection, args []strin
 		fmt.Printf("   https://%s.test\n", r.routeName)
 	}
 	fmt.Println("------------------------------------------------")
-	notification.Notify("paw-proxy", fmt.Sprintf("%d services are live", len(routes)))
+	reportNotification(client, api.NotificationRoutesLive, state.RouteNames()...)
 
 	// 5. Start heartbeat
 	ctx, cancel := context.WithCancel(context.Background())
@@ -305,7 +305,7 @@ func runDockerComposeMode(client *http.Client, dc composeDetection, args []strin
 	// 6. Cleanup function
 	cleanup := func() {
 		fmt.Printf("\nRemoving %d route mappings...\n", len(routes))
-		notification.Notify("paw-proxy", fmt.Sprintf("Removing %d route mappings", len(routes)))
+		reportNotification(client, api.NotificationRoutesRemoved, state.RouteNames()...)
 		deregisterComposeRoutes(client, routes)
 	}
 

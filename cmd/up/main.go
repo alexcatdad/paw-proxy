@@ -20,8 +20,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/alexcatdad/paw-proxy/internal/api"
 	"github.com/alexcatdad/paw-proxy/internal/help"
-	"github.com/alexcatdad/paw-proxy/internal/notification"
 	"github.com/alexcatdad/paw-proxy/internal/paths"
 )
 
@@ -41,9 +41,9 @@ func versionString(name string) string {
 }
 
 var (
-	nameFlag    = flag.String("n", "", "Custom app name (default: from package.json or directory)")
-	restartFlag = flag.Bool("restart", false, "Auto-restart on crash (non-zero exit)")
-	showVersion = flag.Bool("version", false, "Show version")
+	nameFlag         = flag.String("n", "", "Custom app name (default: from package.json or directory)")
+	restartFlag      = flag.Bool("restart", false, "Auto-restart on crash (non-zero exit)")
+	showVersion      = flag.Bool("version", false, "Show version")
 	showVersionShort = flag.Bool("v", false, "")
 )
 
@@ -132,7 +132,7 @@ func main() {
 	// Setup cleanup (deregisters route from daemon)
 	cleanup := func() {
 		fmt.Printf("\n🛑 Removing mapping for %s.test...\n", name)
-		notification.Notify("paw-proxy", fmt.Sprintf("Removing mapping for %s.test", name))
+		reportNotification(client, api.NotificationRoutesRemoved, name)
 		if err := deregisterRoute(client, name); err != nil {
 			log.Printf("warning: cleanup deregistration failed: %v", err)
 		}
@@ -179,7 +179,7 @@ func main() {
 		fmt.Printf("🔗 Mapping https://%s.test -> localhost:%d...\n", name, port)
 		if exitCode == 0 {
 			fmt.Printf("🚀 Project is live at: https://%s.test\n", name)
-			notification.Notify("paw-proxy", fmt.Sprintf("Project is live at: https://%s.test", name))
+			reportNotification(client, api.NotificationRoutesLive, name)
 		} else {
 			fmt.Printf("🔄 Restarting (previous exit code: %d)...\n", exitCode)
 		}
