@@ -1,3 +1,4 @@
+import MenubarKit
 import PawProxyNative
 import SwiftUI
 
@@ -5,103 +6,58 @@ struct MenuView: View {
     @ObservedObject var model: AppModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            header
-            Divider()
-            routeList
-            if let message = model.message {
-                Text(message).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            }
-            Divider()
-            actions
-        }
-        .padding(12)
-        .frame(width: 340)
-        .onAppear { model.refresh() }
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Circle().fill(toneColor).frame(width: 8, height: 8)
-                Text(model.presentation.headline).font(.headline)
-                Spacer()
-                if model.isDevelopment {
-                    Text("DEV").font(.caption2.bold()).padding(.horizontal, 4)
-                        .background(.orange.opacity(0.25), in: RoundedRectangle(cornerRadius: 3))
-                }
-            }
-            if let detail = model.presentation.detail {
-                Text(.init(detail)).font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+        MenubarPanel {
+            StatusHeader(model.presentation.status)
+            StatusRowsTile(model.statusRows)
+            routesTile
             if let action = model.presentation.primaryAction {
-                Button(title(for: action)) { model.perform(action) }
-                    .buttonStyle(.borderedProminent).controlSize(.small)
+                PrimaryActionButton(title(for: action)) { model.perform(action) }
             }
-        }
-    }
-
-    @ViewBuilder private var routeList: some View {
-        if model.rows.isEmpty {
-            Text(model.health == nil ? "No routes." : "No routes yet. Start one with `up <command>`, e.g. `up bun dev`.")
-                .font(.caption).foregroundStyle(.secondary)
-        } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(model.rows) { row in RouteRowView(row: row, model: model) }
-                }
+            if let message = model.message {
+                // Messages may carry `code` spans (shared with the CLI); the notice is plain text.
+                PanelNotice(message.replacingOccurrences(of: "`", with: ""), symbol: "info.circle")
             }
-            .frame(maxHeight: 320)
-        }
-    }
-
-    private var actions: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Button("Restart proxy") { model.restart() }.disabled(model.isDevelopment && model.health == nil)
+            MenuSection(quitTitle: "Quit Paw Proxy", quitHelp: "The proxy keeps running after you quit.") {
+                Button("Restart proxy") { model.restart() }
+                    .disabled(model.isDevelopment && model.health == nil)
                 Button("Open logs") { model.openLogs() }
                 if model.registration == .enabled || model.registration == .requiresApproval {
                     Button("Turn proxy off") { model.turnOff() }
                 }
+                OpenSettingsButton()
             }
-            if !model.isDevelopment {
-                Toggle("Show in menu bar at login", isOn: Binding(
-                    get: { model.showAtLogin }, set: { model.setShowAtLogin($0) }))
-                    .toggleStyle(.checkbox)
-            }
-            HStack {
-                Text(versionLine).font(.caption2).foregroundStyle(.tertiary)
-                Spacer()
-                Button("Quit menu bar icon") { model.quit() }
-                    .help("The proxy keeps running after you quit.")
-            }
+            VersionFooter()
         }
-        .controlSize(.small)
+        .onAppear { model.refresh() }
     }
 
-    private var versionLine: String {
-        var s = "App \(model.bundleVersion)"
-        if let h = model.health { s += " · daemon \(h.version), up \(h.uptime)" }
-        return s
-    }
-
-    private var toneColor: Color {
-        switch model.presentation.tone {
-        case .ok: return .green
-        case .warning, .update: return .orange
-        case .error: return .red
-        case .off: return .gray
+    private var routesTile: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            TileHeader("Routes")
+            if model.rows.isEmpty {
+                Text(model.health == nil ? "No routes." : "No routes yet. Start one with up <command>, e.g. up bun dev.")
+                    .font(.callout).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 12).padding(.vertical, 4)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(model.rows) { row in RouteRowView(row: row, model: model) }
+                    }
+                }
+                .frame(maxHeight: 280)
+            }
         }
+        .groupedTile()
     }
 
     private func title(for action: StatusPresentation.Action) -> String {
         switch action {
-        case .runSetup: return "Copy setup command"
+        case .runSetup: return "Copy Setup Command"
         case .openLoginItems: return "Open Login Items"
-        case .turnOn: return "Turn on proxy"
-        case .restart: return model.presentation.tone == .update ? "Restart to finish update" : "Restart proxy"
-        case .openLogs: return "Open logs"
+        case .turnOn: return "Turn On Proxy"
+        case .restart: return model.presentation.tone == .update ? "Restart to Finish Update" : "Restart Proxy"
+        case .openLogs: return "Open Logs"
         }
     }
 }
@@ -115,16 +71,16 @@ struct RouteRowView: View {
         Button { model.open(row) } label: {
             VStack(alignment: .leading, spacing: 1) {
                 HStack {
-                    Text(row.host).font(.system(.body, design: .monospaced))
+                    Text(row.host).font(.system(.callout, design: .monospaced))
                     Spacer()
-                    Text(row.heartbeatAge).font(.caption2).foregroundStyle(.tertiary)
+                    Text(row.heartbeatAge).font(.caption).foregroundStyle(.secondary)
                 }
                 Text(row.project.isEmpty ? "→ \(row.target)" : "→ \(row.target) · \(row.project)")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            .padding(.vertical, 4).padding(.horizontal, 6)
+            .padding(.vertical, 4).padding(.horizontal, 12)
             .contentShape(Rectangle())
-            .background(hovering ? Color.primary.opacity(0.08) : .clear, in: RoundedRectangle(cornerRadius: 5))
+            .background(hovering ? Color.primary.opacity(0.07) : .clear, in: RoundedRectangle(cornerRadius: 8))
             .opacity(row.isStale ? 0.5 : 1)
         }
         .buttonStyle(.plain)
