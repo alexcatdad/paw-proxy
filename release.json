@@ -21,46 +21,6 @@
           "kind": "zip"
         }
       ]
-    },
-    {
-      "id": "linux-amd64",
-      "os": "linux",
-      "arch": "amd64",
-      "min_os": "fedora-42",
-      "runs": "any",
-      "build_task": "build:linux-amd64",
-      "artifacts": [
-        {
-          "name": "paw-proxy-linux-amd64",
-          "kind": "binary"
-        },
-        {
-          "name": "up-linux-amd64",
-          "kind": "binary"
-        },
-        {
-          "name": "man-pages.tar.gz",
-          "kind": "tar.gz"
-        }
-      ]
-    },
-    {
-      "id": "linux-arm64",
-      "os": "linux",
-      "arch": "arm64",
-      "min_os": "fedora-42",
-      "runs": "any",
-      "build_task": "build:linux-arm64",
-      "artifacts": [
-        {
-          "name": "paw-proxy-linux-arm64",
-          "kind": "binary"
-        },
-        {
-          "name": "up-linux-arm64",
-          "kind": "binary"
-        }
-      ]
     }
   ],
   "signing": {
@@ -80,15 +40,6 @@
       "repo": "alexcatdad/homebrew-tap",
       "kind": "cask",
       "package": "paw-proxy"
-    },
-    {
-      "repo": "alexcatdad/homebrew-tap",
-      "kind": "formula",
-      "package": "paw-proxy",
-      "targets": [
-        "linux-amd64",
-        "linux-arm64"
-      ]
     }
   ]
 }

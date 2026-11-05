@@ -121,7 +121,7 @@ func cmdRun() {
 		os.Exit(1)
 	}
 
-	// Ensure log directory exists (e.g. ~/.local/state/paw-proxy/ on Linux)
+	// Ensure log directory exists
 	if err := os.MkdirAll(filepath.Dir(config.LogPath), 0700); err != nil {
 		log.Fatalf("Failed to create log directory: %v", err)
 	}
