@@ -16,7 +16,7 @@ jobs:
     if: github.event_name == 'pull_request'
     permissions:
       contents: read
-    uses: alexcatdad/ci-actions/.github/workflows/validate-pr.yml@ce30691e2ef9fe853025173069f6fa323907e053
+    uses: alexcatdad/ci-actions/.github/workflows/validate-pr.yml@828adfecbcbfb909d30fb0bc66459626571a1035
     with:
       runner: macos-26
       go-version: '1.27.3'
@@ -26,7 +26,7 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'schedule'
     permissions:
       contents: read
-    uses: alexcatdad/ci-actions/.github/workflows/validate-main.yml@ce30691e2ef9fe853025173069f6fa323907e053
+    uses: alexcatdad/ci-actions/.github/workflows/validate-main.yml@828adfecbcbfb909d30fb0bc66459626571a1035
     with:
       runner: macos-26
       go-version: '1.27.3'
@@ -34,12 +34,11 @@ jobs:
       security-command: go run github.com/go-task/task/v3/cmd/task@v3.54.0 security
   codeql:
     # The one allowed write scope: uploading code scanning results.
-    # ci-actions codeql.yml supports go, javascript-typescript and swift only.
     permissions:
       contents: read
       security-events: write
-    uses: alexcatdad/ci-actions/.github/workflows/codeql.yml@ce30691e2ef9fe853025173069f6fa323907e053
+    uses: alexcatdad/ci-actions/.github/workflows/codeql.yml@828adfecbcbfb909d30fb0bc66459626571a1035
     with:
-      languages: '["go", "swift"]'
+      languages: '["go", "swift", "actions"]'
       go-version: '1.27.3'
       swift-build-command: swift build --package-path macos
