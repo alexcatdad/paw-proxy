@@ -3,8 +3,7 @@
   "app": "paw-proxy",
   "repo": "alexcatdad/paw-proxy",
   "checks": [
-    "check",
-    "vulncheck"
+    "check"
   ],
   "targets": [
     {

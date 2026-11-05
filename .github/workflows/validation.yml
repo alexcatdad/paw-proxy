@@ -1,0 +1,45 @@
+# Validation only, through alexcatdad/ci-actions (pinned to a reviewed commit).
+# CI never signs, packages or publishes; releases are local (see AGENTS.md).
+# Commands are the repository's own Task targets. The runner has no Task
+# binary, so each command runs a pinned Task with `go run`.
+name: Validation
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Weekly: re-run the main contract (new advisories) and CodeQL.
+    - cron: '17 6 * * 1'
+permissions: {}
+jobs:
+  pr:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    uses: alexcatdad/ci-actions/.github/workflows/validate-pr.yml@52f4ee6585b8297fb44defc47cb00c316f004280
+    with:
+      runner: macos-26
+      go-version: '1.27.3'
+      lint-command: go run github.com/go-task/task/v3/cmd/task@v3.54.0 lint
+      build-command: go run github.com/go-task/task/v3/cmd/task@v3.54.0 build
+  main:
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    permissions:
+      contents: read
+    uses: alexcatdad/ci-actions/.github/workflows/validate-main.yml@52f4ee6585b8297fb44defc47cb00c316f004280
+    with:
+      runner: macos-26
+      go-version: '1.27.3'
+      test-command: go run github.com/go-task/task/v3/cmd/task@v3.54.0 test
+      security-command: go run github.com/go-task/task/v3/cmd/task@v3.54.0 security
+  codeql:
+    # The one allowed write scope: uploading code scanning results.
+    # ci-actions codeql.yml supports go, javascript-typescript and swift only.
+    permissions:
+      contents: read
+      security-events: write
+    uses: alexcatdad/ci-actions/.github/workflows/codeql.yml@52f4ee6585b8297fb44defc47cb00c316f004280
+    with:
+      languages: '["go", "swift"]'
+      go-version: '1.27.3'
+      swift-build-command: swift build --package-path macos

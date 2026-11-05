@@ -5,6 +5,8 @@ version: "3"
 # See CONTRIBUTING.md ("Releasing").
 
 vars:
+  GOLANGCI_LINT_VERSION: v2.15.0
+  GOVULNCHECK_VERSION: v1.9.0
   RELTOOL_TAG: v0.2.0
   RELTOOL_COMMIT: 6036a85828711fbfb908f67e159482597c4434c0 # commit of RELTOOL_TAG
   RELTOOL_SRC: ../release-tools
@@ -13,10 +15,33 @@ vars:
 
 tasks:
   # --- app-owned recipes ---
+  # CI (alexcatdad/ci-actions validate-pr/validate-main) runs lint, build,
+  # test and security; `task check` runs the same set locally.
   check:
-    desc: Vet and run the unit tests
+    desc: Full local gate (lint, build, test, security) - the same tasks CI runs
     cmds:
+      - task: lint
+      - task: build
+      - task: test
+      - task: security
+
+  lint:
+    desc: gofmt, go vet and golangci-lint
+    cmds:
+      - test -z "$(gofmt -l cmd internal)" || { gofmt -l cmd internal; echo "run gofmt -w on the files above" >&2; exit 1; }
       - go vet ./...
+      - go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.GOLANGCI_LINT_VERSION}} run ./...
+
+  build:
+    desc: Build both Go binaries and the menu-bar app's Swift package
+    cmds:
+      - go build -o /dev/null ./cmd/paw-proxy
+      - go build -o /dev/null ./cmd/up
+      - swift build --package-path macos
+
+  test:
+    desc: Go race tests, Swift tests (with the live socket test) and package-script tests
+    cmds:
       # Unix socket paths are limited to about 100 bytes; the release work
       # directory is too deep for the API tests, so use a short temp dir.
       - |
@@ -24,6 +49,13 @@ tasks:
         short=$(mktemp -d /tmp/pawproxy-check.XXXXXX)
         trap 'rm -rf "$short"' EXIT
         TMPDIR="$short" go test -race ./...
+      - task: macos:test
+      - task: macos:package-test
+
+  security:
+    desc: Scan Go dependencies for known vulnerabilities (needs network)
+    cmds:
+      - go run golang.org/x/vuln/cmd/govulncheck@{{.GOVULNCHECK_VERSION}} ./...
 
   macos:test:
     desc: Run the menu-bar app's Swift tests, including the live socket test against the Go fixture
@@ -47,11 +79,6 @@ tasks:
     desc: "Build a local Paw Proxy.app candidate (APP_VERSION, BUILD_NUMBER, optional SIGNING_IDENTITY)"
     cmds:
       - sh macos/Scripts/package-app.sh "{{.DEST | default "macos/.build/release-candidate/Paw Proxy.app"}}"
-
-  vulncheck:
-    desc: Scan dependencies for known vulnerabilities (needs network)
-    cmds:
-      - go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
   # Signed Paw Proxy.app, zipped. reltool passes MACOS_SIGNING_IDENTITY to
   # this task only; it then notarizes and staples the zip.
