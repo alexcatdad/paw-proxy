@@ -1,0 +1,9 @@
+# Keep gitleaks' default rules; allowlist only known, non-secret fixtures.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "RFC 6455 sample Sec-WebSocket-Key (base64 of 'the sample nonce') in WebSocket proxy tests"
+condition = "AND"
+paths = ['''^internal/proxy/proxy_test\.go$''']
+regexes = ['''^dGhlIHNhbXBsZSBub25jZQ==$''']
