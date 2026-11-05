@@ -82,14 +82,15 @@ tasks:
 
   # Signed Paw Proxy.app, zipped. reltool passes MACOS_SIGNING_IDENTITY to
   # this task only; it then notarizes and staples the zip. Apple versions take
-  # three integers, so the bundle and its helpers carry MACOS_SHORT_VERSION
-  # (2026.1105.1 for v2026.11.05.1); one string keeps the update check exact.
+  # three integers, so the bundle and its helpers carry MACOS_SHORT_VERSION and
+  # MACOS_BUNDLE_VERSION (2026.1105.1 for v2026.11.05.1); one string each keeps
+  # the update check exact and CFBundleVersion increasing.
   build:darwin-arm64:
     cmds:
       - |
         set -eu
         : "${MACOS_SIGNING_IDENTITY:?release builds of Paw Proxy.app must be signed}"
-        APP_VERSION="$MACOS_SHORT_VERSION" SIGNING_IDENTITY="$MACOS_SIGNING_IDENTITY" \
+        APP_VERSION="$MACOS_SHORT_VERSION" BUILD_NUMBER="$MACOS_BUNDLE_VERSION" SIGNING_IDENTITY="$MACOS_SIGNING_IDENTITY" \
           sh macos/Scripts/package-app.sh "$TMPDIR/Paw Proxy.app"
         ditto -c -k --keepParent "$TMPDIR/Paw Proxy.app" "$RELEASE_OUT/Paw-Proxy.app.zip"
 
