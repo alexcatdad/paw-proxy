@@ -7,15 +7,16 @@ struct MenuView: View {
 
     var body: some View {
         MenubarPanel {
-            StatusHeader(model.presentation.status)
+            // Details quote commands in `code` spans, shown monospaced.
+            StatusHeader(tone: model.presentation.tone, headline: AttributedString(model.presentation.headline),
+                         detail: InlineCode.attributed(model.presentation.detail ?? ""))
             StatusRowsTile(model.statusRows)
             routesTile
             if let action = model.presentation.primaryAction {
                 PrimaryActionButton(title(for: action)) { model.perform(action) }
             }
             if let message = model.message {
-                // Messages may carry `code` spans (shared with the CLI); the notice is plain text.
-                PanelNotice(message.replacingOccurrences(of: "`", with: ""), symbol: "info.circle")
+                PanelNotice(InlineCode.attributed(message), symbol: "info.circle")
             }
             MenuSection(quitTitle: "Quit Paw Proxy", quitHelp: "The proxy keeps running after you quit.") {
                 Button("Restart proxy") { model.restart() }
@@ -65,30 +66,15 @@ struct MenuView: View {
 struct RouteRowView: View {
     var row: RouteRow
     @ObservedObject var model: AppModel
-    @State private var hovering = false
 
     var body: some View {
-        Button { model.open(row) } label: {
-            VStack(alignment: .leading, spacing: 1) {
-                HStack {
-                    Text(row.host).font(.system(.callout, design: .monospaced))
-                    Spacer()
-                    Text(row.heartbeatAge).font(.caption).foregroundStyle(.secondary)
-                }
-                Text(row.project.isEmpty ? "→ \(row.target)" : "→ \(row.target) · \(row.project)")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            .padding(.vertical, 4).padding(.horizontal, 12)
-            .contentShape(Rectangle())
-            .background(hovering ? Color.primary.opacity(0.07) : .clear, in: RoundedRectangle(cornerRadius: 8))
+        ListRowButton(row.host, subtitle: row.project.isEmpty ? "→ \(row.target)" : "→ \(row.target) · \(row.project)",
+                      value: row.heartbeatAge) { model.open(row) }
             .opacity(row.isStale ? 0.5 : 1)
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
-        .help(row.isStale ? "No heartbeat recently — the route may be expiring." : "Open \(row.url?.absoluteString ?? row.host)")
-        .contextMenu {
-            Button("Open") { model.open(row) }
-            Button("Copy URL") { model.copyURL(row) }
-        }
+            .help(row.isStale ? "No heartbeat recently — the route may be expiring." : "Open \(row.url?.absoluteString ?? row.host)")
+            .contextMenu {
+                Button("Open") { model.open(row) }
+                Button("Copy URL") { model.copyURL(row) }
+            }
     }
 }

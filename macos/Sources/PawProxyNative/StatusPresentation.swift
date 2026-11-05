@@ -32,18 +32,13 @@ public struct StatusPresentation: Equatable, Sendable {
     /// label ("Paw Proxy, <word>") and the panel header all read from it.
     public var status: MenubarStatus {
         MenubarStatus(tone: tone, word: Self.word(tone: tone, headline: headline),
-                      headline: headline, detail: Self.plain(detail ?? ""))
+                      headline: headline, detail: InlineCode.plain(detail ?? ""))
     }
 
     /// The spoken status word: "Running" while healthy (the route count is
     /// in the headline), otherwise the headline itself, which names the problem.
     static func word(tone: Tone, headline: String) -> String {
         tone == .ok ? "Running" : headline
-    }
-
-    /// Details use `code` spans for commands; the header renders plain text.
-    static func plain(_ markdown: String) -> String {
-        markdown.replacingOccurrences(of: "`", with: "")
     }
 
     /// Precedence (first match wins): setup incomplete, needs approval,
