@@ -1,20 +1,12 @@
-## Summary
-Brief description of changes.
+## What and why
 
-## Type of Change
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Documentation
-- [ ] Refactoring
-- [ ] CI/CD
+<!-- The observable problem and the change. Link the issue: closes #N -->
 
-## Testing
-- [ ] `go test -v ./...` passes
-- [ ] `golangci-lint run` passes
-- [ ] Tested locally on macOS (if applicable)
+## Checks run
 
-## Checklist
-- [ ] Code follows project style
-- [ ] Self-reviewed my code
-- [ ] Added tests for new functionality
-- [ ] Updated documentation if needed
+- [ ] `task check`
+- [ ] Tried the packaged app (if UI, tray or notifications changed)
+
+## Notes for review
+
+<!-- Invariants touched (see AGENTS.md), risks, follow-ups. -->

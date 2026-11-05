@@ -83,7 +83,7 @@ func New(config *Config) (*Daemon, error) {
 		return nil, fmt.Errorf("loading CA: %w", err)
 	}
 
-	// Ensure log directory exists (e.g. ~/.local/state/paw-proxy/ on Linux)
+	// Ensure log directory exists
 	if err := os.MkdirAll(filepath.Dir(config.LogPath), 0700); err != nil {
 		return nil, fmt.Errorf("creating log dir: %w", err)
 	}
@@ -317,7 +317,7 @@ func redirectTarget(rawHost, requestURI, tld string) (string, bool) {
 // createHTTPServer creates the HTTP redirect server and its listener.
 // The caller owns the lifecycle of the returned server.
 func (d *Daemon) createHTTPServer() (*http.Server, net.Listener, error) {
-	// Try launchd socket activation first (macOS only; no-op on Linux)
+	// Try launchd socket activation first
 	listener, activated, err := launchd.ActivateSocket("http")
 	if err != nil {
 		d.logger.Warn("socket activation failed, falling back to direct binding",
@@ -374,7 +374,7 @@ func (d *Daemon) createHTTPSServer() (*http.Server, net.Listener, error) {
 		},
 	}
 
-	// Try launchd socket activation first (macOS only; no-op on Linux).
+	// Try launchd socket activation first.
 	// Launchd passes raw TCP sockets — ServeTLS in the caller wraps with TLS.
 	listener, activated, err := launchd.ActivateSocket("https")
 	if err != nil {

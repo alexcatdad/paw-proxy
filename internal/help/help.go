@@ -25,10 +25,10 @@ type Command struct {
 
 // Subcommand describes a subcommand of a binary.
 type Subcommand struct {
-	Name        string
-	Summary     string
-	Usage       string
-	Flags       []Flag
+	Name         string
+	Summary      string
+	Usage        string
+	Flags        []Flag
 	RequiresRoot bool
 }
 

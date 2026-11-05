@@ -1,6 +1,5 @@
 // Package paths provides platform-aware path resolution for paw-proxy.
-// Each platform (darwin, linux) has its own implementation that follows
-// the platform's conventions for application data and log storage.
+// macOS is the supported platform; other platforms get a stub that errors.
 package paths
 
 // Paths holds all platform-specific filesystem paths for paw-proxy.

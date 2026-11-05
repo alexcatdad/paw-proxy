@@ -384,9 +384,9 @@ func TestExtractName(t *testing.T) {
 
 		// Edge cases
 		{"", ""},
-		{"a.b.c", "a.b.c"},          // no .test suffix → unchanged
-		{".test", ""},                // just .test → empty
-		{"app.test:8080", "app"},     // port stripping
+		{"a.b.c", "a.b.c"},       // no .test suffix → unchanged
+		{".test", ""},            // just .test → empty
+		{"app.test:8080", "app"}, // port stripping
 	}
 
 	for _, tt := range tests {

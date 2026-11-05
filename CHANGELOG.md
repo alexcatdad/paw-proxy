@@ -1,9 +1,19 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes are recorded here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are CalVer
+`vYYYY.MM.DD.N` (earlier releases used SemVer).
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [Unreleased]
+
+### Changed
+- macOS only: Linux release targets and Linux-only code are removed.
+- `up` no longer shows notifications through `osascript`. It reports route
+  events to the daemon (`POST /notifications`), and Paw Proxy.app reads them
+  from `GET /notifications` to post them itself.
+- CI is validation only, through `alexcatdad/ci-actions`; `task check` runs the
+  same lint, build, test and security tasks locally.
+- Go 1.27.3; `github.com/miekg/dns` 1.1.73.
 
 ## [1.1.0] - 2026-02-05
 

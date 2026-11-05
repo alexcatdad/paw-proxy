@@ -35,6 +35,8 @@ type Server struct {
 	server     *http.Server
 	listener   net.Listener
 	startTime  time.Time
+
+	notifications *NotificationQueue
 }
 
 func NewServer(socketPath string, registry *RouteRegistry) *Server {
@@ -42,6 +44,8 @@ func NewServer(socketPath string, registry *RouteRegistry) *Server {
 		socketPath: socketPath,
 		registry:   registry,
 		startTime:  time.Now(),
+
+		notifications: NewNotificationQueue(notificationQueueSize),
 	}
 
 	// SECURITY: Per-endpoint rate limiters prevent runaway scripts from causing
@@ -51,6 +55,8 @@ func NewServer(socketPath string, registry *RouteRegistry) *Server {
 	routeDeleteLimiter := newRateLimiter(10)
 	routeListLimiter := newRateLimiter(50)
 	healthLimiter := newRateLimiter(100)
+	notifyLimiter := newRateLimiter(10)
+	notificationListLimiter := newRateLimiter(50)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /routes", rateLimit(routeRegLimiter, s.handleRegister))
@@ -58,6 +64,8 @@ func NewServer(socketPath string, registry *RouteRegistry) *Server {
 	mux.HandleFunc("POST /routes/{name}/heartbeat", rateLimit(heartbeatLimiter, s.handleHeartbeat))
 	mux.HandleFunc("GET /routes", rateLimit(routeListLimiter, s.handleList))
 	mux.HandleFunc("GET /health", rateLimit(healthLimiter, s.handleHealth))
+	mux.HandleFunc("POST /notifications", rateLimit(notifyLimiter, s.handleNotify))
+	mux.HandleFunc("GET /notifications", rateLimit(notificationListLimiter, s.handleNotifications))
 
 	s.server = &http.Server{Handler: mux}
 
