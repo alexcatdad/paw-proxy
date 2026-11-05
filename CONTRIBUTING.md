@@ -15,6 +15,8 @@ task check
 machine you can reset, then `./integration-tests.sh`. Logs are in
 `~/Library/Logs/paw-proxy.log`.
 
+Go backend work also runs in the devcontainer / GitHub Codespaces (Linux; no Swift).
+
 ## Changes
 
 - Branch from `main` and open a pull request back to `main`.
