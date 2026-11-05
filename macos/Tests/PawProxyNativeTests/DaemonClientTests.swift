@@ -62,4 +62,7 @@ func talksToTheGoDaemon() throws {
     let routes = try client.routes()
     #expect(routes.count == 60)
     #expect(routes.contains { $0.name == "api.shop" && $0.upstream == "http://127.0.0.1:3001" })
+
+    // The notification queue starts empty; the fixture enqueues nothing.
+    #expect(try client.routeEvents(after: 0) == RouteEventPage(cursor: 0, events: []))
 }
