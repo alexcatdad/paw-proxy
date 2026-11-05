@@ -1,6 +1,12 @@
+import MenubarKit
+
 /// The one status model behind the menu-bar icon and the menu header.
 public struct StatusPresentation: Equatable, Sendable {
-    public enum Tone: Equatable, Sendable { case ok, warning, error, off, update }
+    /// paw-proxy's states use MenubarKit's five tones directly: running is
+    /// `.ok`; approval and the legacy agent are `.warning`; missing setup and
+    /// a silent daemon are `.error`; a stopped proxy is `.off`; a pending
+    /// daemon restart after an app update is `.update`.
+    public typealias Tone = StatusTone
 
     public enum Action: Equatable, Sendable {
         case runSetup        // copy `sudo paw-proxy setup` and explain
@@ -20,6 +26,24 @@ public struct StatusPresentation: Equatable, Sendable {
         self.headline = headline
         self.detail = detail
         self.primaryAction = primaryAction
+    }
+
+    /// The shared MenubarKit description: the tray's badge and VoiceOver
+    /// label ("Paw Proxy, <word>") and the panel header all read from it.
+    public var status: MenubarStatus {
+        MenubarStatus(tone: tone, word: Self.word(tone: tone, headline: headline),
+                      headline: headline, detail: Self.plain(detail ?? ""))
+    }
+
+    /// The spoken status word: "Running" while healthy (the route count is
+    /// in the headline), otherwise the headline itself, which names the problem.
+    static func word(tone: Tone, headline: String) -> String {
+        tone == .ok ? "Running" : headline
+    }
+
+    /// Details use `code` spans for commands; the header renders plain text.
+    static func plain(_ markdown: String) -> String {
+        markdown.replacingOccurrences(of: "`", with: "")
     }
 
     /// Precedence (first match wins): setup incomplete, needs approval,

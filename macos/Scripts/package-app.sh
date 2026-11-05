@@ -64,6 +64,8 @@ done
 echo "==> Assembling $NAME"
 cp "$BIN/PawProxy" "$APP/Contents/MacOS/PawProxy"
 cp "$MACOS/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+# Menu-bar template glyph (MenubarKit TrayIconLoader); regenerate with Scripts/make-tray-icon.swift.
+cp "$MACOS/Resources/PawProxyTrayIcon.png" "$MACOS/Resources/PawProxyTrayIcon@2x.png" "$APP/Contents/Resources/"
 mkdir -p "$APP/Contents/Resources/man"
 cp "$ROOT/man/paw-proxy.1" "$ROOT/man/up.1" "$APP/Contents/Resources/man/"
 cp "$MACOS/Resources/Info.plist" "$APP/Contents/Info.plist"

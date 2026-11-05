@@ -11,9 +11,16 @@ All notable changes are recorded here. The format follows
 - `up` no longer shows notifications through `osascript`. It reports route
   events to the daemon (`POST /notifications`), and Paw Proxy.app reads them
   from `GET /notifications` to post them itself.
+- Paw Proxy.app uses `alexcatdad/menubar-kit`: a constant paw tray glyph with
+  a badge for any state that needs attention, a status-aware VoiceOver label,
+  the shared panel layout and a Settings window.
 - CI is validation only, through `alexcatdad/ci-actions`; `task check` runs the
   same lint, build, test and security tasks locally.
 - Go 1.27.3; `github.com/miekg/dns` 1.1.73.
+
+### Added
+- Paw Proxy.app posts `up`'s "project is live" and "stopped" notifications
+  when **Notify me when projects go live** is on (off by default, silent).
 
 ## [1.1.0] - 2026-02-05
 

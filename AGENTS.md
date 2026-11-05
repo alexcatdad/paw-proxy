@@ -11,10 +11,8 @@ Zero-config HTTPS for local development: `https://<name>.test` for any dev serve
 - Secrets live only in the macOS Keychain. No plaintext fallback, no secrets in logs.
 - Notifications are posted by the app bundle via MenubarKit: opt-in, permission requested from the user toggle, silent unless the user enables sound. Never `osascript`, `terminal-notifier` or a bare binary. `up` only reports route events to the daemon (`POST /notifications`); the app reads them with `GET /notifications?after=<cursor>`.
 - The tray uses MenubarKit's 18pt template icon, status badge and status-aware accessibility label.
-- No third-party dependencies in the shipped app without a recorded decision. First-party `alexcatdad/menubar-kit` is allowed, pinned to an exact version. The Go backend's only direct dependency is `github.com/miekg/dns`.
+- No third-party dependencies in the shipped app without a recorded decision. First-party `alexcatdad/menubar-kit` is allowed, pinned to the exact commit of a release tag (SwiftPM cannot resolve four-part CalVer tags), with the tag named in a comment. The Go backend's only direct dependency is `github.com/miekg/dns`.
 - No telemetry, analytics or update checks over the network.
-
-TODO (wave 3): Paw Proxy.app does not post notifications yet. It must poll `GET /notifications`, post `routes.live` / `routes.removed` through MenubarKit, and adopt MenubarKit's tray icon, badge and menu rows. Until then `up` route events are queued but not shown.
 
 ## Layout
 

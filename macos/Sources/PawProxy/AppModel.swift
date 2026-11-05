@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import MenubarKit
 import PawProxyNative
 
 @MainActor
@@ -9,16 +10,33 @@ final class AppModel: ObservableObject {
     @Published private(set) var health: Health?
     @Published private(set) var registration: RegistrationState = .notRegistered
     @Published private(set) var showAtLogin = false
+    @Published private(set) var setupComplete = true
     @Published var message: String?
+    @Published private(set) var notificationPermission = NotificationPermission.notDetermined
 
     let isDevelopment: Bool
     let bundleVersion: String
     let bundleBuild: String
 
+    var statusRows: [MenubarStatusRow] {
+        PanelRows.make(setupComplete: setupComplete, registration: registration, health: health)
+    }
+
     private let services: Services
     private var paths: Paths { services.paths }
     private var revision = ObservationRevision()
     private var timer: Timer?
+
+    // Route notifications: `up` queues events in the daemon; the app polls
+    // them and posts from its own bundle (opt-in, silent, de-duplicated).
+    let notifier = MenubarNotifier()
+    private let responder = MenubarNotificationResponder { click in
+        guard !click.isDismissal, let url = RouteEventFeed.clickURL(click.userInfo) else { return }
+        NSWorkspace.shared.open(url)
+    }
+    private var feed = RouteEventFeed()
+    private var eventTimer: Timer?
+    private var eventPollInFlight = false
 
     init(services: Services = .live()) {
         self.services = services
@@ -31,6 +49,57 @@ final class AppModel: ObservableObject {
             Task { @MainActor in self?.refresh() }
         }
         refresh()
+
+        responder.install()
+        eventTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.pollRouteEvents() }
+        }
+        pollRouteEvents()
+        refreshNotificationPermission()
+    }
+
+    // MARK: Notifications
+
+    private var notificationsEnabled: Bool {
+        UserDefaults.standard.bool(forKey: NotificationPreferences.enabledKey)
+    }
+
+    /// From the Settings toggle: asks macOS for permission only when the
+    /// user turns notifications on.
+    func notificationsToggled(_ enabled: Bool) {
+        if !enabled { feed.reset() }
+        Task {
+            notificationPermission = enabled ? await notifier.userEnabledNotifications() : await notifier.permission()
+            if enabled { pollRouteEvents() }
+        }
+    }
+
+    func refreshNotificationPermission() {
+        Task { notificationPermission = await notifier.permission() }
+    }
+
+    /// Polls the daemon's event queue while notifications are on. Off, the
+    /// cursor is forgotten so turning them on later does not replay a backlog.
+    func pollRouteEvents() {
+        guard notificationsEnabled else { feed.reset(); return }
+        guard !eventPollInFlight else { return }
+        eventPollInFlight = true
+        let client = DaemonClient(socketPath: paths.socket.path, timeout: 2)
+        let after = feed.after
+        Task.detached {
+            let page = try? client.routeEvents(after: after)
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                self.eventPollInFlight = false
+                guard let page, self.notificationsEnabled else { return }
+                let notes = self.feed.accept(page)
+                guard !notes.isEmpty else { return }
+                let notifier = self.notifier
+                Task {
+                    for note in notes { await notifier.deliver(note) }
+                }
+            }
+        }
     }
 
     /// Reads daemon state off the main thread; drops the reply if a user
@@ -52,6 +121,7 @@ final class AppModel: ObservableObject {
 
     private func apply(health: Health?, routes: [Route], setupComplete: Bool) {
         self.health = health
+        self.setupComplete = setupComplete
         rows = RouteRow.rows(routes, now: Date())
         registration = services.registrar.state
         showAtLogin = services.loginItem?.isEnabled ?? false
@@ -66,7 +136,7 @@ final class AppModel: ObservableObject {
         switch action {
         case .runSetup:
             copy("sudo paw-proxy setup")
-            message = "Copied `sudo paw-proxy setup` — run it in Terminal."
+            message = "Copied “sudo paw-proxy setup”. Run it in Terminal."
         case .openLoginItems:
             services.registrar.openLoginItems()
         case .turnOn:
