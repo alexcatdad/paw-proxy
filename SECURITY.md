@@ -1,37 +1,50 @@
 # Security Policy
 
-## Supported Versions
+## Reporting a vulnerability
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.x     | :white_check_mark: |
+Report vulnerabilities privately through GitHub's
+[security advisory form](https://github.com/alexcatdad/paw-proxy/security/advisories/new).
+Do not open a public issue for a suspected vulnerability. Include a
+description, steps to reproduce and the impact you see. Expect an initial
+response within seven days.
 
-## Reporting a Vulnerability
+## Supported versions
 
-**Please do not report security vulnerabilities through public GitHub issues.**
+Only the latest release is supported. Versions are CalVer (`vYYYY.MM.DD.N`);
+fixes ship as a new release, never as a replacement of a published one.
 
-Instead, please report them via email or GitHub's private vulnerability reporting.
+## What this app does
 
-When reporting, include:
-- Description of the vulnerability
-- Steps to reproduce
-- Potential impact
-- Any suggested fixes
+paw-proxy runs a local HTTPS reverse proxy for development and generates
+certificates your Mac trusts, so its trust surface is:
 
-You can expect a response within 48 hours. We'll work with you to understand and address the issue.
+- **Privileged setup.** `sudo paw-proxy setup` creates a local CA, trusts it in
+  the login keychain (System keychain as a fallback), writes
+  `/etc/resolver/test` and installs the daemon;
+  `sudo paw-proxy uninstall` reverses it. Nothing else needs root.
+- **Local CA.** A 4096-bit RSA CA. Its key stays at
+  `~/Library/Application Support/paw-proxy/ca.key` with 0600 permissions and is
+  never logged or sent anywhere. Anyone who can read it can mint certificates
+  your Mac trusts, so keep it private.
+- **Local only.** The proxy and DNS bind to 127.0.0.1. The control API is a
+  unix socket created with 0600 permissions. Never expose them to a network.
+- **Input validation.** Route names follow a DNS-safe pattern, upstreams must
+  be localhost or loopback (SSRF guard), directories must be absolute and
+  clean, and route notifications carry only validated route names, never
+  display text.
+- **TLS hardening.** Minimum TLS 1.2, ECDHE with AES-GCM or ChaCha20-Poly1305.
+- **Resource limits.** Certificate cache (1000 entries), request bodies (1 MB),
+  per-endpoint rate limits on the API, a bounded notification queue,
+  connection and WebSocket idle timeouts.
+- **Route isolation.** Routes are tied to the directory that registered them.
+- **Notifications** are posted by Paw Proxy.app itself, never through
+  `osascript` or a shell.
+- No telemetry, analytics or tracking.
 
-## Security Considerations
+## Release trust
 
-paw-proxy runs with elevated privileges (ports 80/443) and generates trusted certificates. Key security notes:
-
-1. **CA Trust** - The generated CA (4096-bit RSA) is trusted system-wide. Keep `~/Library/Application Support/paw-proxy/ca.key` secure (0600 permissions).
-
-2. **Local Only** - The proxy binds exclusively to 127.0.0.1. Never expose to external networks.
-
-3. **Route Isolation** - Routes are isolated per working directory to prevent conflicts.
-
-4. **TLS Hardening** - Minimum TLS 1.2, secure cipher suites only (ECDHE with AES-GCM or ChaCha20-Poly1305).
-
-5. **Input Validation** - Route names are alphanumeric only, upstreams restricted to localhost (SSRF prevention).
-
-6. **Resource Limits** - Certificate cache (1000 max), request body size (1MB), connection timeouts configured.
+Releases are built and Developer ID signed locally, notarized by Apple and
+stapled. Signing keys and notarization credentials stay in the maintainer's
+local Keychain. GitHub releases are immutable and carry a release attestation;
+verify one with `gh release verify <tag> -R alexcatdad/paw-proxy`. The Homebrew
+cask does not remove quarantine.

@@ -196,22 +196,19 @@ paw-proxy uninstall
 
 ## Development
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md).
+
 ```bash
-# Build
-go build -o paw-proxy ./cmd/paw-proxy
-go build -o up ./cmd/up
+task check   # lint, build, race tests, Swift tests, govulncheck (what CI runs)
 
-# Test
-go test -v ./...
-
-# Integration tests (requires setup)
+# Integration tests (changes system state; requires setup)
 sudo ./paw-proxy setup
 ./integration-tests.sh
 ```
 
 ## Releases
 
-Releases are cut locally by a maintainer with `task release` (see "Releasing" in [CONTRIBUTING.md](CONTRIBUTING.md)); GitHub Actions only validates. Versions use CalVer (`YYYY.M.N`).
+Releases are cut locally by a maintainer with `task release` (see "Releasing" in [CONTRIBUTING.md](CONTRIBUTING.md)); GitHub Actions only validates. Versions use CalVer (`vYYYY.MM.DD.N`).
 
 ## Inspiration & Prior Art
 
