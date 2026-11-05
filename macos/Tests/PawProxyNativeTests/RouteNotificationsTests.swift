@@ -104,3 +104,11 @@ private func page(_ cursor: UInt64, _ events: RouteEvent...) -> RouteEventPage {
     let empty = try DaemonJSON.decoder().decode(RouteEventPage.self, from: Data(#"{"cursor":0,"notifications":[]}"#.utf8))
     #expect(empty == RouteEventPage(cursor: 0, events: []))
 }
+
+@Test func clicksOpenOnlyProxyURLs() {
+    #expect(RouteEventFeed.clickURL(["url": "https://shop.test"]) == URL(string: "https://shop.test"))
+    #expect(RouteEventFeed.clickURL(["url": "http://shop.test"]) == nil)
+    #expect(RouteEventFeed.clickURL(["url": "https://example.com"]) == nil)
+    #expect(RouteEventFeed.clickURL(["url": "file:///etc/passwd"]) == nil)
+    #expect(RouteEventFeed.clickURL([:]) == nil)
+}
