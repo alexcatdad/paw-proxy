@@ -1,6 +1,8 @@
 package api
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -35,15 +37,35 @@ type Notification struct {
 
 // NotificationQueue is a bounded, in-memory FIFO with monotonically increasing
 // IDs. Readers pass the last ID they saw and get everything newer.
+//
+// IDs start at 1 again whenever the daemon starts, so each queue carries a
+// random epoch. A reader that sees a new epoch knows its cursor belongs to
+// an earlier daemon and starts again from 0.
 type NotificationQueue struct {
 	mu     sync.Mutex
 	items  []Notification
 	nextID uint64
 	limit  int
+	epoch  string
 }
 
 func NewNotificationQueue(limit int) *NotificationQueue {
-	return &NotificationQueue{limit: limit, nextID: 1}
+	return &NotificationQueue{limit: limit, nextID: 1, epoch: newEpoch()}
+}
+
+// newEpoch returns 16 random hex characters. crypto/rand.Read does not fail
+// on supported platforms; the time-based fallback only keeps epochs distinct.
+func newEpoch() string {
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		return strconv.FormatInt(time.Now().UnixNano(), 16)
+	}
+	return hex.EncodeToString(b)
+}
+
+// Epoch identifies this queue (one per daemon run).
+func (q *NotificationQueue) Epoch() string {
+	return q.epoch
 }
 
 // Add appends an event, dropping the oldest when the queue is full.
@@ -109,11 +131,13 @@ func (s *Server) handleNotify(w http.ResponseWriter, r *http.Request) {
 }
 
 type notificationsResponse struct {
+	Epoch         string         `json:"epoch"`
 	Cursor        uint64         `json:"cursor"`
 	Notifications []Notification `json:"notifications"`
 }
 
-// handleNotifications serves GET /notifications?after=<cursor>.
+// handleNotifications serves GET /notifications?after=<cursor>. The cursor is
+// only meaningful within one epoch.
 func (s *Server) handleNotifications(w http.ResponseWriter, r *http.Request) {
 	var after uint64
 	if v := r.URL.Query().Get("after"); v != "" {
@@ -126,7 +150,7 @@ func (s *Server) handleNotifications(w http.ResponseWriter, r *http.Request) {
 	}
 	items, cursor := s.notifications.Since(after)
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(notificationsResponse{Cursor: cursor, Notifications: items}); err != nil {
+	if err := json.NewEncoder(w).Encode(notificationsResponse{Epoch: s.notifications.Epoch(), Cursor: cursor, Notifications: items}); err != nil {
 		log.Printf("api: failed to encode notifications response: %v", err)
 	}
 }

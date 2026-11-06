@@ -21,7 +21,7 @@ Key features:
 ### Via Homebrew (Recommended)
 
 ```
-brew install alexcatdad/tap/paw-proxy
+brew install --cask alexcatdad/tap/paw-proxy
 sudo paw-proxy setup
 ```
 

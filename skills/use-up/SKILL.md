@@ -90,7 +90,7 @@ After starting Docker Compose:
 ## If `up` Is Not Found
 
 If `up` is not in `$PATH`, tell the user:
-> "`up` is not installed. Install paw-proxy with `brew install alexcatdad/tap/paw-proxy`, then run `sudo paw-proxy setup`."
+> "`up` is not installed. Install paw-proxy with `brew install --cask alexcatdad/tap/paw-proxy`, then run `sudo paw-proxy setup`."
 
 Do NOT fall back to running bare dev server commands. The user expects `up` to be used.
 

@@ -8,7 +8,7 @@ Two binaries: `paw-proxy` (daemon and management CLI) and `up` (dev server wrapp
 
 ## Installation
 
-- [Homebrew install and setup](https://github.com/alexcatdad/paw-proxy#installation): `brew install alexcatdad/tap/paw-proxy && sudo paw-proxy setup`
+- [Homebrew install and setup](https://github.com/alexcatdad/paw-proxy#installation): `brew install --cask alexcatdad/tap/paw-proxy && sudo paw-proxy setup`
 - [Build from source](https://github.com/alexcatdad/paw-proxy#development): Clone, `go build`, and `sudo ./paw-proxy setup`
 
 ## Usage
