@@ -31,31 +31,27 @@ struct SettingsView: View {
     @AppStorage(NotificationPreferences.enabledKey) private var notify = false
 
     var body: some View {
-        Form {
-            Toggle(
-                "Show in menu bar at login",
-                isOn: Binding(
-                    get: { model.showAtLogin }, set: { model.setShowAtLogin($0) })
-            )
-            .disabled(model.isDevelopment)
-            if model.isDevelopment {
-                Text("Dev builds never register a login item.").font(.caption).foregroundStyle(.secondary)
+        SettingsForm {
+            // The section asks macOS for permission from the toggle, keeps
+            // its note in step with System Settings, and adds "Play a sound";
+            // the notifier reads both keys on every delivery.
+            NotificationSettingsSection(
+                notifier: model.notifier, toggleTitle: "Notify me when projects go live",
+                explanation: "When up brings a project online or stops it. Silent unless you turn on the sound.",
+                offersSound: true)
+            Section("Startup") {
+                Toggle(
+                    "Launch at login",
+                    isOn: Binding(get: { model.showAtLogin }, set: { model.setShowAtLogin($0) })
+                )
+                .disabled(model.isDevelopment)
+                if model.isDevelopment {
+                    SettingsNote("Dev builds never register a login item.")
+                }
             }
-
-            Toggle("Notify me when projects go live", isOn: $notify)
-                .onChange(of: notify) { model.notificationsToggled($0) }
-            Text(notificationNote).font(.caption).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            SettingsAboutSection(repository: URL(string: "https://github.com/alexcatdad/paw-proxy"))
         }
-        .padding(20)
-        .frame(width: 380)
-        .onAppear { model.refreshNotificationPermission() }
-    }
-
-    private var notificationNote: String {
-        if notify && model.notificationPermission == .denied {
-            return "Notifications are blocked for Paw Proxy in System Settings › Notifications."
-        }
-        return "A silent notification when up brings a project online or stops it."
+        // Start or stop polling the daemon's event queue with the toggle.
+        .onChange(of: notify) { model.notificationsToggled($0) }
     }
 }

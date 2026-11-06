@@ -44,12 +44,13 @@ struct MenuView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 12).padding(.vertical, 4)
             } else {
-                ScrollView {
+                // A bare ScrollView with only a max height collapses when
+                // MenuBarExtra proposes a minimal window height.
+                BoundedScrollView(maxHeight: 280) {
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(model.rows) { row in RouteRowView(row: row, model: model) }
                     }
                 }
-                .frame(maxHeight: 280)
             }
         }
         .groupedTile()
