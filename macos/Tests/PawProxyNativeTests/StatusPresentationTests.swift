@@ -1,13 +1,17 @@
 import MenubarKit
 import Testing
+
 @testable import PawProxyNative
 
 private let ok = Health(status: "ok", version: "2026.11.1", build: "3", uptime: "1h")
 
-private func status(setup: Bool = true, reg: RegistrationState = .enabled, health: Health? = ok,
-                    routes: Int = 2, version: String = "2026.11.1", build: String = "3") -> StatusPresentation {
-    .make(setupComplete: setup, registration: reg, health: health, routeCount: routes,
-          bundleVersion: version, bundleBuild: build)
+private func status(
+    setup: Bool = true, reg: RegistrationState = .enabled, health: Health? = ok,
+    routes: Int = 2, version: String = "2026.11.1", build: String = "3"
+) -> StatusPresentation {
+    .make(
+        setupComplete: setup, registration: reg, health: health, routeCount: routes,
+        bundleVersion: version, bundleBuild: build)
 }
 
 @Test func setupIncompleteWinsOverEverything() {
@@ -22,8 +26,11 @@ private func status(setup: Bool = true, reg: RegistrationState = .enabled, healt
 }
 
 @Test func notAnswering() {
-    #expect(status(reg: .enabled, health: nil) == .init(tone: .error, headline: "Proxy not responding",
-        detail: "The daemon is registered but its socket does not answer.", primaryAction: .restart))
+    #expect(
+        status(reg: .enabled, health: nil)
+            == .init(
+                tone: .error, headline: "Proxy not responding",
+                detail: "The daemon is registered but its socket does not answer.", primaryAction: .restart))
     #expect(status(reg: .notRegistered, health: nil).primaryAction == .turnOn)
     #expect(status(reg: .notFound, health: nil).tone == .off)
     #expect(status(reg: .disabled, health: nil).primaryAction == .openLogs)
@@ -71,12 +78,14 @@ private func status(setup: Bool = true, reg: RegistrationState = .enabled, healt
 }
 
 @Test func headerDetailDropsCodeMarkup() {
-    #expect(status(setup: false).status.detail
-        == "Run sudo paw-proxy setup once to trust the local CA and configure DNS.")
+    #expect(
+        status(setup: false).status.detail
+            == "Run sudo paw-proxy setup once to trust the local CA and configure DNS.")
     #expect(status().status.detail == "")
 }
 
 @Test func voiceOverLabelNamesTheState() {
-    #expect(TrayAccessibility.label(appName: "Paw Proxy", statusWord: status(setup: false).status.word)
-        == "Paw Proxy, Setup needed")
+    #expect(
+        TrayAccessibility.label(appName: "Paw Proxy", statusWord: status(setup: false).status.word)
+            == "Paw Proxy, Setup needed")
 }

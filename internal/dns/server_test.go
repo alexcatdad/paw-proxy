@@ -15,9 +15,9 @@ func TestDNSServer_ResolvesTestDomain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
-	go srv.Start()
+	go func() { _ = srv.Start() }()
 
 	// Wait for server to start
 	time.Sleep(50 * time.Millisecond)
@@ -53,9 +53,9 @@ func TestAAAAQuery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
-	go srv.Start()
+	go func() { _ = srv.Start() }()
 
 	// Wait for server to start
 	time.Sleep(50 * time.Millisecond)
@@ -150,9 +150,9 @@ func TestDNSServer_RejectsLongLabel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
-	go srv.Start()
+	go func() { _ = srv.Start() }()
 	time.Sleep(50 * time.Millisecond)
 
 	c := new(dns.Client)
@@ -180,9 +180,9 @@ func TestDNSServer_AcceptsValidQuery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
-	go srv.Start()
+	go func() { _ = srv.Start() }()
 	time.Sleep(50 * time.Millisecond)
 
 	c := new(dns.Client)
@@ -210,9 +210,9 @@ func TestDNSServer_RejectsLongTotalName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
-	go srv.Start()
+	go func() { _ = srv.Start() }()
 	time.Sleep(50 * time.Millisecond)
 
 	c := new(dns.Client)

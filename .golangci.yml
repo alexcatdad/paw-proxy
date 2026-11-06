@@ -1,9 +1,60 @@
 version: "2"
 
 linters:
-  default: none
+  default: standard
   enable:
-    - govet
-    - staticcheck
-    - unused
-    - ineffassign
+    - bodyclose
+    - errorlint
+    - gocritic
+    - gosec
+    - misspell
+    - revive
+  settings:
+    gocritic:
+      enabled-tags:
+        - diagnostic
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: dot-imports
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: time-naming
+        - name: unreachable-code
+        - name: var-declaration
+  exclusions:
+    rules:
+      # G204: every command is a fixed binary (launchctl, security, open,
+      # plutil, sudo) with an argv slice, never a shell. `up` runs the user's
+      # own dev command on purpose; that is the tool's job.
+      - path: (cmd/paw-proxy/restart_darwin\.go|cmd/up/(main|compose)\.go|internal/appbundle/appbundle\.go|internal/desktop/opener_darwin\.go|internal/setup/(setup|uninstall)_darwin\.go)
+        linters:
+          - gosec
+        text: "G204"
+      # G304: paths come from internal/paths (log, CA, plist) or from the
+      # desktop request directory, which desktop.go checks for ownership and
+      # mode before reading. None is taken from a network request.
+      - path: (cmd/paw-proxy/main\.go|internal/appbundle/appbundle\.go|internal/desktop/desktop\.go)
+        linters:
+          - gosec
+        text: "G304"
+      # Tests build fixtures (app bundles, executables, logs) in t.TempDir()
+      # with the modes the real files have.
+      - path: _test\.go
+        linters:
+          - gosec
+        text: "G(301|302|304|306)"
+      # cgo rewrites this file before gocritic sees it, so it reports
+      # positions and expressions from the generated code ("D c", rc == rc).
+      - path: internal/launchd/launchd_darwin_cgo\.go
+        linters:
+          - gocritic

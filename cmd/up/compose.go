@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -231,10 +232,10 @@ func heartbeatComposeWithInterval(ctx context.Context, client *http.Client, stat
 				}
 
 				if resp.StatusCode == http.StatusOK {
-					resp.Body.Close()
+					_ = resp.Body.Close()
 					continue
 				}
-				resp.Body.Close()
+				_ = resp.Body.Close()
 
 				if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
 					if err := registerRoute(client, r.routeName, r.upstream, dir); err != nil {
@@ -339,14 +340,15 @@ func runDockerComposeMode(client *http.Client, dc composeDetection, args []strin
 	var exitCode int
 	select {
 	case sig := <-sigCh:
-		syscall.Kill(-cmd.Process.Pid, sig.(syscall.Signal))
+		_ = syscall.Kill(-cmd.Process.Pid, sig.(syscall.Signal))
 		select {
-		case <-doneCh:
+		case err := <-doneCh:
+			_ = err // after a forwarded signal, up exits 0 whatever the child returned
 		case <-time.After(10 * time.Second):
-			syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 		}
 	case err := <-doneCh:
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			exitCode = exitErr.ExitCode()
 		}
 	}

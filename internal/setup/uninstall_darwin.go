@@ -22,7 +22,7 @@ func Uninstall(supportDir, tld string, fromBrew bool) error {
 		return fmt.Errorf("getting home directory: %w", err)
 	}
 	plistPath := filepath.Join(homeDir, "Library", "LaunchAgents", "dev.paw-proxy.plist")
-	resolverPath := filepath.Join("/etc/resolver", tld)
+	resolverPath := filepath.Join(resolverDir, tld)
 
 	var errs []error
 
@@ -47,7 +47,7 @@ func Uninstall(supportDir, tld string, fromBrew bool) error {
 	if !inApp || appErr != nil {
 		// Fallback: stop an app agent that could not be unregistered (or
 		// whose app is gone). Usually not loaded, so the error is ignored.
-		launchctlBootoutLabel(appbundle.DaemonLabel) //nolint:errcheck
+		_ = launchctlBootoutLabel(appbundle.DaemonLabel)
 	}
 	if err := launchctlBootout(); err != nil {
 		fmt.Fprintf(os.Stderr, "  warning: could not bootout LaunchAgent: %v\n", err)
@@ -94,7 +94,7 @@ func Uninstall(supportDir, tld string, fromBrew bool) error {
 			// SECURITY: Exit code 44 = errSecItemNotFound (macOS OSStatus -25300).
 			// Only treat this specific code as "not found"; other errors (permission
 			// denied, keychain locked/corrupted) are real failures.
-			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 44 {
+			if exitErr, ok := errors.AsType[*exec.ExitError](err); ok && exitErr.ExitCode() == 44 {
 				fmt.Println("  No CA certificates found in keychain")
 			} else {
 				errs = append(errs, fmt.Errorf("finding CA certificates: %w", err))

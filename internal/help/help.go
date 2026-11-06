@@ -58,8 +58,15 @@ type FilePath struct {
 	Desc string
 }
 
-// Render writes the full help text for a top-level command to w.
+// Render writes the full help text for a top-level command to w. Help goes
+// to a terminal; a failed write has nowhere better to be reported.
 func (c *Command) Render(w io.Writer) {
+	var b strings.Builder
+	c.render(&b)
+	_, _ = io.WriteString(w, b.String())
+}
+
+func (c *Command) render(w *strings.Builder) {
 	// Header
 	if c.Version != "" {
 		fmt.Fprintf(w, "%s version %s\n", c.Name, c.Version)
@@ -130,6 +137,15 @@ func (c *Command) Render(w io.Writer) {
 // RenderSubcommand writes the help text for a specific subcommand to w.
 // Returns false if the subcommand was not found.
 func (c *Command) RenderSubcommand(w io.Writer, name string) bool {
+	var b strings.Builder
+	if !c.renderSubcommand(&b, name) {
+		return false
+	}
+	_, _ = io.WriteString(w, b.String())
+	return true
+}
+
+func (c *Command) renderSubcommand(w *strings.Builder, name string) bool {
 	var sc *Subcommand
 	for i := range c.Subcommands {
 		if c.Subcommands[i].Name == name {
@@ -164,7 +180,7 @@ func (c *Command) RenderSubcommand(w io.Writer, name string) bool {
 }
 
 // renderFlags writes a formatted flag list to w.
-func renderFlags(w io.Writer, flags []Flag) {
+func renderFlags(w *strings.Builder, flags []Flag) {
 	width := flagWidth(flags)
 	for _, f := range flags {
 		label := flagLabel(f)
@@ -190,31 +206,31 @@ func flagLabel(f Flag) string {
 }
 
 func flagWidth(flags []Flag) int {
-	max := 0
+	width := 0
 	for _, f := range flags {
-		if n := len(flagLabel(f)); n > max {
-			max = n
+		if n := len(flagLabel(f)); n > width {
+			width = n
 		}
 	}
-	return max
+	return width
 }
 
 func subcommandWidth(subs []Subcommand) int {
-	max := 0
+	width := 0
 	for _, s := range subs {
-		if len(s.Name) > max {
-			max = len(s.Name)
+		if len(s.Name) > width {
+			width = len(s.Name)
 		}
 	}
-	return max
+	return width
 }
 
 func envVarWidth(evs []EnvVar) int {
-	max := 0
+	width := 0
 	for _, ev := range evs {
-		if len(ev.Name) > max {
-			max = len(ev.Name)
+		if len(ev.Name) > width {
+			width = len(ev.Name)
 		}
 	}
-	return max
+	return width
 }

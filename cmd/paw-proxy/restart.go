@@ -86,7 +86,7 @@ func fetchHealth(socketPath string) (healthInfo, error) {
 	if err != nil {
 		return healthInfo{}, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var h healthInfo
 	if err := json.NewDecoder(resp.Body).Decode(&h); err != nil {
 		return healthInfo{}, err

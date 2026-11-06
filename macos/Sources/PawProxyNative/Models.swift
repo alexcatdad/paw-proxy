@@ -18,7 +18,7 @@ public struct Health: Codable, Equatable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         status = try c.decode(String.self, forKey: .status)
         version = try c.decode(String.self, forKey: .version)
-        build = try c.decodeIfPresent(String.self, forKey: .build) ?? "" // absent before build reporting
+        build = try c.decodeIfPresent(String.self, forKey: .build) ?? ""  // absent before build reporting
         uptime = try c.decodeIfPresent(String.self, forKey: .uptime) ?? ""
     }
 }
@@ -47,8 +47,10 @@ public enum DaemonJSON {
         d.dateDecodingStrategy = .custom { decoder in
             let s = try decoder.singleValueContainer().decode(String.self)
             if let date = parseRFC3339(s) { return date }
-            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath,
-                                                    debugDescription: "bad RFC 3339 date \(s)"))
+            throw DecodingError.dataCorrupted(
+                .init(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "bad RFC 3339 date \(s)"))
         }
         return d
     }
@@ -63,9 +65,12 @@ public enum DaemonJSON {
         // ISO8601DateFormatter accepts at most millisecond precision on some
         // releases; Go emits nanoseconds. Trim to milliseconds and retry.
         if let dot = s.firstIndex(of: "."),
-           let zone = s[dot...].firstIndex(where: { $0 == "Z" || $0 == "+" || $0 == "-" }) {
+            let zone = s[dot...].firstIndex(where: { $0 == "Z" || $0 == "+" || $0 == "-" })
+        {
             let digits = s[s.index(after: dot)..<zone]
-            let trimmed = String(s[..<dot]) + "." + String(digits.prefix(3)).padding(toLength: 3, withPad: "0", startingAt: 0) + String(s[zone...])
+            let trimmed =
+                String(s[..<dot]) + "." + String(digits.prefix(3)).padding(toLength: 3, withPad: "0", startingAt: 0)
+                + String(s[zone...])
             return frac.date(from: trimmed)
         }
         return nil

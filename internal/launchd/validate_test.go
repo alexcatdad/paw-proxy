@@ -85,7 +85,7 @@ func TestValidation_ListenerAddressCheck(t *testing.T) {
 	if err != nil {
 		t.Fatalf("net.Listen: %v", err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
 	tcpAddr, ok := ln.Addr().(*net.TCPAddr)
 	if !ok {

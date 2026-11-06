@@ -25,3 +25,4 @@ bin/
 # macOS app build output
 macos/.build/
 macos/build/
+coverage/

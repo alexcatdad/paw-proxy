@@ -2,6 +2,7 @@
 package proxy
 
 import (
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -18,7 +19,7 @@ func TestProxy_ForwardsRequest(t *testing.T) {
 		if r.Header.Get("X-Forwarded-Proto") != "https" {
 			t.Error("missing X-Forwarded-Proto header")
 		}
-		w.Write([]byte("hello from upstream"))
+		_, _ = w.Write([]byte("hello from upstream"))
 	}))
 	defer upstream.Close()
 
@@ -413,15 +414,15 @@ func TestIsWebSocketRequiresConnectionUpgrade(t *testing.T) {
 func TestIdleTimeoutConn_ReadResetsDeadline(t *testing.T) {
 	// Create a pipe to simulate a connection
 	server, client := net.Pipe()
-	defer server.Close()
-	defer client.Close()
+	defer func() { _ = server.Close() }()
+	defer func() { _ = client.Close() }()
 
 	timeout := 50 * time.Millisecond
 	idle := &idleTimeoutConn{Conn: client, timeout: timeout}
 
 	// Write data from server side so the read succeeds
 	go func() {
-		server.Write([]byte("hello"))
+		_, _ = server.Write([]byte("hello"))
 	}()
 
 	buf := make([]byte, 10)
@@ -438,7 +439,7 @@ func TestIdleTimeoutConn_ReadResetsDeadline(t *testing.T) {
 	// available, it should succeed (deadline was pushed forward).
 	time.Sleep(20 * time.Millisecond)
 	go func() {
-		server.Write([]byte("world"))
+		_, _ = server.Write([]byte("world"))
 	}()
 
 	n, err = idle.Read(buf)
@@ -452,15 +453,15 @@ func TestIdleTimeoutConn_ReadResetsDeadline(t *testing.T) {
 
 func TestIdleTimeoutConn_WriteResetsDeadline(t *testing.T) {
 	server, client := net.Pipe()
-	defer server.Close()
-	defer client.Close()
+	defer func() { _ = server.Close() }()
+	defer func() { _ = client.Close() }()
 
 	timeout := 50 * time.Millisecond
 	idle := &idleTimeoutConn{Conn: client, timeout: timeout}
 
 	// Drain reads from server side so writes don't block
 	go func() {
-		io.Copy(io.Discard, server)
+		_, _ = io.Copy(io.Discard, server)
 	}()
 
 	n, err := idle.Write([]byte("hello"))
@@ -484,15 +485,15 @@ func TestIdleTimeoutConn_WriteResetsDeadline(t *testing.T) {
 
 func TestIdleTimeoutConn_TimesOutAfterIdle(t *testing.T) {
 	server, client := net.Pipe()
-	defer server.Close()
-	defer client.Close()
+	defer func() { _ = server.Close() }()
+	defer func() { _ = client.Close() }()
 
 	timeout := 50 * time.Millisecond
 	idle := &idleTimeoutConn{Conn: client, timeout: timeout}
 
 	// Do an initial read to set the deadline, then let it expire
 	go func() {
-		server.Write([]byte("x"))
+		_, _ = server.Write([]byte("x"))
 	}()
 	buf := make([]byte, 10)
 	_, err := idle.Read(buf)
@@ -509,7 +510,7 @@ func TestIdleTimeoutConn_TimesOutAfterIdle(t *testing.T) {
 		t.Fatal("expected timeout error on read after idle period, got nil")
 	}
 	// Verify it's a timeout error
-	if netErr, ok := err.(net.Error); ok {
+	if netErr, ok := errors.AsType[net.Error](err); ok {
 		if !netErr.Timeout() {
 			t.Errorf("expected timeout error, got: %v", err)
 		}
@@ -529,7 +530,7 @@ func TestWebSocket_BothGoroutinesComplete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to start echo listener: %v", err)
 	}
-	defer echoListener.Close()
+	defer func() { _ = echoListener.Close() }()
 
 	echoAddr := echoListener.Addr().String()
 
@@ -541,7 +542,7 @@ func TestWebSocket_BothGoroutinesComplete(t *testing.T) {
 		if err != nil {
 			return
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		// Read the HTTP upgrade request and send a response, then echo data
 		buf := make([]byte, 4096)
@@ -552,10 +553,10 @@ func TestWebSocket_BothGoroutinesComplete(t *testing.T) {
 		_ = n // consume the HTTP request
 
 		// Send WebSocket upgrade response
-		conn.Write([]byte("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n"))
+		_, _ = conn.Write([]byte("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n"))
 
 		// Echo all data back
-		io.Copy(conn, conn)
+		_, _ = io.Copy(conn, conn)
 	}()
 
 	// Create a TCP connection pair to simulate client<->proxy
@@ -563,20 +564,20 @@ func TestWebSocket_BothGoroutinesComplete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to start proxy listener: %v", err)
 	}
-	defer proxyListener.Close()
+	defer func() { _ = proxyListener.Close() }()
 
 	// Connect client side
 	clientConn, err := net.DialTimeout("tcp", proxyListener.Addr().String(), 2*time.Second)
 	if err != nil {
 		t.Fatalf("failed to dial proxy: %v", err)
 	}
-	defer clientConn.Close()
+	defer func() { _ = clientConn.Close() }()
 
 	serverConn, err := proxyListener.Accept()
 	if err != nil {
 		t.Fatalf("failed to accept proxy connection: %v", err)
 	}
-	defer serverConn.Close()
+	defer func() { _ = serverConn.Close() }()
 
 	// Now simulate what handleWebSocket does: connect to upstream and
 	// start bidirectional copy with idle timeout wrappers
@@ -584,10 +585,10 @@ func TestWebSocket_BothGoroutinesComplete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to connect to echo server: %v", err)
 	}
-	defer upstreamConn.Close()
+	defer func() { _ = upstreamConn.Close() }()
 
 	// Send a fake HTTP request to the upstream to trigger the echo server
-	upstreamConn.Write([]byte("GET / HTTP/1.1\r\nHost: test\r\nUpgrade: websocket\r\n\r\n"))
+	_, _ = upstreamConn.Write([]byte("GET / HTTP/1.1\r\nHost: test\r\nUpgrade: websocket\r\n\r\n"))
 
 	// Read the 101 response
 	respBuf := make([]byte, 4096)
@@ -605,17 +606,17 @@ func TestWebSocket_BothGoroutinesComplete(t *testing.T) {
 	done := make(chan struct{}, 2)
 
 	go func() {
-		io.Copy(upstreamIdle, clientIdle)
+		_, _ = io.Copy(upstreamIdle, clientIdle)
 		if tc, ok := upstreamConn.(*net.TCPConn); ok {
-			tc.CloseWrite()
+			_ = tc.CloseWrite()
 		}
 		done <- struct{}{}
 	}()
 
 	go func() {
-		io.Copy(clientIdle, upstreamIdle)
+		_, _ = io.Copy(clientIdle, upstreamIdle)
 		if tc, ok := serverConn.(*net.TCPConn); ok {
-			tc.CloseWrite()
+			_ = tc.CloseWrite()
 		}
 		done <- struct{}{}
 	}()
@@ -629,7 +630,7 @@ func TestWebSocket_BothGoroutinesComplete(t *testing.T) {
 
 	// Read echo response
 	readBuf := make([]byte, len(testData))
-	clientConn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_ = clientConn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	n, err = io.ReadFull(clientConn, readBuf)
 	if err != nil {
 		t.Fatalf("failed to read echoed data: %v (read %d bytes)", err, n)
@@ -639,7 +640,7 @@ func TestWebSocket_BothGoroutinesComplete(t *testing.T) {
 	}
 
 	// Close client connection — both goroutines should eventually finish
-	clientConn.Close()
+	_ = clientConn.Close()
 
 	// Wait for BOTH goroutines with a timeout
 	timer := time.NewTimer(5 * time.Second)
@@ -668,7 +669,7 @@ func startEchoServer(t *testing.T) (addr string, cleanup func()) {
 				return
 			}
 			go func(c net.Conn) {
-				defer c.Close()
+				defer func() { _ = c.Close() }()
 				buf := make([]byte, 4096)
 				// Read the HTTP upgrade request
 				n, err := c.Read(buf)
@@ -676,13 +677,13 @@ func startEchoServer(t *testing.T) (addr string, cleanup func()) {
 					return
 				}
 				// Send 101 Switching Protocols
-				c.Write([]byte("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n"))
+				_, _ = c.Write([]byte("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n"))
 				// Echo all data back
-				io.Copy(c, c)
+				_, _ = io.Copy(c, c)
 			}(conn)
 		}
 	}()
-	return ln.Addr().String(), func() { ln.Close() }
+	return ln.Addr().String(), func() { _ = ln.Close() }
 }
 
 func TestHandleWebSocket_EndToEnd(t *testing.T) {
@@ -702,7 +703,7 @@ func TestHandleWebSocket_EndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// Send WebSocket upgrade request
 	upgradeReq := "GET /ws HTTP/1.1\r\n" +
@@ -716,7 +717,7 @@ func TestHandleWebSocket_EndToEnd(t *testing.T) {
 	}
 
 	// Read the 101 response from upstream (proxied through)
-	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	respBuf := make([]byte, 4096)
 	n, err := conn.Read(respBuf)
 	if err != nil {
@@ -734,7 +735,7 @@ func TestHandleWebSocket_EndToEnd(t *testing.T) {
 	}
 
 	echoBuf := make([]byte, len(testData))
-	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	if _, err := io.ReadFull(conn, echoBuf); err != nil {
 		t.Fatalf("read echo: %v", err)
 	}
@@ -755,7 +756,7 @@ func TestHandleWebSocket_InvalidUpgrade_MissingKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// WebSocket request missing Sec-WebSocket-Key
 	req := "GET /ws HTTP/1.1\r\n" +
@@ -763,9 +764,9 @@ func TestHandleWebSocket_InvalidUpgrade_MissingKey(t *testing.T) {
 		"Upgrade: websocket\r\n" +
 		"Connection: Upgrade\r\n" +
 		"Sec-WebSocket-Version: 13\r\n\r\n"
-	conn.Write([]byte(req))
+	_, _ = conn.Write([]byte(req))
 
-	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	buf := make([]byte, 4096)
 	n, _ := conn.Read(buf)
 	resp := string(buf[:n])
@@ -787,7 +788,7 @@ func TestHandleWebSocket_InvalidUpgrade_WrongVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// WebSocket request with wrong version (not 13)
 	req := "GET /ws HTTP/1.1\r\n" +
@@ -796,9 +797,9 @@ func TestHandleWebSocket_InvalidUpgrade_WrongVersion(t *testing.T) {
 		"Connection: Upgrade\r\n" +
 		"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n" +
 		"Sec-WebSocket-Version: 8\r\n\r\n"
-	conn.Write([]byte(req))
+	_, _ = conn.Write([]byte(req))
 
-	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	buf := make([]byte, 4096)
 	n, _ := conn.Read(buf)
 	resp := string(buf[:n])
@@ -821,7 +822,7 @@ func TestHandleWebSocket_UpstreamUnreachable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	req := "GET /ws HTTP/1.1\r\n" +
 		"Host: myapp.test\r\n" +
@@ -829,9 +830,9 @@ func TestHandleWebSocket_UpstreamUnreachable(t *testing.T) {
 		"Connection: Upgrade\r\n" +
 		"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n" +
 		"Sec-WebSocket-Version: 13\r\n\r\n"
-	conn.Write([]byte(req))
+	_, _ = conn.Write([]byte(req))
 
-	conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	buf := make([]byte, 4096)
 	n, _ := conn.Read(buf)
 	resp := string(buf[:n])
@@ -856,7 +857,7 @@ func TestHandleWebSocket_BidirectionalData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// Upgrade
 	req := "GET /ws HTTP/1.1\r\n" +
@@ -865,9 +866,9 @@ func TestHandleWebSocket_BidirectionalData(t *testing.T) {
 		"Connection: Upgrade\r\n" +
 		"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n" +
 		"Sec-WebSocket-Version: 13\r\n\r\n"
-	conn.Write([]byte(req))
+	_, _ = conn.Write([]byte(req))
 
-	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	respBuf := make([]byte, 4096)
 	n, err := conn.Read(respBuf)
 	if err != nil {
@@ -885,7 +886,7 @@ func TestHandleWebSocket_BidirectionalData(t *testing.T) {
 		}
 
 		buf := make([]byte, len(msg))
-		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+		_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 		if _, err := io.ReadFull(conn, buf); err != nil {
 			t.Fatalf("read echo of %q: %v", msg, err)
 		}

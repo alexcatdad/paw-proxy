@@ -3,8 +3,10 @@ import Foundation
 /// Handles one `--request <path>` launch: validate, act, reply.
 public enum RequestHandler {
     /// Exit status for the request instance: 0 when a reply was written.
-    public static func handle(requestPath: String, paths: Paths, agent: DaemonAgent,
-                              loginItem: LoginItem?) -> Int32 {
+    public static func handle(
+        requestPath: String, paths: Paths, agent: DaemonAgent,
+        loginItem: LoginItem?
+    ) -> Int32 {
         let requestsDir = paths.supportDir.appendingPathComponent("requests")
         let url = URL(fileURLWithPath: requestPath)
 

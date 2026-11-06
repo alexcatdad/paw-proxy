@@ -13,7 +13,7 @@ func TestActivateSocket_FallbackWhenNotLaunchdManaged(t *testing.T) {
 		t.Fatal("expected activated=false when not launched by launchd")
 	}
 	if listener != nil {
-		listener.Close()
+		_ = listener.Close()
 		t.Fatal("expected nil listener when not launched by launchd")
 	}
 }
@@ -29,7 +29,7 @@ func TestActivateSocket_UnknownSocketName(t *testing.T) {
 		t.Fatal("expected activated=false for unknown socket name")
 	}
 	if listener != nil {
-		listener.Close()
+		_ = listener.Close()
 		t.Fatal("expected nil listener for unknown socket name")
 	}
 }

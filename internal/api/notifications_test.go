@@ -78,8 +78,8 @@ func TestValidateNotification(t *testing.T) {
 func TestAPIServer_Notifications(t *testing.T) {
 	socketPath := filepath.Join(t.TempDir(), "test.sock")
 	srv := NewServer(socketPath, NewRouteRegistry(30*time.Second))
-	go srv.Start()
-	defer srv.Stop()
+	go func() { _ = srv.Start() }()
+	defer func() { _ = srv.Stop() }()
 	time.Sleep(50 * time.Millisecond)
 	client := testSocketClient(socketPath)
 
@@ -89,7 +89,7 @@ func TestAPIServer_Notifications(t *testing.T) {
 		if err != nil {
 			t.Fatalf("POST /notifications: %v", err)
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return resp.StatusCode
 	}
 	get := func(after string) (int, notificationsResponse) {
@@ -97,7 +97,7 @@ func TestAPIServer_Notifications(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GET /notifications: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		var out notificationsResponse
 		if resp.StatusCode == http.StatusOK {
 			if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {

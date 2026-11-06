@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import PawProxyNative
 
 final class FakeRegistrar: Registrar, @unchecked Sendable {
@@ -39,8 +40,9 @@ struct AgentFixture {
         paths = Paths(home: home, resolverDir: home)
         agent = DaemonAgent(paths: paths, registrar: registrar, launchctl: launchctl)
         if legacy {
-            try FileManager.default.createDirectory(at: agent.legacyPlist.deletingLastPathComponent(),
-                                                    withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(
+                at: agent.legacyPlist.deletingLastPathComponent(),
+                withIntermediateDirectories: true)
             try Data("<plist/>".utf8).write(to: agent.legacyPlist)
             launchctl.loaded.insert(Identity.legacyLabel)
         }

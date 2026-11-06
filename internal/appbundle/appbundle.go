@@ -54,16 +54,16 @@ func Locate() (Bundle, error) {
 
 // FromExecutable finds the bundle containing exe, following symlinks.
 func FromExecutable(exe string) (Bundle, error) {
-	real, err := filepath.EvalSymlinks(exe)
+	resolved, err := filepath.EvalSymlinks(exe)
 	if err != nil {
 		return Bundle{}, fmt.Errorf("resolving %s: %w", exe, err)
 	}
-	real, err = filepath.Abs(real)
+	resolved, err = filepath.Abs(resolved)
 	if err != nil {
 		return Bundle{}, err
 	}
 
-	helpers := filepath.Dir(real)
+	helpers := filepath.Dir(resolved)
 	contents := filepath.Dir(helpers)
 	app := filepath.Dir(contents)
 	if filepath.Base(helpers) != "Helpers" || filepath.Base(contents) != "Contents" || filepath.Ext(app) != ".app" {
@@ -93,7 +93,7 @@ func readInfoPlist(path string) (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading Info.plist: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	data, err := io.ReadAll(io.LimitReader(f, maxInfoPlistSize+1))
 	if err != nil {
 		return nil, fmt.Errorf("reading Info.plist: %w", err)
@@ -121,7 +121,7 @@ func parsePlistStrings(data []byte) (map[string]string, error) {
 	var sawDict bool
 	for {
 		tok, err := dec.Token()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

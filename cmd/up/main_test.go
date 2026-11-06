@@ -154,11 +154,11 @@ func TestRegisterWithFallback(t *testing.T) {
 	t.Run("conflict falls back to directory name", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var body map[string]string
-			json.NewDecoder(r.Body).Decode(&body)
+			_ = json.NewDecoder(r.Body).Decode(&body)
 
 			if body["name"] == "myapp" {
 				w.WriteHeader(http.StatusConflict)
-				json.NewEncoder(w).Encode(map[string]string{
+				_ = json.NewEncoder(w).Encode(map[string]string{
 					"existingDir": "/home/user/myapp",
 				})
 				return
@@ -181,7 +181,7 @@ func TestRegisterWithFallback(t *testing.T) {
 	t.Run("conflict with same directory name returns error", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"existingDir": "/other/myapp",
 			})
 		}))
@@ -198,7 +198,7 @@ func TestRegisterWithFallback(t *testing.T) {
 	t.Run("conflict fallback also conflicts returns error", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"existingDir": "/somewhere/else",
 			})
 		}))
@@ -215,7 +215,7 @@ func TestRegisterWithFallback(t *testing.T) {
 	t.Run("non-conflict error is returned directly", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"error": "internal server error",
 			})
 		}))

@@ -5,8 +5,10 @@ public struct Paths: Sendable, Equatable {
     public var home: URL
     public var resolverDir: URL
 
-    public init(home: URL = FileManager.default.homeDirectoryForCurrentUser,
-                resolverDir: URL = URL(fileURLWithPath: "/etc/resolver")) {
+    public init(
+        home: URL = FileManager.default.homeDirectoryForCurrentUser,
+        resolverDir: URL = URL(fileURLWithPath: "/etc/resolver")
+    ) {
         self.home = home
         self.resolverDir = resolverDir
     }

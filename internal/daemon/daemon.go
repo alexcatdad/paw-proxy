@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -107,7 +108,7 @@ func New(config *Config) (*Daemon, error) {
 	dnsAddr := fmt.Sprintf("127.0.0.1:%d", config.DNSPort)
 	dnsServer, err := dns.NewServer(dnsAddr, config.TLD)
 	if err != nil {
-		logFile.Close()
+		_ = logFile.Close()
 		return nil, fmt.Errorf("creating DNS server: %w", err)
 	}
 
@@ -159,7 +160,7 @@ func (d *Daemon) Run() error {
 		d.logger.Info("server started", "component", "api", "addr", d.config.SocketPath)
 		if err := d.apiServer.Start(); err != nil {
 			// http.ErrServerClosed is expected during graceful shutdown
-			if err != http.ErrServerClosed {
+			if !errors.Is(err, http.ErrServerClosed) {
 				errCh <- fmt.Errorf("API server: %w", err)
 			}
 		}
@@ -176,15 +177,15 @@ func (d *Daemon) Run() error {
 	httpServer, httpListener, err := d.createHTTPServer()
 	if err != nil {
 		cancel()
-		d.dnsServer.Stop()
-		d.apiServer.Stop()
+		_ = d.dnsServer.Stop()
+		_ = d.apiServer.Stop()
 		return fmt.Errorf("creating HTTP server: %w", err)
 	}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		d.logger.Info("server started", "component", "http", "addr", httpListener.Addr().String())
-		if err := httpServer.Serve(httpListener); err != nil && err != http.ErrServerClosed {
+		if err := httpServer.Serve(httpListener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- fmt.Errorf("HTTP server: %w", err)
 		}
 	}()
@@ -193,9 +194,9 @@ func (d *Daemon) Run() error {
 	httpsServer, httpsListener, err := d.createHTTPSServer()
 	if err != nil {
 		cancel()
-		httpListener.Close()
-		d.dnsServer.Stop()
-		d.apiServer.Stop()
+		_ = httpListener.Close()
+		_ = d.dnsServer.Stop()
+		_ = d.apiServer.Stop()
 		return fmt.Errorf("creating HTTPS server: %w", err)
 	}
 	wg.Add(1)
@@ -203,7 +204,7 @@ func (d *Daemon) Run() error {
 		defer wg.Done()
 		d.logger.Info("server started", "component", "https", "addr", httpsListener.Addr().String())
 		// ServeTLS wraps the plain listener with TLS and auto-configures HTTP/2
-		if err := httpsServer.ServeTLS(httpsListener, "", ""); err != nil && err != http.ErrServerClosed {
+		if err := httpsServer.ServeTLS(httpsListener, "", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- fmt.Errorf("HTTPS server: %w", err)
 		}
 	}()
@@ -271,7 +272,7 @@ func (d *Daemon) Run() error {
 
 	// Close log file after all logging is done
 	if d.logFile != nil {
-		d.logFile.Close()
+		_ = d.logFile.Close()
 	}
 
 	return nil
@@ -343,7 +344,7 @@ func (d *Daemon) createHTTPServer() (*http.Server, net.Listener, error) {
 				http.Error(w, "invalid host", http.StatusBadRequest)
 				return
 			}
-			http.Redirect(w, r, target, http.StatusPermanentRedirect)
+			http.Redirect(w, r, target, http.StatusPermanentRedirect) //nolint:gosec // G710: redirectTarget only returns https URLs on a validated .<tld> host
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,

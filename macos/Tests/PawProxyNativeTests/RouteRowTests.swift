@@ -1,11 +1,13 @@
 import Foundation
 import Testing
+
 @testable import PawProxyNative
 
 private let now = Date(timeIntervalSince1970: 1_000_000)
 private func route(_ name: String, age: TimeInterval, dir: String = "/Users/dev/src/shop") -> Route {
-    Route(name: name, upstream: "http://127.0.0.1:3000", dir: dir,
-          registered: now.addingTimeInterval(-600), lastHeartbeat: now.addingTimeInterval(-age))
+    Route(
+        name: name, upstream: "http://127.0.0.1:3000", dir: dir,
+        registered: now.addingTimeInterval(-600), lastHeartbeat: now.addingTimeInterval(-age))
 }
 
 @Test func formatsRow() {
@@ -32,7 +34,8 @@ private func route(_ name: String, age: TimeInterval, dir: String = "/Users/dev/
 }
 
 @Test func emptyDirAndSorting() {
-    let rows = RouteRow.rows([route("web", age: 1, dir: ""), route("api.shop", age: 1), route("Admin", age: 1)], now: now)
+    let rows = RouteRow.rows(
+        [route("web", age: 1, dir: ""), route("api.shop", age: 1), route("Admin", age: 1)], now: now)
     #expect(rows.map(\.host) == ["Admin.test", "api.shop.test", "web.test"])
     #expect(rows[2].project == "")
 }

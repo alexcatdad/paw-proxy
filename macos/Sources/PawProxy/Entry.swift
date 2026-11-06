@@ -21,8 +21,9 @@ enum Entry {
 
     static func handleRequest(path: String) -> Int32 {
         let services = Services.live()
-        return RequestHandler.handle(requestPath: path, paths: services.paths,
-                                     agent: services.agent, loginItem: services.loginItem)
+        return RequestHandler.handle(
+            requestPath: path, paths: services.paths,
+            agent: services.agent, loginItem: services.loginItem)
     }
 }
 
@@ -41,7 +42,8 @@ struct Services {
         let registrar: Registrar = isDevelopment ? DisabledRegistrar() : AgentRegistrar()
         let launchctl = SystemLaunchctl()
         let agent = DaemonAgent(paths: paths, registrar: registrar, launchctl: launchctl)
-        return Services(paths: paths, isDevelopment: isDevelopment, registrar: registrar, launchctl: launchctl,
-                        loginItem: isDevelopment ? nil : MainAppLoginItem(), agent: agent)
+        return Services(
+            paths: paths, isDevelopment: isDevelopment, registrar: registrar, launchctl: launchctl,
+            loginItem: isDevelopment ? nil : MainAppLoginItem(), agent: agent)
     }
 }

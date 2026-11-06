@@ -2,6 +2,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -58,7 +59,7 @@ func TestRouteRegistry_ConflictFromDifferentDir(t *testing.T) {
 		t.Fatal("expected error for conflict")
 	}
 
-	conflict, ok := err.(*ConflictError)
+	conflict, ok := errors.AsType[*ConflictError](err)
 	if !ok {
 		t.Fatalf("expected ConflictError, got %T", err)
 	}
@@ -186,7 +187,7 @@ func TestRouteRegistry_ConcurrentAccess(t *testing.T) {
 				case <-done:
 					return
 				default:
-					r.Heartbeat(name)
+					_ = r.Heartbeat(name)
 				}
 			}
 		}(i)
@@ -250,7 +251,7 @@ func TestCleanupDuringHeartbeat(t *testing.T) {
 			case <-stop:
 				return
 			default:
-				r.Heartbeat("keepalive")
+				_ = r.Heartbeat("keepalive")
 				time.Sleep(50 * time.Millisecond)
 			}
 		}
@@ -300,7 +301,7 @@ func TestRouteRegistry_MaxRoutesLimit(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected limit error, got nil")
 	}
-	limitErr, ok := err.(*LimitError)
+	limitErr, ok := errors.AsType[*LimitError](err)
 	if !ok {
 		t.Fatalf("expected LimitError, got %T", err)
 	}

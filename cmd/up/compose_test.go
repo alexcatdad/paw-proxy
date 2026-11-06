@@ -355,7 +355,7 @@ func TestRegisterComposeRoutes(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodPost && r.URL.Path == "/routes" {
 				var body map[string]string
-				json.NewDecoder(r.Body).Decode(&body)
+				_ = json.NewDecoder(r.Body).Decode(&body)
 				registered = append(registered, body["name"])
 				w.WriteHeader(http.StatusOK)
 				return
@@ -387,11 +387,11 @@ func TestRegisterComposeRoutes(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodPost && r.URL.Path == "/routes" {
 				var body map[string]string
-				json.NewDecoder(r.Body).Decode(&body)
+				_ = json.NewDecoder(r.Body).Decode(&body)
 				registered = append(registered, body["name"])
 				if body["name"] == "api.myapp" {
 					w.WriteHeader(http.StatusInternalServerError)
-					json.NewEncoder(w).Encode(map[string]string{"error": "daemon error"})
+					_ = json.NewEncoder(w).Encode(map[string]string{"error": "daemon error"})
 					return
 				}
 				w.WriteHeader(http.StatusOK)

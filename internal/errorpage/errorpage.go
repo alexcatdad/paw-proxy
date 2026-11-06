@@ -31,7 +31,8 @@ func NotFound(w http.ResponseWriter, host string, appName string, activeRoutes [
 		routeList = "<h2>Active Routes</h2><ul>" + strings.Join(items, "") + "</ul>"
 	}
 
-	fmt.Fprintf(w, `<!DOCTYPE html>
+	// A failed write means the browser went away; there is no one to tell.
+	_, _ = fmt.Fprintf(w, `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
 <title>Not Found - %s</title>
@@ -64,7 +65,8 @@ func UpstreamDown(w http.ResponseWriter, host string, upstream string) {
 	w.Header().Set("Content-Security-Policy", cspErrorPage)
 	w.WriteHeader(http.StatusBadGateway)
 
-	fmt.Fprintf(w, `<!DOCTYPE html>
+	// A failed write means the browser went away; there is no one to tell.
+	_, _ = fmt.Fprintf(w, `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
 <meta http-equiv="refresh" content="2">

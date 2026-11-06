@@ -97,8 +97,8 @@ func fakeApp(t *testing.T, outcome Outcome, mutate func(path string, data []byte
 			if err := os.WriteFile(tmp, reply, mode); err != nil {
 				return
 			}
-			os.Chmod(tmp, mode)
-			os.Rename(tmp, replyPath)
+			_ = os.Chmod(tmp, mode)
+			_ = os.Rename(tmp, replyPath)
 		}()
 		return nil
 	}, seen

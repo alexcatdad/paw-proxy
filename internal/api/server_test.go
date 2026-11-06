@@ -22,8 +22,8 @@ func TestAPIServer_RegisterRoute(t *testing.T) {
 	registry := NewRouteRegistry(30 * time.Second)
 	srv := NewServer(socketPath, registry)
 
-	go srv.Start()
-	defer srv.Stop()
+	go func() { _ = srv.Start() }()
+	defer func() { _ = srv.Stop() }()
 
 	// Wait for server to start
 	time.Sleep(50 * time.Millisecond)
@@ -48,7 +48,7 @@ func TestAPIServer_RegisterRoute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /routes failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("expected 200, got %d", resp.StatusCode)
@@ -265,14 +265,14 @@ func TestAPIServer_ValidationRejection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Use /tmp directly to avoid socket path length limits
-			socketPath := filepath.Join("/tmp", fmt.Sprintf("paw-test-%d.sock", time.Now().UnixNano()))
-			defer os.Remove(socketPath)
+			socketPath := fmt.Sprintf("/tmp/paw-test-%d.sock", time.Now().UnixNano())
+			defer func() { _ = os.Remove(socketPath) }()
 
 			registry := NewRouteRegistry(30 * time.Second)
 			srv := NewServer(socketPath, registry)
 
-			go srv.Start()
-			defer srv.Stop()
+			go func() { _ = srv.Start() }()
+			defer func() { _ = srv.Stop() }()
 
 			time.Sleep(50 * time.Millisecond)
 
@@ -289,7 +289,7 @@ func TestAPIServer_ValidationRejection(t *testing.T) {
 			if err != nil {
 				t.Fatalf("POST /routes failed: %v", err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != tt.wantCode {
 				t.Errorf("expected %d, got %d", tt.wantCode, resp.StatusCode)
@@ -299,8 +299,8 @@ func TestAPIServer_ValidationRejection(t *testing.T) {
 }
 
 func TestAPIServer_RegisterRouteLimit(t *testing.T) {
-	socketPath := filepath.Join("/tmp", fmt.Sprintf("paw-test-limit-%d.sock", time.Now().UnixNano()))
-	defer os.Remove(socketPath)
+	socketPath := fmt.Sprintf("/tmp/paw-test-limit-%d.sock", time.Now().UnixNano())
+	defer func() { _ = os.Remove(socketPath) }()
 
 	registry := NewRouteRegistry(30 * time.Second)
 	for i := 0; i < maxRoutes; i++ {
@@ -311,8 +311,8 @@ func TestAPIServer_RegisterRouteLimit(t *testing.T) {
 	}
 	srv := NewServer(socketPath, registry)
 
-	go srv.Start()
-	defer srv.Stop()
+	go func() { _ = srv.Start() }()
+	defer func() { _ = srv.Stop() }()
 
 	time.Sleep(50 * time.Millisecond)
 
@@ -333,7 +333,7 @@ func TestAPIServer_RegisterRouteLimit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /routes failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusTooManyRequests {
 		t.Fatalf("expected 429, got %d", resp.StatusCode)
@@ -401,14 +401,14 @@ func TestExtractName(t *testing.T) {
 
 func TestAPIServer_JSONErrorFormat(t *testing.T) {
 	// Use /tmp directly to avoid socket path length limits
-	socketPath := filepath.Join("/tmp", fmt.Sprintf("paw-test-json-%d.sock", time.Now().UnixNano()))
-	defer os.Remove(socketPath)
+	socketPath := fmt.Sprintf("/tmp/paw-test-json-%d.sock", time.Now().UnixNano())
+	defer func() { _ = os.Remove(socketPath) }()
 
 	registry := NewRouteRegistry(30 * time.Second)
 	srv := NewServer(socketPath, registry)
 
-	go srv.Start()
-	defer srv.Stop()
+	go func() { _ = srv.Start() }()
+	defer func() { _ = srv.Stop() }()
 
 	time.Sleep(50 * time.Millisecond)
 
@@ -431,7 +431,7 @@ func TestAPIServer_JSONErrorFormat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /routes failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Verify Content-Type is JSON
 	ct := resp.Header.Get("Content-Type")
@@ -456,8 +456,8 @@ func TestAPIServer_RequestBodyLimit(t *testing.T) {
 	registry := NewRouteRegistry(30 * time.Second)
 	srv := NewServer(socketPath, registry)
 
-	go srv.Start()
-	defer srv.Stop()
+	go func() { _ = srv.Start() }()
+	defer func() { _ = srv.Stop() }()
 
 	time.Sleep(50 * time.Millisecond)
 
@@ -475,7 +475,7 @@ func TestAPIServer_RequestBodyLimit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /routes failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Should reject with 400 (bad request due to body limit exceeded)
 	if resp.StatusCode != http.StatusBadRequest {
@@ -490,8 +490,8 @@ func TestAPIServer_HealthReportsVersionAndBuild(t *testing.T) {
 
 	socketPath := filepath.Join(t.TempDir(), "test.sock")
 	srv := NewServer(socketPath, NewRouteRegistry(30*time.Second))
-	go srv.Start()
-	defer srv.Stop()
+	go func() { _ = srv.Start() }()
+	defer func() { _ = srv.Stop() }()
 	time.Sleep(50 * time.Millisecond)
 
 	client := &http.Client{Transport: &http.Transport{
@@ -503,7 +503,7 @@ func TestAPIServer_HealthReportsVersionAndBuild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /health: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var body map[string]string
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {

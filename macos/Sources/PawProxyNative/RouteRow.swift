@@ -24,7 +24,9 @@ public struct RouteRow: Equatable, Identifiable, Sendable {
         url = URL(string: "https://\(host)")
     }
 
-    public static func rows(_ routes: [Route], now: Date, tld: String = "test", timeout: TimeInterval = 30) -> [RouteRow] {
+    public static func rows(_ routes: [Route], now: Date, tld: String = "test", timeout: TimeInterval = 30)
+        -> [RouteRow]
+    {
         routes.map { RouteRow(route: $0, now: now, tld: tld, timeout: timeout) }
             .sorted { $0.host.localizedStandardCompare($1.host) == .orderedAscending }
     }

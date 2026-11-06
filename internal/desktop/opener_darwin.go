@@ -28,7 +28,7 @@ func LaunchServicesOpener(appPath string, uid int, user string, asRoot bool) Ope
 			cmd = exec.CommandContext(ctx, "/usr/bin/open", args...)
 		}
 		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("%v: %s", err, out)
+			return fmt.Errorf("%w: %s", err, out)
 		}
 		return nil
 	}

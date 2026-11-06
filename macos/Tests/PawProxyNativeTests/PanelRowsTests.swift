@@ -1,5 +1,6 @@
 import MenubarKit
 import Testing
+
 @testable import PawProxyNative
 
 private let ok = Health(status: "ok", version: "2026.11.1", build: "3", uptime: "1h")

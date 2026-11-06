@@ -8,8 +8,9 @@ struct MenuView: View {
     var body: some View {
         MenubarPanel {
             // Details quote commands in `code` spans, shown monospaced.
-            StatusHeader(tone: model.presentation.tone, headline: AttributedString(model.presentation.headline),
-                         detail: InlineCode.attributed(model.presentation.detail ?? ""))
+            StatusHeader(
+                tone: model.presentation.tone, headline: AttributedString(model.presentation.headline),
+                detail: InlineCode.attributed(model.presentation.detail ?? ""))
             StatusRowsTile(model.statusRows)
             routesTile
             if let action = model.presentation.primaryAction {
@@ -36,10 +37,12 @@ struct MenuView: View {
         VStack(alignment: .leading, spacing: 0) {
             TileHeader("Routes")
             if model.rows.isEmpty {
-                Text(model.health == nil ? "No routes." : "No routes yet. Start one with up <command>, e.g. up bun dev.")
-                    .font(.callout).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 12).padding(.vertical, 4)
+                Text(
+                    model.health == nil ? "No routes." : "No routes yet. Start one with up <command>, e.g. up bun dev."
+                )
+                .font(.callout).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 12).padding(.vertical, 4)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
@@ -68,13 +71,18 @@ struct RouteRowView: View {
     @ObservedObject var model: AppModel
 
     var body: some View {
-        ListRowButton(row.host, subtitle: row.project.isEmpty ? "→ \(row.target)" : "→ \(row.target) · \(row.project)",
-                      value: row.heartbeatAge) { model.open(row) }
-            .opacity(row.isStale ? 0.5 : 1)
-            .help(row.isStale ? "No heartbeat recently — the route may be expiring." : "Open \(row.url?.absoluteString ?? row.host)")
-            .contextMenu {
-                Button("Open") { model.open(row) }
-                Button("Copy URL") { model.copyURL(row) }
-            }
+        ListRowButton(
+            row.host, subtitle: row.project.isEmpty ? "→ \(row.target)" : "→ \(row.target) · \(row.project)",
+            value: row.heartbeatAge
+        ) { model.open(row) }
+        .opacity(row.isStale ? 0.5 : 1)
+        .help(
+            row.isStale
+                ? "No heartbeat recently — the route may be expiring." : "Open \(row.url?.absoluteString ?? row.host)"
+        )
+        .contextMenu {
+            Button("Open") { model.open(row) }
+            Button("Copy URL") { model.copyURL(row) }
+        }
     }
 }

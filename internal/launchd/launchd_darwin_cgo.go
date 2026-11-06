@@ -85,7 +85,7 @@ func ActivateSocket(name string) (net.Listener, bool, error) {
 	// so we must close the original os.File to avoid leaking it.
 	f := os.NewFile(uintptr(fd), name)
 	listener, err := net.FileListener(f)
-	f.Close()
+	_ = f.Close()
 	if err != nil {
 		return nil, false, fmt.Errorf("net.FileListener for %q: %w", name, err)
 	}
@@ -93,7 +93,7 @@ func ActivateSocket(name string) (net.Listener, bool, error) {
 	// SECURITY: Verify the listener has a valid bound address to reject
 	// 0.0.0.0:0 sockets from misconfigured launchd activation.
 	if tcpAddr, ok := listener.Addr().(*net.TCPAddr); ok && tcpAddr.Port == 0 {
-		listener.Close()
+		_ = listener.Close()
 		return nil, false, fmt.Errorf("launchd socket %q has invalid address %s", name, listener.Addr())
 	}
 
@@ -102,5 +102,5 @@ func ActivateSocket(name string) (net.Listener, bool, error) {
 
 // closeFD closes a raw file descriptor by wrapping it in os.File.
 func closeFD(fd int) {
-	os.NewFile(uintptr(fd), "").Close()
+	_ = os.NewFile(uintptr(fd), "").Close()
 }
