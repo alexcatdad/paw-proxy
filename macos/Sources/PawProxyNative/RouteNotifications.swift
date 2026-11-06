@@ -168,3 +168,29 @@ public struct RouteEventFeed: Equatable, Sendable {
         return hosts.prefix(shown).joined(separator: ", ") + " and \(hosts.count - shown) more"
     }
 }
+
+/// The notifier route events are posted through.
+public enum RouteNotifications {
+    /// A notifier that re-reads the user's choices on every delivery: nothing
+    /// is posted while "Notify me" is off, and banners are silent unless
+    /// "Play a sound" is on. Both keys are the ones `NotificationSettingsSection`
+    /// binds its toggles to.
+    ///
+    /// - Parameter suiteName: The defaults domain; `nil` is `UserDefaults.standard`.
+    ///   (`UserDefaults` itself is not `Sendable` on macOS 13.)
+    public static func notifier(
+        center: any NotificationCenterClient = SystemNotificationCenter(),
+        suiteName: String? = nil
+    ) -> MenubarNotifier {
+        MenubarNotifier(center: center) {
+            preferences(suiteName.flatMap(UserDefaults.init(suiteName:)) ?? .standard)
+        }
+    }
+
+    /// The current preferences in `defaults`; missing keys read as off.
+    public static func preferences(_ defaults: UserDefaults) -> NotificationPreferences {
+        NotificationPreferences(
+            enabled: defaults.bool(forKey: NotificationPreferences.enabledKey),
+            soundEnabled: defaults.bool(forKey: NotificationPreferences.soundEnabledKey))
+    }
+}

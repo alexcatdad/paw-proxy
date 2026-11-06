@@ -84,7 +84,7 @@ up docker compose -f compose.prod.yml up
 
 `paw-proxy status` lists registered routes and their upstreams; `paw-proxy logs -f` follows requests as they arrive. Paw Proxy.app shows the same routes in the menu bar: click one to open it, and the paw icon carries a badge whenever setup, the daemon or an update needs attention. (The `https://_paw.test` web dashboard has been retired.)
 
-To hear when a project comes up, turn on **Notify me when projects go live** in Paw Proxy's Settings. It is off by default; macOS asks for permission when you turn it on. Notifications are silent, come from Paw Proxy.app (never `osascript`), and clicking one opens the project's `https://<name>.test` URL.
+To hear when a project comes up, turn on **Notify me when projects go live** in Paw Proxy's Settings. It is off by default; macOS asks for permission when you turn it on. Notifications are silent unless you also turn on **Play a sound**, come from Paw Proxy.app (never `osascript`), and clicking one opens the project's `https://<name>.test` URL.
 
 ### Git Worktrees
 

@@ -12,7 +12,6 @@ final class AppModel: ObservableObject {
     @Published private(set) var showAtLogin = false
     @Published private(set) var setupComplete = true
     @Published var message: String?
-    @Published private(set) var notificationPermission = NotificationPermission.notDetermined
 
     let isDevelopment: Bool
     let bundleVersion: String
@@ -28,8 +27,9 @@ final class AppModel: ObservableObject {
     private var timer: Timer?
 
     // Route notifications: `up` queues events in the daemon; the app polls
-    // them and posts from its own bundle (opt-in, silent, de-duplicated).
-    let notifier = MenubarNotifier()
+    // them and posts from its own bundle (opt-in, de-duplicated, silent
+    // unless the user turns on "Play a sound").
+    let notifier: MenubarNotifier
     private let responder = MenubarNotificationResponder { click in
         guard !click.isDismissal, let url = RouteEventFeed.clickURL(click.userInfo) else { return }
         NSWorkspace.shared.open(url)
@@ -38,12 +38,22 @@ final class AppModel: ObservableObject {
     private var eventTimer: Timer?
     private var eventPollInFlight = false
 
-    init(services: Services = .live()) {
+    /// - Parameters:
+    ///   - notificationCenter: Tests pass a fake; `UNUserNotificationCenter`
+    ///     needs a real app bundle.
+    ///   - startsPolling: Off in tests, which set the state they lay out.
+    init(
+        services: Services = .live(),
+        notificationCenter: any NotificationCenterClient = SystemNotificationCenter(),
+        startsPolling: Bool = true
+    ) {
         self.services = services
+        notifier = RouteNotifications.notifier(center: notificationCenter)
         let info = Bundle.main.infoDictionary ?? [:]
         isDevelopment = services.isDevelopment
         bundleVersion = info["CFBundleShortVersionString"] as? String ?? "dev"
         bundleBuild = info["CFBundleVersion"] as? String ?? ""
+        guard startsPolling else { return }
 
         timer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refresh() }
@@ -55,7 +65,6 @@ final class AppModel: ObservableObject {
             Task { @MainActor in self?.pollRouteEvents() }
         }
         pollRouteEvents()
-        refreshNotificationPermission()
     }
 
     // MARK: Notifications
@@ -64,19 +73,11 @@ final class AppModel: ObservableObject {
         UserDefaults.standard.bool(forKey: NotificationPreferences.enabledKey)
     }
 
-    /// From the Settings toggle: asks macOS for permission only when the
-    /// user turns notifications on.
+    /// From the Settings toggle, which also asks macOS for permission.
     func notificationsToggled(_ enabled: Bool) {
         // Off forgets the cursor; on starts listening from now.
         feed.reset(since: Date())
-        Task {
-            notificationPermission = enabled ? await notifier.userEnabledNotifications() : await notifier.permission()
-            if enabled { pollRouteEvents() }
-        }
-    }
-
-    func refreshNotificationPermission() {
-        Task { notificationPermission = await notifier.permission() }
+        if enabled { pollRouteEvents() }
     }
 
     /// Polls the daemon's event queue while notifications are on. Off, the
@@ -120,7 +121,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func apply(health: Health?, routes: [Route], setupComplete: Bool) {
+    func apply(health: Health?, routes: [Route], setupComplete: Bool) {
         self.health = health
         self.setupComplete = setupComplete
         rows = RouteRow.rows(routes, now: Date())
