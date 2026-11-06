@@ -18,6 +18,56 @@ private func page(_ cursor: UInt64, _ events: RouteEvent...) -> RouteEventPage {
     RouteEventPage(cursor: cursor, events: events)
 }
 
+private func live(_ id: UInt64, at time: Date, _ routes: String...) -> RouteEvent {
+    RouteEvent(id: id, kind: .live, routes: routes, time: time)
+}
+
+private func page(epoch: String, _ cursor: UInt64, _ events: RouteEvent...) -> RouteEventPage {
+    RouteEventPage(cursor: cursor, events: events, epoch: epoch)
+}
+
+@Test func firstPageShowsEventsFromWhenTheAppStartedListening() {
+    var feed = RouteEventFeed(since: t0)
+    let backlog = live(1, at: t0.addingTimeInterval(-60), "old")
+    let fresh = live(2, at: t0.addingTimeInterval(1), "new")
+    #expect(feed.accept(page(epoch: "a", 2, backlog, fresh)).map(\.title) == ["new.test is live"])
+    #expect(feed.cursor == 2)
+    #expect(feed.epoch == "a")
+    // Primed: the same events are not shown again.
+    #expect(feed.accept(page(epoch: "a", 2, backlog, fresh)).isEmpty)
+}
+
+@Test func newEpochResetsTheCursorEvenWhenIDsCaughtUp() {
+    var feed = RouteEventFeed(cursor: 3, epoch: "a", since: t0)
+    // A restarted daemon has already issued 5 IDs; the cursor did not go
+    // backwards, but the page was filtered by the old cursor (after=3).
+    #expect(feed.accept(page(epoch: "b", 5, live(4, "d"), live(5, "e"))).isEmpty)
+    #expect(feed.after == 0)
+    #expect(feed.epoch == "b")
+    let notes = feed.accept(page(epoch: "b", 5, live(1, "a"), live(2, "b"), live(3, "c"), live(4, "d"), live(5, "e")))
+    #expect(
+        notes.map(\.title) == [
+            "a.test is live", "b.test is live", "c.test is live", "d.test is live", "e.test is live",
+        ])
+    #expect(feed.cursor == 5)
+}
+
+@Test func sameEpochKeepsTheCursor() {
+    var feed = RouteEventFeed(cursor: 3, epoch: "a")
+    #expect(feed.accept(page(epoch: "a", 4, live(4, "shop"))).map(\.title) == ["shop.test is live"])
+    #expect(feed.cursor == 4)
+}
+
+@Test func resetKeepsTheNewSinceAndForgetsTheEpoch() {
+    var feed = RouteEventFeed(cursor: 9, epoch: "a", since: t0)
+    let later = t0.addingTimeInterval(100)
+    feed.reset(since: later)
+    #expect(feed.cursor == nil && feed.epoch == nil && feed.since == later)
+    let notes = feed.accept(
+        page(epoch: "a", 11, live(10, at: t0.addingTimeInterval(50), "x"), live(11, at: later, "y")))
+    #expect(notes.map(\.title) == ["y.test is live"])
+}
+
 @Test func firstPageOnlyPrimesTheCursor() {
     var feed = RouteEventFeed()
     #expect(feed.after == 0)
@@ -106,9 +156,15 @@ private func page(_ cursor: UInt64, _ events: RouteEvent...) -> RouteEventPage {
     #expect(page.events[0].routes == ["shop", "api.shop"])
     #expect(page.events[1].kind == .removed)
 
+    #expect(page.epoch == nil)
+
     let empty = try DaemonJSON.decoder().decode(
         RouteEventPage.self, from: Data(#"{"cursor":0,"notifications":[]}"#.utf8))
     #expect(empty == RouteEventPage(cursor: 0, events: []))
+
+    let withEpoch = try DaemonJSON.decoder().decode(
+        RouteEventPage.self, from: Data(#"{"epoch":"9f2c","cursor":0,"notifications":[]}"#.utf8))
+    #expect(withEpoch == RouteEventPage(cursor: 0, events: [], epoch: "9f2c"))
 }
 
 @Test func clicksOpenOnlyProxyURLs() {

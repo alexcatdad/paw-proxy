@@ -34,7 +34,7 @@ final class AppModel: ObservableObject {
         guard !click.isDismissal, let url = RouteEventFeed.clickURL(click.userInfo) else { return }
         NSWorkspace.shared.open(url)
     }
-    private var feed = RouteEventFeed()
+    private var feed = RouteEventFeed(since: Date())
     private var eventTimer: Timer?
     private var eventPollInFlight = false
 
@@ -67,7 +67,8 @@ final class AppModel: ObservableObject {
     /// From the Settings toggle: asks macOS for permission only when the
     /// user turns notifications on.
     func notificationsToggled(_ enabled: Bool) {
-        if !enabled { feed.reset() }
+        // Off forgets the cursor; on starts listening from now.
+        feed.reset(since: Date())
         Task {
             notificationPermission = enabled ? await notifier.userEnabledNotifications() : await notifier.permission()
             if enabled { pollRouteEvents() }
@@ -81,7 +82,7 @@ final class AppModel: ObservableObject {
     /// Polls the daemon's event queue while notifications are on. Off, the
     /// cursor is forgotten so turning them on later does not replay a backlog.
     func pollRouteEvents() {
-        guard notificationsEnabled else { feed.reset(); return }
+        guard notificationsEnabled else { feed.reset(since: Date()); return }
         guard !eventPollInFlight else { return }
         eventPollInFlight = true
         let client = DaemonClient(socketPath: paths.socket.path, timeout: 2)

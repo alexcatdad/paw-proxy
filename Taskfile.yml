@@ -9,7 +9,8 @@ vars:
   GOVULNCHECK_VERSION: v1.9.0
   RELTOOL_TAG: v0.3.0
   RELTOOL_COMMIT: 8d84a474ef7a6b48552ca70b5f78ebd0e8295407 # commit of RELTOOL_TAG
-  RELTOOL_SRC: ../release-tools
+  # release-tools checkout; set RELTOOL_SRC in the environment to override.
+  RELTOOL_SRC: '{{.RELTOOL_SRC | default "../../../infrastructure/release-tools"}}'
   RELTOOL:
     sh: echo "${XDG_CACHE_HOME:-$HOME/.cache}/release-tools/{{.RELTOOL_COMMIT}}/reltool"
 
@@ -116,9 +117,21 @@ tasks:
         d=$(mktemp -d "$TMPDIR/validate.XXXXXX")
         ditto -x -k "$RELEASE_OUT/Paw-Proxy.app.zip" "$d"
         app="$d/Paw Proxy.app"
-        test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")" = "$MACOS_SHORT_VERSION"
+        plist="$app/Contents/Info.plist"
+        test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")" = "$MACOS_SHORT_VERSION"
+        test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" = "$MACOS_BUNDLE_VERSION"
         sh macos/Scripts/validate-bundle.sh "$app"
         codesign --verify --deep --strict "$app"
+        # The app and both helpers: Developer ID (our team), hardened runtime,
+        # secure timestamp.
+        for code in "$app" "$app/Contents/Helpers/paw-proxy" "$app/Contents/Helpers/up"; do
+          codesign --verify --strict \
+            --test-requirement '=anchor apple generic and certificate leaf[subject.OU] = "CX6D6KGCT5"' "$code"
+          sig=$(codesign --display --verbose=4 "$code" 2>&1)
+          printf '%s\n' "$sig" | grep -q '^Authority=Developer ID Application:' || { echo "not Developer ID signed: $code" >&2; exit 1; }
+          printf '%s\n' "$sig" | grep -q 'flags=.*(runtime)' || { echo "no hardened runtime: $code" >&2; exit 1; }
+          printf '%s\n' "$sig" | grep -q '^Timestamp=' || { echo "no secure timestamp: $code" >&2; exit 1; }
+        done
 
   # --- release-tools consumer snippet ---
   reltool:install:
@@ -126,6 +139,12 @@ tasks:
     status:
       - test -x "{{.RELTOOL}}"
     cmds:
+      - |
+        git -C "{{.RELTOOL_SRC}}" rev-parse --git-dir >/dev/null 2>&1 || {
+          echo "release-tools: no git checkout at '{{.RELTOOL_SRC}}'." >&2
+          echo "Clone alexcatdad/release-tools there, or set RELTOOL_SRC to your checkout." >&2
+          exit 1
+        }
       - git -C "{{.RELTOOL_SRC}}" show "{{.RELTOOL_COMMIT}}:scripts/install-reltool.sh" | sh -s -- "{{.RELTOOL_SRC}}" "{{.RELTOOL_TAG}}" "{{.RELTOOL_COMMIT}}"
 
   release:check:

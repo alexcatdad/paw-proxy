@@ -66,5 +66,10 @@ func talksToTheGoDaemon() throws {
     #expect(routes.contains { $0.name == "api.shop" && $0.upstream == "http://127.0.0.1:3001" })
 
     // The notification queue starts empty; the fixture enqueues nothing.
-    #expect(try client.routeEvents(after: 0) == RouteEventPage(cursor: 0, events: []))
+    let events = try client.routeEvents(after: 0)
+    #expect(events.cursor == 0 && events.events.isEmpty)
+    // The real daemon names its run, and keeps the name between polls.
+    let epoch = try #require(events.epoch)
+    #expect(epoch.count == 16)
+    #expect(try client.routeEvents(after: 0).epoch == epoch)
 }

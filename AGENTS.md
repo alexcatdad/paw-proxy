@@ -9,7 +9,7 @@ Zero-config HTTPS for local development: `https://<name>.test` for any dev serve
 - Local only: the proxy, DNS and API listen on loopback or a 0600 unix socket. Upstreams are restricted to localhost (SSRF guard); route names, directories and request bodies are validated and size-limited.
 - The CA private key stays at 0600 in `~/Library/Application Support/paw-proxy/`; it is never logged, exported or sent anywhere. Setup and uninstall are the only privileged (`sudo`) operations.
 - Secrets live only in the macOS Keychain. No plaintext fallback, no secrets in logs.
-- Notifications are posted by the app bundle via MenubarKit: opt-in, permission requested from the user toggle, silent unless the user enables sound. Never `osascript`, `terminal-notifier` or a bare binary. `up` only reports route events to the daemon (`POST /notifications`); the app reads them with `GET /notifications?after=<cursor>`.
+- Notifications are posted by the app bundle via MenubarKit: opt-in, permission requested from the user toggle, silent unless the user enables sound. Never `osascript`, `terminal-notifier` or a bare binary. `up` only reports route events to the daemon (`POST /notifications`); the app reads them with `GET /notifications?after=<cursor>`, which also returns a per-boot `epoch`; the cursor is only valid within one epoch.
 - The tray uses MenubarKit's 18pt template icon, status badge and status-aware accessibility label.
 - No third-party dependencies in the shipped app without a recorded decision. First-party `alexcatdad/menubar-kit` is allowed, pinned to the exact commit of a release tag (SwiftPM cannot resolve four-part CalVer tags), with the tag named in a comment. The Go backend's only direct dependency is `github.com/miekg/dns`.
 - No telemetry, analytics or update checks over the network.
@@ -38,7 +38,7 @@ Zero-config HTTPS for local development: `https://<name>.test` for any dev serve
 
 - Canonical host: GitHub `alexcatdad/paw-proxy`.
 - Branch from `main`, PR back to `main`, squash-merge. Conventional commit messages; reference the issue (`closes #N`) and read it first (`gh issue view N`).
-- Required checks: `pr / leaks`, `pr / lint`, `pr / build`, `pr / deps`, `codeql`. Copilot reviews every PR.
+- Required checks: `pr / leaks`, `pr / lint`, `pr / build`, `pr / deps`, and the code-scanning rule (`codeql / <lang>` checks, high and above). `pr / test` (`task test`) also runs on every PR. Copilot reviews every PR.
 - Actions are pinned to full commit SHAs; workflows start from `permissions: {}`.
 - Do not wait on or poll CI; one status check when a decision depends on it.
 

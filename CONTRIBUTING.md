@@ -47,5 +47,9 @@ task release          # prepare, then draft release, SHA-256 verified upload, pu
 task release:resume   # continue an interrupted release with the same version and artifacts
 ```
 
-Releasing needs a checkout of `release-tools` next to this repository (default
-`../release-tools`) and a local config at `~/.config/release-tools/config.json`.
+Releasing needs a git checkout of `release-tools` and a local config at
+`~/.config/release-tools/config.json`. The Taskfile looks for the checkout at
+`../../../infrastructure/release-tools` (the standard layout, relative to this
+repository); set `RELTOOL_SRC` to use another path, for example from a worktree:
+`RELTOOL_SRC=~/src/release-tools task release:check`. `task release:*` stops with
+a clear error when the path is not a git checkout.

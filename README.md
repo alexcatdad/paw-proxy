@@ -31,7 +31,7 @@ up npm run dev  # → https://myapp.test ✓
 ## Installation
 
 ```bash
-brew install alexcatdad/tap/paw-proxy
+brew install --cask alexcatdad/tap/paw-proxy
 
 # Run setup (creates CA, configures DNS, installs daemon)
 sudo paw-proxy setup

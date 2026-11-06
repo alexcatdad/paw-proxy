@@ -138,3 +138,53 @@ func testSocketClient(socketPath string) *http.Client {
 		Timeout: 5 * time.Second,
 	}
 }
+
+func TestNotificationQueue_EpochPerQueue(t *testing.T) {
+	a, b := NewNotificationQueue(2), NewNotificationQueue(2)
+	if a.Epoch() == "" || len(a.Epoch()) != 16 {
+		t.Fatalf("epoch %q: want 16 hex characters", a.Epoch())
+	}
+	if a.Epoch() == b.Epoch() {
+		t.Fatalf("two queues share epoch %q", a.Epoch())
+	}
+	a.Add(NotificationRoutesLive, []string{"x"})
+	if got := a.Epoch(); got != a.epoch {
+		t.Fatalf("epoch changed after Add: %q", got)
+	}
+}
+
+// TestAPIServer_NotificationsEpoch: one daemon run answers with one epoch;
+// a restarted daemon (a new server) answers with another, while its IDs
+// start at 1 again.
+func TestAPIServer_NotificationsEpoch(t *testing.T) {
+	type page struct {
+		Epoch  string `json:"epoch"`
+		Cursor uint64 `json:"cursor"`
+	}
+	read := func(client *http.Client) page {
+		t.Helper()
+		_, data := do(t, client, http.MethodGet, "/notifications?after=0", nil)
+		var p page
+		if err := json.Unmarshal(data, &p); err != nil {
+			t.Fatalf("decoding %s: %v", data, err)
+		}
+		return p
+	}
+	notify := map[string]any{"kind": NotificationRoutesLive, "routes": []string{"shop"}}
+
+	_, first := startTestServer(t)
+	before := read(first)
+	if status, _ := do(t, first, http.MethodPost, "/notifications", notify); status != http.StatusOK {
+		t.Fatalf("POST /notifications: %d", status)
+	}
+	after := read(first)
+	if before.Epoch == "" || before.Epoch != after.Epoch || after.Cursor != 1 {
+		t.Fatalf("same daemon: before %+v, after %+v", before, after)
+	}
+
+	_, second := startTestServer(t)
+	restarted := read(second)
+	if restarted.Epoch == "" || restarted.Epoch == after.Epoch || restarted.Cursor != 0 {
+		t.Fatalf("restarted daemon: %+v, previous epoch %q", restarted, after.Epoch)
+	}
+}

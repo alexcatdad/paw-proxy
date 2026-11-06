@@ -22,23 +22,27 @@ public struct RouteEvent: Codable, Equatable, Sendable {
     }
 }
 
-/// GET /notifications?after=<cursor>: events newer than `after`, and the
-/// newest ID the daemon has issued.
+/// GET /notifications?after=<cursor>: events newer than `after`, the newest
+/// ID the daemon has issued, and the daemon run (`epoch`) those IDs belong to.
+/// Daemons before the epoch was added send none.
 public struct RouteEventPage: Equatable, Sendable {
+    public var epoch: String?
     public var cursor: UInt64
     public var events: [RouteEvent]
 
-    public init(cursor: UInt64, events: [RouteEvent]) {
+    public init(cursor: UInt64, events: [RouteEvent], epoch: String? = nil) {
+        self.epoch = epoch
         self.cursor = cursor
         self.events = events
     }
 }
 
 extension RouteEventPage: Decodable {
-    private enum CodingKeys: String, CodingKey { case cursor, notifications }
+    private enum CodingKeys: String, CodingKey { case epoch, cursor, notifications }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        epoch = try c.decodeIfPresent(String.self, forKey: .epoch)
         cursor = try c.decode(UInt64.self, forKey: .cursor)
         // Unknown kinds (a newer daemon) are skipped, not fatal.
         let raw = try c.decodeIfPresent([Lossy].self, forKey: .notifications) ?? []
@@ -59,48 +63,71 @@ extension DaemonClient {
 
 /// Turns polled daemon pages into notifications, each event at most once.
 ///
-/// - The first page only primes the cursor: events from before the app
-///   started (or before the user turned notifications on) are not replayed.
-/// - The cursor only moves forward, so a page is never shown twice. When the
-///   daemon restarts its IDs start again at 1; a cursor that went backwards
-///   means a new daemon, so the feed resets and shows its events.
+/// - The first page primes the cursor. Of the events already queued it shows
+///   only those from `since` on (when the app started listening), so `up`
+///   runs between launch and the first poll are not lost, while the backlog
+///   from before is not replayed.
+/// - The cursor only moves forward, so a page is never shown twice.
+/// - Daemon IDs start again at 1 on every daemon start. The page's `epoch`
+///   names the daemon run; a new epoch means the cursor belongs to an old
+///   daemon, so the feed asks again from 0 and shows the new daemon's events.
+///   Without an epoch (an older daemon), a cursor that went backwards means
+///   the same thing.
 /// - Notification identifiers are stable per set of routes, so "stopped"
 ///   replaces that project's "is live" banner and a project restarted in a
 ///   loop keeps one notification instead of stacking. Within one page only
 ///   the latest event per set of routes is shown.
 public struct RouteEventFeed: Equatable, Sendable {
     public private(set) var cursor: UInt64?
+    public private(set) var epoch: String?
+    /// When the app started listening; nil shows no queued events at all.
+    public private(set) var since: Date?
 
-    public init(cursor: UInt64? = nil) {
+    public init(cursor: UInt64? = nil, epoch: String? = nil, since: Date? = nil) {
         self.cursor = cursor
+        self.epoch = epoch
+        self.since = since
     }
 
     /// The cursor to send as `after`. Unprimed feeds ask for everything.
     public var after: UInt64 { cursor ?? 0 }
 
     /// Forget the cursor, for example when notifications are turned off, so
-    /// turning them back on does not replay what happened meanwhile.
-    public mutating func reset() {
+    /// turning them back on does not replay what happened meanwhile. Events
+    /// from `since` on still show once the feed primes again.
+    public mutating func reset(since: Date? = nil) {
         cursor = nil
+        epoch = nil
+        self.since = since
     }
 
     public mutating func accept(_ page: RouteEventPage, tld: String = "test") -> [MenubarNotification] {
         guard let current = cursor else {
             cursor = page.cursor
-            return []
+            epoch = page.epoch
+            guard let since else { return [] }
+            return Self.notifications(page.events.filter { $0.time >= since }, tld: tld)
         }
-        if page.cursor < current {
-            // The daemon restarted. This page was filtered by the old
-            // cursor, so ask again from the start next time.
+        let newDaemon = page.epoch.map { $0 != epoch } ?? (page.cursor < current)
+        if newDaemon {
+            // This page was filtered by the old daemon's cursor, so ask
+            // again from the start next time.
             cursor = 0
+            epoch = page.epoch
             return []
         }
         cursor = page.cursor
+        return Self.notifications(page.events.filter { $0.id > current }, tld: tld)
+    }
+
+    /// The latest event per set of routes, oldest first.
+    private static func notifications(_ events: [RouteEvent], tld: String) -> [MenubarNotification] {
         var seen = Set<String>()
-        let latestFirst = page.events
-            .filter { $0.id > current && !$0.routes.isEmpty }
+        let latestFirst =
+            events
+            .filter { !$0.routes.isEmpty }
             .sorted { $0.id > $1.id }
-            .map { Self.notification(for: $0, tld: tld) }
+            .map { notification(for: $0, tld: tld) }
             .filter { seen.insert($0.identifier).inserted }
         return latestFirst.reversed()
     }
