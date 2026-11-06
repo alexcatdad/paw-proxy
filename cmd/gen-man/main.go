@@ -24,7 +24,7 @@ func main() {
 	}
 
 	for _, c := range cmds {
-		if err := os.MkdirAll(filepath.Dir(c.file), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(c.file), 0o750); err != nil {
 			fmt.Fprintf(os.Stderr, "error creating directory: %v\n", err)
 			os.Exit(1)
 		}
@@ -169,12 +169,13 @@ func writeSynopsis(rw *roffWriter, cmd *help.Command) {
 		rw.w(`.RI [ options ]`)
 	} else {
 		for _, fl := range cmd.Flags {
-			if fl.Short != "" && fl.Arg != "" {
+			switch {
+			case fl.Short != "" && fl.Arg != "":
 				rw.w(`.RB [ %s`, fl.Short)
 				rw.w(`.IR %s ]`, fl.Arg)
-			} else if fl.Long != "" {
+			case fl.Long != "":
 				rw.w(`.RB [ %s ]`, escRoff(fl.Long))
-			} else if fl.Short != "" {
+			case fl.Short != "":
 				rw.w(`.RB [ %s ]`, fl.Short)
 			}
 		}

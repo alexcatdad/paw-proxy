@@ -125,9 +125,10 @@ final class AppModel: ObservableObject {
         rows = RouteRow.rows(routes, now: Date())
         registration = services.registrar.state
         showAtLogin = services.loginItem?.isEnabled ?? false
-        presentation = .make(setupComplete: setupComplete, registration: registration,
-                             health: health, routeCount: routes.count,
-                             bundleVersion: bundleVersion, bundleBuild: bundleBuild)
+        presentation = .make(
+            setupComplete: setupComplete, registration: registration,
+            health: health, routeCount: routes.count,
+            bundleVersion: bundleVersion, bundleBuild: bundleBuild)
     }
 
     // MARK: Actions

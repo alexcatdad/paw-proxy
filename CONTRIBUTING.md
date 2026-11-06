@@ -22,6 +22,12 @@ Go backend work also runs in the devcontainer / GitHub Codespaces (Linux; no Swi
 - Branch from `main` and open a pull request back to `main`.
 - Use Conventional Commit messages (`feat:`, `fix:`, `docs:`, `test:`, `ci:`, `chore:`).
 - Run `task check` before pushing; add tests for new behaviour.
+- Lint is strict: golangci-lint `standard` plus gosec, errorlint, bodyclose,
+  misspell, revive and gocritic (`.golangci.yml`), and `swift format lint
+  --strict` with Swift warnings as errors. `task format` rewrites sources.
+- `task coverage` fails when Go `internal/` or `PawProxyNative` line coverage
+  drops below the floor in `scripts/coverage-go.sh` / `scripts/coverage-swift.sh`.
+  Raise a floor when coverage rises; never lower one to make a change pass.
 - Update `README.md`, `docs/index.html` and `man/` when shipped behaviour changes.
 - Use synthetic fixtures, never real credentials or personal data.
 - Describe the observable problem, the change, and the checks you ran.

@@ -113,7 +113,7 @@ func main() {
 			fmt.Println("Run: sudo paw-proxy setup")
 			os.Exit(1)
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 	}
 
 	// Check for Docker Compose mode
@@ -217,15 +217,16 @@ func main() {
 		case sig := <-sigCh:
 			gotSignal = true
 			// Forward signal to entire process group (negative PID)
-			syscall.Kill(-cmd.Process.Pid, sig.(syscall.Signal))
+			_ = syscall.Kill(-cmd.Process.Pid, sig.(syscall.Signal))
 			// Wait for child with timeout
 			select {
-			case <-doneCh:
+			case err := <-doneCh:
+				_ = err // after a forwarded signal, up exits 0 whatever the child returned
 			case <-time.After(5 * time.Second):
-				syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+				_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 			}
 		case err := <-doneCh:
-			if exitErr, ok := err.(*exec.ExitError); ok {
+			if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 				exitCode = exitErr.ExitCode()
 			} else {
 				exitCode = 0
@@ -263,7 +264,7 @@ func findFreePort() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
@@ -345,17 +346,17 @@ func registerRoute(client *http.Client, name, upstream, dir string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusConflict {
 		var errResp map[string]string
-		json.NewDecoder(resp.Body).Decode(&errResp)
+		_ = json.NewDecoder(resp.Body).Decode(&errResp)
 		return &conflictError{dir: errResp["existingDir"]}
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp map[string]string
-		json.NewDecoder(resp.Body).Decode(&errResp)
+		_ = json.NewDecoder(resp.Body).Decode(&errResp)
 		return fmt.Errorf("%s: %s", resp.Status, errResp["error"])
 	}
 
@@ -371,7 +372,7 @@ func deregisterRoute(client *http.Client, name string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
 		return fmt.Errorf("unexpected deregister status: %s", resp.Status)
@@ -406,10 +407,10 @@ func heartbeatWithInterval(ctx context.Context, client *http.Client, state *rout
 			}
 
 			if resp.StatusCode == http.StatusOK {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 				continue
 			}
-			resp.Body.Close()
+			_ = resp.Body.Close()
 
 			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
 				name, upstream, dir := state.Snapshot()

@@ -77,7 +77,7 @@ func TestDoctorTLS(t *testing.T) {
 				// Backend availability must not affect TLS diagnostics.
 				w.WriteHeader(http.StatusBadGateway)
 			}))
-			srv.Listener.Close()
+			_ = srv.Listener.Close()
 			srv.Listener = listener
 			srv.StartTLS()
 			defer srv.Close()

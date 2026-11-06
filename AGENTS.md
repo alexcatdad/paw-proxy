@@ -22,7 +22,7 @@ Zero-config HTTPS for local development: `https://<name>.test` for any dev serve
 
 ## Build & verify
 
-- `task check` — the full local gate: gofmt, go vet, golangci-lint, Go and Swift builds, race tests, Swift tests, package-script tests, govulncheck. CI runs the same tasks.
+- `task check` — the full local gate: gofmt, go vet, golangci-lint, swift-format (strict), Go and Swift builds (Swift warnings are errors), race tests, Go and Swift coverage floors (`task coverage`), package-script tests, govulncheck. CI runs the same tasks.
 - `task lint`, `task build`, `task test`, `task security` — what CI calls (`alexcatdad/ci-actions` validate-pr/validate-main).
 - `integration-tests.sh` and `lifecycle-tests.sh` change system state (`sudo paw-proxy setup`); run them by hand on a machine you can reset.
 - When shipped behaviour changes, update `README.md`, `docs/index.html` and the man pages, and add tests.

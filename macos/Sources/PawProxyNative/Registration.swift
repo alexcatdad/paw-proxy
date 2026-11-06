@@ -1,6 +1,7 @@
 import Foundation
+
 #if canImport(ServiceManagement)
-import ServiceManagement
+    import ServiceManagement
 #endif
 
 /// Registration state of the app-owned daemon agent.
@@ -40,39 +41,39 @@ public protocol LoginItem: Sendable {
 }
 
 #if canImport(ServiceManagement)
-/// Wraps SMAppService.mainApp.
-public struct MainAppLoginItem: LoginItem {
-    public init() {}
-    public var isEnabled: Bool { SMAppService.mainApp.status == .enabled }
-    public func setEnabled(_ enabled: Bool) throws {
-        let app = SMAppService.mainApp
-        if enabled {
-            if app.status != .enabled { try app.register() }
-        } else if app.status == .enabled || app.status == .requiresApproval {
-            try app.unregister()
-        }
-    }
-}
-
-/// Wraps SMAppService.agent for the bundled daemon plist.
-public struct AgentRegistrar: Registrar {
-    public var plistName: String
-    public init(plistName: String = Identity.daemonPlistName) { self.plistName = plistName }
-
-    private var service: SMAppService { SMAppService.agent(plistName: plistName) }
-
-    public var state: RegistrationState {
-        switch service.status {
-        case .enabled: return .enabled
-        case .requiresApproval: return .requiresApproval
-        case .notRegistered: return .notRegistered
-        case .notFound: return .notFound
-        @unknown default: return .notFound
+    /// Wraps SMAppService.mainApp.
+    public struct MainAppLoginItem: LoginItem {
+        public init() {}
+        public var isEnabled: Bool { SMAppService.mainApp.status == .enabled }
+        public func setEnabled(_ enabled: Bool) throws {
+            let app = SMAppService.mainApp
+            if enabled {
+                if app.status != .enabled { try app.register() }
+            } else if app.status == .enabled || app.status == .requiresApproval {
+                try app.unregister()
+            }
         }
     }
 
-    public func register() throws { try service.register() }
-    public func unregister() throws { try service.unregister() }
-    public func openLoginItems() { SMAppService.openSystemSettingsLoginItems() }
-}
+    /// Wraps SMAppService.agent for the bundled daemon plist.
+    public struct AgentRegistrar: Registrar {
+        public var plistName: String
+        public init(plistName: String = Identity.daemonPlistName) { self.plistName = plistName }
+
+        private var service: SMAppService { SMAppService.agent(plistName: plistName) }
+
+        public var state: RegistrationState {
+            switch service.status {
+            case .enabled: return .enabled
+            case .requiresApproval: return .requiresApproval
+            case .notRegistered: return .notRegistered
+            case .notFound: return .notFound
+            @unknown default: return .notFound
+            }
+        }
+
+        public func register() throws { try service.register() }
+        public func unregister() throws { try service.unregister() }
+        public func openLoginItems() { SMAppService.openSystemSettingsLoginItems() }
+    }
 #endif

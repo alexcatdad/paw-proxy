@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import PawProxyNative
 
 /// internal/desktop/testdata/vectors.json, shared with the Go test suite.
@@ -33,7 +34,8 @@ private struct Vectors: Decodable {
         // Everything the app writes must also be accepted by the CLI: a valid
         // vector re-encoded by Swift parses back to the same reply.
         if let parsed {
-            let data = try JSONEncoder().encode(Desktop.Reply(id: parsed.id, outcome: parsed.outcome, detail: parsed.detail))
+            let data = try JSONEncoder().encode(
+                Desktop.Reply(id: parsed.id, outcome: parsed.outcome, detail: parsed.detail))
             #expect(try Desktop.parseReply(data, id: v.id) == parsed)
         }
     }
@@ -141,7 +143,7 @@ private func agent(for r: RequestDir) -> (DaemonAgent, FakeRegistrar) {
     url = try r.write(r.request("unregister"))
     #expect(RequestHandler.handle(requestPath: url.path, paths: r.paths, agent: a, loginItem: item) == 0)
     #expect(try r.reply().outcome == .unregistered)
-    #expect(!item.enabled) // the menu-bar login item goes too
+    #expect(!item.enabled)  // the menu-bar login item goes too
 }
 
 @Test func handlerReportsInvalidRequestsAsFailed() throws {
@@ -155,8 +157,10 @@ private func agent(for r: RequestDir) -> (DaemonAgent, FakeRegistrar) {
 
 @Test func handlerWritesNothingForUntrustedPaths() throws {
     let r = try RequestDir()
-    #expect(RequestHandler.handle(requestPath: "/tmp/\(r.id).json", paths: r.paths,
-                                  agent: agent(for: r).0, loginItem: nil) == 2)
+    #expect(
+        RequestHandler.handle(
+            requestPath: "/tmp/\(r.id).json", paths: r.paths,
+            agent: agent(for: r).0, loginItem: nil) == 2)
     #expect(!r.replyExists)
 }
 

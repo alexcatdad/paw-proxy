@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import PawProxyNative
 
 @Test func parsesResponses() throws {
@@ -13,7 +14,8 @@ import Testing
 }
 
 @Test func missingSocketIsAConnectError() {
-    let client = DaemonClient(socketPath: "/tmp/paw-proxy-does-not-exist-\(UUID().uuidString.prefix(8)).sock", timeout: 1)
+    let client = DaemonClient(
+        socketPath: "/tmp/paw-proxy-does-not-exist-\(UUID().uuidString.prefix(8)).sock", timeout: 1)
     #expect(throws: DaemonClientError.connect(ENOENT)) { try client.health() }
 }
 
@@ -47,7 +49,7 @@ func talksToTheGoDaemon() throws {
     let socket = dir.appendingPathComponent("d.sock").path
     let daemon = Process()
     daemon.executableURL = bin
-    daemon.arguments = ["-socket", socket, "-routes", "60"] // > 2 KiB of JSON
+    daemon.arguments = ["-socket", socket, "-routes", "60"]  // > 2 KiB of JSON
     try daemon.run()
     defer { daemon.terminate(); daemon.waitUntilExit() }
 

@@ -19,7 +19,7 @@ func restartService() error {
 		return err
 	}
 	if out, err := exec.Command("launchctl", args...).CombinedOutput(); err != nil {
-		return fmt.Errorf("launchctl %v: %v: %s", args, err, out)
+		return fmt.Errorf("launchctl %v: %w: %s", args, err, out)
 	}
 	return nil
 }

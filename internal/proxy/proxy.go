@@ -43,7 +43,7 @@ func dialLoopbackPort(port string, timeout time.Duration) (net.Conn, error) {
 	if ipv6Err == nil {
 		return conn, nil
 	}
-	return nil, fmt.Errorf("upstream unreachable: IPv4: %v, IPv6: %v", ipv4Err, ipv6Err)
+	return nil, fmt.Errorf("upstream unreachable: IPv4: %w, IPv6: %w", ipv4Err, ipv6Err)
 }
 
 func New() *Proxy {
@@ -127,7 +127,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request, upstream strin
 		serveUpstreamError(w, r.Host, upstream, err)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Copy response headers
 	for k, vv := range resp.Header {
@@ -143,7 +143,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request, upstream strin
 }
 
 func serveUpstreamError(w http.ResponseWriter, host string, upstream string, err error) {
-	log.Printf("proxy: upstream error for %s -> %s: %v", host, upstream, err)
+	log.Printf("proxy: upstream error for %q -> %q: %v", host, upstream, err) //nolint:gosec // G706: %q escapes control characters, so a Host header cannot forge log lines
 	errorpage.UpstreamDown(w, host, upstream)
 }
 
@@ -198,21 +198,21 @@ func (p *Proxy) handleWebSocket(w http.ResponseWriter, r *http.Request, upstream
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer clientConn.Close()
+	defer func() { _ = clientConn.Close() }()
 
 	// Connect to upstream
 	port, err := extractAndValidateUpstreamPort(upstream)
 	if err != nil {
 		log.Printf("websocket: upstream validation failed: %v", err)
-		clientConn.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
+		_, _ = clientConn.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
 		return
 	}
 	upstreamConn, err := dialLoopbackPort(port, 5*time.Second)
 	if err != nil {
-		clientConn.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
+		_, _ = clientConn.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
 		return
 	}
-	defer upstreamConn.Close()
+	defer func() { _ = upstreamConn.Close() }()
 
 	// Wrap connections with idle timeout instead of absolute deadline.
 	// Each Read/Write resets the deadline, so the connection stays open
@@ -221,7 +221,10 @@ func (p *Proxy) handleWebSocket(w http.ResponseWriter, r *http.Request, upstream
 	upstreamIdle := &idleTimeoutConn{Conn: upstreamConn, timeout: wsIdleTimeout}
 
 	// Forward the original request
-	r.Write(upstreamConn)
+	if err := r.Write(upstreamConn); err != nil {
+		log.Printf("websocket: forwarding handshake upstream: %v", err)
+		return
+	}
 
 	// Bidirectional copy — wait for BOTH goroutines to finish to avoid
 	// goroutine leaks. When one direction's io.Copy returns (client

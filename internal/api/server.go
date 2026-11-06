@@ -4,6 +4,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -67,14 +68,14 @@ func NewServer(socketPath string, registry *RouteRegistry) *Server {
 	mux.HandleFunc("POST /notifications", rateLimit(notifyLimiter, s.handleNotify))
 	mux.HandleFunc("GET /notifications", rateLimit(notificationListLimiter, s.handleNotifications))
 
-	s.server = &http.Server{Handler: mux}
+	s.server = &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 
 	return s
 }
 
 func (s *Server) Start() error {
 	// Remove existing socket
-	os.Remove(s.socketPath)
+	_ = os.Remove(s.socketPath)
 
 	// SECURITY: Set umask before creating socket so it is born with 0600
 	// permissions. This avoids the TOCTOU race between Listen and Chmod
@@ -189,7 +190,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 	err := s.registry.Register(req.Name, req.Upstream, req.Dir)
 	if err != nil {
-		if conflict, ok := err.(*ConflictError); ok {
+		if conflict, ok := errors.AsType[*ConflictError](err); ok {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusConflict)
 			if encErr := json.NewEncoder(w).Encode(map[string]string{
@@ -200,7 +201,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
-		if limit, ok := err.(*LimitError); ok {
+		if limit, ok := errors.AsType[*LimitError](err); ok {
 			jsonError(w, fmt.Sprintf("route limit reached (%d)", limit.Limit), http.StatusTooManyRequests)
 			return
 		}

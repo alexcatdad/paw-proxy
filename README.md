@@ -202,7 +202,7 @@ paw-proxy uninstall
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md).
 
 ```bash
-task check   # lint, build, race tests, Swift tests, govulncheck (what CI runs)
+task check   # lint, build, race tests, coverage floors, Swift tests, govulncheck (what CI runs)
 
 # Integration tests (changes system state; requires setup)
 sudo ./paw-proxy setup

@@ -1,4 +1,5 @@
 import Testing
+
 @testable import PawProxyNative
 
 @Test(arguments: [
@@ -6,9 +7,9 @@ import Testing
     ("2026.11.1", "3", "2026.11.1", "3", UpdateState.current),
     ("2026.11.2", "1", "2026.11.1", "3", .restartNeeded(running: "2026.11.1 (build 3)")),
     ("2026.11.1", "4", "2026.11.1", "3", .restartNeeded(running: "2026.11.1 (build 3)")),
-    ("2026.11.1", "3", "2026.11.1", "", .current),          // daemon predates build reporting
-    ("2026.11.1", "3", "1.12.3", "", .restartNeeded(running: "1.12.3")), // legacy formula daemon
-    ("dev", "1", "2026.11.1", "3", .current),               // dev bundle never nags
+    ("2026.11.1", "3", "2026.11.1", "", .current),  // daemon predates build reporting
+    ("2026.11.1", "3", "1.12.3", "", .restartNeeded(running: "1.12.3")),  // legacy formula daemon
+    ("dev", "1", "2026.11.1", "3", .current),  // dev bundle never nags
     ("2026.11.1", "3", "dev", "", .current),
     ("2026.11.1", "3", "ci-abc1234", "", .current),
 ])

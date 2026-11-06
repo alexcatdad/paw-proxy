@@ -128,7 +128,8 @@ public struct RouteEventFeed: Equatable, Sendable {
     /// proxy's own TLD, whatever else the userInfo carries.
     public static func clickURL(_ userInfo: [String: String], tld: String = "test") -> URL? {
         guard let raw = userInfo["url"], let url = URL(string: raw), url.scheme == "https",
-              let host = url.host, host.hasSuffix(".\(tld)") else { return nil }
+            let host = url.host, host.hasSuffix(".\(tld)")
+        else { return nil }
         return url
     }
 

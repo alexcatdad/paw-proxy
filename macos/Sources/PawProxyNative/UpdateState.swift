@@ -6,8 +6,10 @@ public enum UpdateState: Equatable, Sendable {
     case current
     case restartNeeded(running: String)
 
-    public static func compare(bundleVersion: String, bundleBuild: String,
-                               daemonVersion: String, daemonBuild: String) -> UpdateState {
+    public static func compare(
+        bundleVersion: String, bundleBuild: String,
+        daemonVersion: String, daemonBuild: String
+    ) -> UpdateState {
         if isDev(bundleVersion) || isDev(daemonVersion) { return .current }
         if bundleVersion != daemonVersion {
             return .restartNeeded(running: describe(daemonVersion, daemonBuild))

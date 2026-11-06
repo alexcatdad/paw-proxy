@@ -23,5 +23,5 @@ func reportNotification(client *http.Client, kind string, routes ...string) {
 	if err != nil {
 		return
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 }

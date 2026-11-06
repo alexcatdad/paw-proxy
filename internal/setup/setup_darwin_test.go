@@ -38,10 +38,10 @@ func TestChownToRealUser_NoSUDO_USER(t *testing.T) {
 
 	// Ensure SUDO_USER is not set
 	old := os.Getenv("SUDO_USER")
-	os.Unsetenv("SUDO_USER")
+	_ = os.Unsetenv("SUDO_USER")
 	defer func() {
 		if old != "" {
-			os.Setenv("SUDO_USER", old)
+			_ = os.Setenv("SUDO_USER", old)
 		}
 	}()
 

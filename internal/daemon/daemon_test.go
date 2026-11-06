@@ -123,7 +123,7 @@ func TestStatusCapture_WriteImplies200(t *testing.T) {
 	w := httptest.NewRecorder()
 	sc := &statusCapture{ResponseWriter: w}
 
-	sc.Write([]byte("hello"))
+	_, _ = sc.Write([]byte("hello"))
 
 	if sc.status != 200 {
 		t.Errorf("expected implicit status 200 from Write, got %d", sc.status)
@@ -178,7 +178,7 @@ func TestMaxHeaderBytes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("createHTTPServer: %v", err)
 	}
-	defer httpLn.Close()
+	defer func() { _ = httpLn.Close() }()
 	if httpSrv.MaxHeaderBytes != want {
 		t.Errorf("HTTP server MaxHeaderBytes = %d, want %d", httpSrv.MaxHeaderBytes, want)
 	}
@@ -187,7 +187,7 @@ func TestMaxHeaderBytes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("createHTTPSServer: %v", err)
 	}
-	defer httpsLn.Close()
+	defer func() { _ = httpsLn.Close() }()
 	if httpsSrv.MaxHeaderBytes != want {
 		t.Errorf("HTTPS server MaxHeaderBytes = %d, want %d", httpsSrv.MaxHeaderBytes, want)
 	}
@@ -202,7 +202,7 @@ func TestLogFilePermissions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("opening log file: %v", err)
 	}
-	f.Close()
+	_ = f.Close()
 
 	info, err := os.Stat(logPath)
 	if err != nil {

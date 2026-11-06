@@ -51,23 +51,29 @@ func GenerateCA(certPath, keyPath string) error {
 	}
 
 	// SECURITY: Write cert with explicit 0644 permissions (public cert, readable by all)
-	certOut, err := os.OpenFile(certPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	certOut, err := os.OpenFile(certPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644) //nolint:gosec // G302/G304: the CA certificate is public and must be readable; the path comes from internal/paths
 	if err != nil {
 		return fmt.Errorf("creating cert file: %w", err)
 	}
-	defer certOut.Close()
 	if err := pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
+		_ = certOut.Close()
 		return fmt.Errorf("encoding certificate: %w", err)
+	}
+	if err := certOut.Close(); err != nil {
+		return fmt.Errorf("writing cert file: %w", err)
 	}
 
 	// SECURITY: Write key with 0600 permissions (private key, owner-only)
-	keyOut, err := os.OpenFile(keyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	keyOut, err := os.OpenFile(keyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600) //nolint:gosec // G304: the path comes from internal/paths, not from user input
 	if err != nil {
 		return fmt.Errorf("creating key file: %w", err)
 	}
-	defer keyOut.Close()
 	if err := pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)}); err != nil {
+		_ = keyOut.Close()
 		return fmt.Errorf("encoding private key: %w", err)
+	}
+	if err := keyOut.Close(); err != nil {
+		return fmt.Errorf("writing key file: %w", err)
 	}
 
 	return nil

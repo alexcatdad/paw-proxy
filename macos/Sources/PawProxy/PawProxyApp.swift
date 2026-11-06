@@ -5,7 +5,8 @@ import SwiftUI
 
 struct PawProxyApp: App {
     @StateObject private var model = AppModel()
-    private let trayIcon = TrayIconLoader.load(resourcesDirectory: Bundle.main.resourceURL, baseName: "PawProxyTrayIcon")
+    private let trayIcon = TrayIconLoader.load(
+        resourcesDirectory: Bundle.main.resourceURL, baseName: "PawProxyTrayIcon")
 
     var body: some Scene {
         MenuBarExtra {
@@ -13,8 +14,9 @@ struct PawProxyApp: App {
         } label: {
             // Constant paw glyph; MenubarKit adds the badge for any non-OK
             // tone, the DEV caption and "Paw Proxy, <status>" for VoiceOver.
-            TrayLabel(icon: trayIcon, fallbackSymbol: "pawprint.fill", status: model.presentation.status,
-                      appName: "Paw Proxy", isDevelopment: model.isDevelopment)
+            TrayLabel(
+                icon: trayIcon, fallbackSymbol: "pawprint.fill", status: model.presentation.status,
+                appName: "Paw Proxy", isDevelopment: model.isDevelopment)
         }
         .menuBarExtraStyle(.window)
 
@@ -30,9 +32,12 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Toggle("Show in menu bar at login", isOn: Binding(
-                get: { model.showAtLogin }, set: { model.setShowAtLogin($0) }))
-                .disabled(model.isDevelopment)
+            Toggle(
+                "Show in menu bar at login",
+                isOn: Binding(
+                    get: { model.showAtLogin }, set: { model.setShowAtLogin($0) })
+            )
+            .disabled(model.isDevelopment)
             if model.isDevelopment {
                 Text("Dev builds never register a login item.").font(.caption).foregroundStyle(.secondary)
             }

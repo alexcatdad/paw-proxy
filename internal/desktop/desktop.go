@@ -90,7 +90,7 @@ func (c *Client) Send(ctx context.Context, op Op) (Reply, error) {
 	if err := os.MkdirAll(c.Dir, 0o700); err != nil {
 		return Reply{}, fmt.Errorf("creating request dir: %w", err)
 	}
-	if err := os.Chmod(c.Dir, 0o700); err != nil {
+	if err := os.Chmod(c.Dir, 0o700); err != nil { //nolint:gosec // G302: a directory needs the execute bit; 0700 is owner-only
 		return Reply{}, err
 	}
 	if err := c.chown(c.Dir); err != nil {
@@ -99,8 +99,8 @@ func (c *Client) Send(ctx context.Context, op Op) (Reply, error) {
 
 	reqPath := filepath.Join(c.Dir, id+".json")
 	replyPath := filepath.Join(c.Dir, id+".reply.json")
-	defer os.Remove(reqPath)
-	defer os.Remove(replyPath)
+	defer func() { _ = os.Remove(reqPath) }()
+	defer func() { _ = os.Remove(replyPath) }()
 
 	data, err := json.Marshal(Request{Version: ProtocolVersion, ID: id, Op: op})
 	if err != nil {
@@ -179,7 +179,7 @@ func writePrivate(path string, data []byte) error {
 		return err
 	}
 	if _, err := f.Write(data); err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 	return f.Close()
@@ -200,7 +200,7 @@ func readReply(path, id string, owner int) (Reply, error) {
 	if err != nil {
 		return Reply{}, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	data, err := io.ReadAll(io.LimitReader(f, maxFileSize+1))
 	if err != nil {
 		return Reply{}, err

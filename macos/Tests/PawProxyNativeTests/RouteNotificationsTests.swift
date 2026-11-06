@@ -1,6 +1,7 @@
 import Foundation
 import MenubarKit
 import Testing
+
 @testable import PawProxyNative
 
 private let t0 = Date(timeIntervalSince1970: 1_800_000_000)
@@ -65,15 +66,19 @@ private func page(_ cursor: UInt64, _ events: RouteEvent...) -> RouteEventPage {
     #expect(down.title == "shop.test stopped")
     #expect(down.userInfo.isEmpty)
     // Route order does not change the identity.
-    #expect(RouteEventFeed.notification(for: live(1, "b", "a")).identifier
-        == RouteEventFeed.notification(for: live(2, "a", "b")).identifier)
+    #expect(
+        RouteEventFeed.notification(for: live(1, "b", "a")).identifier
+            == RouteEventFeed.notification(for: live(2, "a", "b")).identifier)
 }
 
 @Test func liveNotificationWording() {
     let one = RouteEventFeed.notification(for: live(1, "shop"))
-    #expect(one == MenubarNotification(title: "shop.test is live", body: "https://shop.test",
-                                       threadIdentifier: "routes.live", identifier: "paw-proxy.routes.shop",
-                                       userInfo: ["url": "https://shop.test"]))
+    #expect(
+        one
+            == MenubarNotification(
+                title: "shop.test is live", body: "https://shop.test",
+                threadIdentifier: "routes.live", identifier: "paw-proxy.routes.shop",
+                userInfo: ["url": "https://shop.test"]))
     let many = RouteEventFeed.notification(for: live(1, "web", "api", "db", "cache", "queue"))
     #expect(many.title == "5 projects are live")
     #expect(many.body == "web.test, api.test, db.test and 2 more")
@@ -90,18 +95,19 @@ private func page(_ cursor: UInt64, _ events: RouteEvent...) -> RouteEventPage {
 
 @Test func decodesTheDaemonPageAndSkipsUnknownKinds() throws {
     let json = """
-    {"cursor":3,"notifications":[
-      {"id":1,"kind":"routes.live","routes":["shop","api.shop"],"time":"2026-11-05T10:00:00.123456789+02:00"},
-      {"id":2,"kind":"routes.renamed","routes":["x"],"time":"2026-11-05T10:00:01Z"},
-      {"id":3,"kind":"routes.removed","routes":["shop"],"time":"2026-11-05T10:00:02Z"}]}
-    """
+        {"cursor":3,"notifications":[
+          {"id":1,"kind":"routes.live","routes":["shop","api.shop"],"time":"2026-11-05T10:00:00.123456789+02:00"},
+          {"id":2,"kind":"routes.renamed","routes":["x"],"time":"2026-11-05T10:00:01Z"},
+          {"id":3,"kind":"routes.removed","routes":["shop"],"time":"2026-11-05T10:00:02Z"}]}
+        """
     let page = try DaemonJSON.decoder().decode(RouteEventPage.self, from: Data(json.utf8))
     #expect(page.cursor == 3)
     #expect(page.events.map(\.id) == [1, 3])
     #expect(page.events[0].routes == ["shop", "api.shop"])
     #expect(page.events[1].kind == .removed)
 
-    let empty = try DaemonJSON.decoder().decode(RouteEventPage.self, from: Data(#"{"cursor":0,"notifications":[]}"#.utf8))
+    let empty = try DaemonJSON.decoder().decode(
+        RouteEventPage.self, from: Data(#"{"cursor":0,"notifications":[]}"#.utf8))
     #expect(empty == RouteEventPage(cursor: 0, events: []))
 }
 

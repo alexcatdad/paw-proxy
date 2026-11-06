@@ -131,20 +131,28 @@ func cmdRun() {
 	if err != nil {
 		log.Fatalf("Failed to open log file: %v", err)
 	}
-	defer logFile.Close()
 	// Write to both log file and stderr so startup failures are visible
 	// when the daemon is run directly (e.g., CI, debugging).
 	log.SetOutput(io.MultiWriter(logFile, os.Stderr))
 
 	d, err := daemon.New(config)
 	if err != nil {
-		log.Fatalf("Failed to create daemon: %v", err)
+		closeAndFatalf(logFile, "Failed to create daemon: %v", err)
 	}
 
 	log.Println("paw-proxy daemon starting...")
 	if err := d.Run(); err != nil {
-		log.Fatalf("Daemon error: %v", err)
+		closeAndFatalf(logFile, "Daemon error: %v", err)
 	}
+	_ = logFile.Close()
+}
+
+// closeAndFatalf logs, closes the log file and exits. log.Fatalf would skip
+// the close, so the last line could be lost.
+func closeAndFatalf(logFile *os.File, format string, args ...any) {
+	log.Printf(format, args...)
+	_ = logFile.Close()
+	os.Exit(1)
 }
 
 func cmdSetup() {
@@ -229,14 +237,17 @@ func cmdStatus() {
 		fmt.Println("Run: sudo paw-proxy setup")
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var health struct {
 		Status  string `json:"status"`
 		Version string `json:"version"`
 		Uptime  string `json:"uptime"`
 	}
-	json.NewDecoder(resp.Body).Decode(&health)
+	if err := json.NewDecoder(resp.Body).Decode(&health); err != nil {
+		fmt.Printf("Status: ⚠️  Running, but the health response could not be read: %v\n", err)
+		return
+	}
 
 	fmt.Printf("Status: ✅ Running (v%s, up %s)\n", health.Version, health.Uptime)
 	fmt.Println("")
@@ -246,7 +257,7 @@ func cmdStatus() {
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var routes []struct {
 		Name          string    `json:"name"`
@@ -255,7 +266,10 @@ func cmdStatus() {
 		Registered    time.Time `json:"registered"`
 		LastHeartbeat time.Time `json:"lastHeartbeat"`
 	}
-	json.NewDecoder(resp.Body).Decode(&routes)
+	if err := json.NewDecoder(resp.Body).Decode(&routes); err != nil {
+		fmt.Printf("Routes: could not be read: %v\n", err)
+		return
+	}
 
 	if len(routes) == 0 {
 		fmt.Println("Routes: (none)")
@@ -291,21 +305,21 @@ func cmdLogs() {
 
 	// Parse flags
 	tail := false
-	clear := false
+	clearLog := false
 	for _, arg := range os.Args[2:] {
 		switch arg {
 		case "--tail", "-f":
 			tail = true
-		case "--clear":
-			clear = true
+		case "--clearLog":
+			clearLog = true
 		default:
 			fmt.Printf("Unknown flag: %s\n", arg)
-			fmt.Println("Usage: paw-proxy logs [--tail|-f] [--clear]")
+			fmt.Println("Usage: paw-proxy logs [--tail|-f] [--clearLog]")
 			os.Exit(1)
 		}
 	}
 
-	if clear {
+	if clearLog {
 		if err := os.Truncate(config.LogPath, 0); err != nil {
 			if os.IsNotExist(err) {
 				fmt.Println("No log file found")
@@ -397,7 +411,7 @@ func cmdDoctor() {
 		} else {
 			printCheck(true, "Daemon running (v%s, up %s)", health.Version, health.Uptime)
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 	}
 
 	// 3. Check DNS resolver (platform-specific)
@@ -453,13 +467,14 @@ func cmdDoctor() {
 				roots = x509.NewCertPool()
 				roots.AddCert(cert)
 				daysLeft := int(time.Until(cert.NotAfter).Hours() / 24)
-				if daysLeft < 0 {
+				switch {
+				case daysLeft < 0:
 					printCheck(false, "CA certificate expired %d days ago", -daysLeft)
 					issues++
-				} else if daysLeft < 30 {
+				case daysLeft < 30:
 					printCheck(false, "CA certificate expires in %d days -- re-run setup", daysLeft)
 					issues++
-				} else {
+				default:
 					printCheck(true, "CA certificate valid (expires %s)", cert.NotAfter.Format("2006-01-02"))
 				}
 			}
@@ -473,7 +488,7 @@ func cmdDoctor() {
 			printCheck(false, "Port %d not listening", port)
 			issues++
 		} else {
-			conn.Close()
+			_ = conn.Close()
 			printCheck(true, "Port %d listening", port)
 		}
 	}
@@ -523,11 +538,11 @@ func cmdLogsTail(path string) {
 		fmt.Printf("Error opening log: %v\n", err)
 		os.Exit(1)
 	}
-	defer f.Close()
 
 	// Seek to end
 	if _, err := f.Seek(0, io.SeekEnd); err != nil {
 		fmt.Printf("Error seeking: %v\n", err)
+		_ = f.Close()
 		os.Exit(1)
 	}
 
@@ -537,7 +552,7 @@ func cmdLogsTail(path string) {
 	for {
 		n, err := f.Read(buf)
 		if n > 0 {
-			os.Stdout.Write(buf[:n])
+			_, _ = os.Stdout.Write(buf[:n])
 		}
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -546,6 +561,7 @@ func cmdLogsTail(path string) {
 				continue
 			}
 			fmt.Printf("Error reading log: %v\n", err)
+			_ = f.Close()
 			return
 		}
 	}
