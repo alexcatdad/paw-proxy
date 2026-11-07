@@ -11,11 +11,11 @@ let package = Package(
     ],
     dependencies: [
         // First-party tray, panel and notification building blocks.
-        // menubar-kit v2026.11.06.1. SwiftPM cannot resolve four-part CalVer
+        // menubar-kit v2026.11.07.1. SwiftPM cannot resolve four-part CalVer
         // tags, so the tag's commit is pinned instead.
         .package(
             url: "https://github.com/alexcatdad/menubar-kit.git",
-            revision: "02c011866c9a0fbb18bce21b2910410f87642860")
+            revision: "4027df8aaafd84a9c3dc46571477c76b5d74921d")
     ],
     targets: [
         // All testable logic lives in PawProxyNative; the app target is UI glue.
