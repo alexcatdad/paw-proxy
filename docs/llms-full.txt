@@ -1,20 +1,25 @@
-# paw-proxy
+# Paw Proxy (paw-proxy)
 
 > Zero-config HTTPS proxy for local macOS development. Provides automatic HTTPS for .test domains with trusted certificates, DNS resolution, and reverse proxying — no per-project configuration needed.
 
 paw-proxy eliminates the friction of local HTTPS development. It runs a daemon that handles DNS resolution (`*.test` → `127.0.0.1`), generates trusted TLS certificates on demand, and reverse-proxies HTTPS traffic to your dev server's local port.
 
-Two binaries: `paw-proxy` (daemon and management CLI) and `up` (dev server wrapper). Run `up bun dev` and your app is instantly available at `https://myapp.test`.
+Two binaries: `paw-proxy` (daemon and management CLI) and `up` (dev server wrapper), shipped inside Paw Proxy.app, a macOS menu bar app that runs the daemon as its background item and shows your routes. Run `up bun dev` and your app is available at `https://myapp.test`.
+
+Requirements: macOS 13 or later, Apple silicon. Distributed as a Homebrew cask.
 
 Key features:
 - Automatic .test TLD DNS resolution (local DNS server on port 9353)
 - On-demand HTTPS certificate generation (ECDSA P-256, signed by local CA)
 - WebSocket support with raw TCP proxying
 - Unix socket API for route management
-- LaunchAgent integration for automatic daemon start on macOS
+- Daemon runs as Paw Proxy.app's background item (SMAppService agent `com.alexcatdad.paw-proxy.daemon`)
+- Docker Compose mode: `up docker compose up` registers `service.project.test` for each service with a published port
+- Worktree-friendly: a name already in use from another directory falls back to the directory name
 - Smart naming from package.json or directory name
 - Auto-restart on crash with `--restart` flag
-- Live web dashboard at `https://_paw.test` with real-time request feed and route stats
+- Menu bar app: status header, setup/background item/daemon rows, route list (click to open), status badge on the tray icon, opt-in "project is live" notifications
+- No telemetry, analytics or network update checks
 
 ## Installation
 
@@ -25,16 +30,11 @@ brew install --cask alexcatdad/tap/paw-proxy
 sudo paw-proxy setup
 ```
 
+The cask installs Paw Proxy.app and links its bundled `paw-proxy` and `up` helpers onto your PATH. Upgrade with `brew upgrade --cask paw-proxy`; the menu bar panel offers "Restart to finish update" until the daemon runs the new version (or run `paw-proxy restart`).
+
 ### From Source
 
-```
-git clone https://github.com/alexcatdad/paw-proxy.git
-cd paw-proxy
-go build -o paw-proxy ./cmd/paw-proxy
-go build -o up ./cmd/up
-sudo cp paw-proxy up /usr/local/bin/
-sudo paw-proxy setup
-```
+Bare binaries are for development. On macOS, setup expects `paw-proxy` inside Paw Proxy.app and refuses to write the legacy LaunchAgent unless you pass `--legacy-launchagent`. See CONTRIBUTING.md for building the app (`task macos:dev`).
 
 ### What Setup Does
 
@@ -42,7 +42,9 @@ sudo paw-proxy setup
 2. Generates CA certificate: RSA 4096-bit, 10-year validity, saved as `ca.crt` and `ca.key` (mode 0600)
 3. Trusts CA in macOS keychain (login keychain, falls back to System keychain)
 4. Creates DNS resolver: `/etc/resolver/test` pointing to `127.0.0.1:9353`
-5. Installs LaunchAgent: `~/Library/LaunchAgents/com.alexcatdad.paw-proxy.plist`
+5. Hands the daemon to Paw Proxy.app, which registers it as a background item (macOS may show "Background Items Added", or ask you to allow it in System Settings › General › Login Items)
+
+Restart your browser afterwards so it picks up the new CA.
 
 ### Uninstall
 
@@ -50,7 +52,7 @@ sudo paw-proxy setup
 sudo paw-proxy uninstall
 ```
 
-Removes CA from keychain, deletes resolver, unloads and removes LaunchAgent, deletes support directory.
+Removes CA from keychain, deletes resolver, stops and removes the daemon, deletes support directory. Then `brew uninstall --cask paw-proxy` removes the app.
 
 ## Usage
 
@@ -111,6 +113,28 @@ up --restart bun dev
 
 Sanitization: lowercase, replace non-alphanumeric with `-`, trim leading/trailing `-`, prepend `app-` if starts with digit, max 63 chars.
 
+If the name is already registered from a different directory (e.g. a git worktree of the same project), `up` falls back to the directory name and prints a warning.
+
+### Docker Compose
+
+```
+up docker compose up
+# Mapping https://frontend.myapp.test -> localhost:3000...
+# Mapping https://api.myapp.test -> localhost:8080...
+```
+
+Every service with a published port gets `<service>.<project>.test`; services without published ports are skipped. `-n` overrides the project name; compose flags (`--profile`, `-f`) pass through.
+
+## Menu Bar App
+
+Paw Proxy.app lives in the menu bar (paw icon; a badge appears when setup, approval, the daemon or an update needs attention). The panel shows:
+- A status header: "Running — N routes", or what needs doing ("Setup needed", "Waiting for approval", "Proxy not responding", "Restart to finish update") with one primary action button
+- Rows for Setup (CA and DNS), Background item (macOS approval) and Daemon (version and uptime)
+- Routes: each name with upstream port, project folder and last heartbeat; stale routes are dimmed; click to open, right-click to copy the URL
+- Restart proxy, Open logs, Turn proxy off, Settings, Quit (the proxy keeps running after you quit)
+
+Settings: "Notify me when projects go live" (off by default; macOS asks for permission when turned on), "Play a sound" (notifications are silent otherwise), "Launch at login". Notifications are posted by the app bundle; `up` reports route events to the daemon (`POST /notifications`) and the app polls them (`GET /notifications`). Clicking a notification opens the project's URL.
+
 ## CLI Commands
 
 ### paw-proxy setup
@@ -119,7 +143,7 @@ Sanitization: lowercase, replace non-alphanumeric with `-`, trim leading/trailin
 sudo paw-proxy setup
 ```
 
-Performs complete setup: CA generation, keychain trust, DNS resolver, LaunchAgent. Idempotent — safe to re-run. Requires sudo for `/etc/resolver` and keychain modifications.
+Performs complete setup: CA generation, keychain trust, DNS resolver, daemon registration through Paw Proxy.app. Idempotent — safe to re-run. Requires sudo for `/etc/resolver` and keychain modifications.
 
 ### paw-proxy uninstall
 
@@ -127,7 +151,15 @@ Performs complete setup: CA generation, keychain trust, DNS resolver, LaunchAgen
 sudo paw-proxy uninstall [--brew]
 ```
 
-Removes all paw-proxy components. The `--brew` flag skips the interactive CA removal prompt (used by Homebrew's uninstall hook).
+Removes all paw-proxy components. The `--brew` flag skips the interactive CA removal prompt.
+
+### paw-proxy restart
+
+```
+paw-proxy restart
+```
+
+Restarts the daemon, e.g. to pick up an upgraded binary.
 
 ### paw-proxy status
 
@@ -156,7 +188,7 @@ CA Expires: 2036-02-10
 paw-proxy run
 ```
 
-Starts the daemon in foreground. Normally launched by the LaunchAgent, not run manually. Starts 5 goroutines: DNS server (port 9353), API server (unix socket), HTTP server (port 80, redirects to HTTPS), HTTPS server (port 443), and cleanup routine (evicts stale routes every 10s).
+Starts the daemon in foreground. Normally launched by the app's background item, not run manually. Starts 5 goroutines: DNS server (port 9353), API server (unix socket), HTTP server (port 80, redirects to HTTPS), HTTPS server (port 443), and cleanup routine (evicts stale routes every 10s).
 
 ### paw-proxy logs
 
@@ -174,29 +206,7 @@ paw-proxy logs [--tail|-f] [--clear]
 paw-proxy doctor
 ```
 
-Runs 6 diagnostic checks:
-1. Unix socket exists at expected path
-2. Daemon responding to health endpoint
-3. DNS resolver file at `/etc/resolver/test`
-4. DNS server reachable on port 9353
-5. CA certificate valid and not expiring within 30 days
-6. Ports 80 and 443 listening
-
-Example output:
-```
-paw-proxy doctor
-================
-
-[✓] Unix socket exists at ~/Library/Application Support/paw-proxy/paw-proxy.sock
-[✓] Daemon running (v1.2.0, up 2h15m)
-[✓] DNS resolver configured (/etc/resolver/test)
-[✓] DNS server reachable on port 9353
-[✓] CA certificate valid (expires 2036-02-10)
-[✓] Port 80 listening
-[✓] Port 443 listening
-
-All checks passed!
-```
+Checks the unix socket, daemon health, the `/etc/resolver/test` file, the DNS server's A and AAAA answers, system DNS resolution of a `.test` name, and the HTTPS TLS handshake on every advertised and system-resolved address, independently of whether any dev server is running.
 
 ### paw-proxy version
 
@@ -240,10 +250,6 @@ internal/
 ├── api/        # Unix socket API and route registry
 │   ├── server.go     # HTTP handlers, input validation, rate limiting
 │   └── routes.go     # RouteRegistry with RWMutex, CRUD, cleanup
-├── dashboard/  # Live web dashboard
-│   ├── dashboard.go  # HTTP handlers, SSE streaming, embedded static files
-│   ├── metrics.go    # Ring buffer, route stats aggregation, SSE fan-out
-│   └── static/       # Embedded HTML, CSS, JS (Terminal Noir theme)
 ├── daemon/     # Main daemon orchestrator
 │   └── daemon.go     # Launches goroutines, TLS config, graceful shutdown
 ├── dns/        # DNS server for .test TLD
@@ -251,7 +257,7 @@ internal/
 ├── proxy/      # Reverse proxy with WebSocket support
 │   └── proxy.go      # HTTP forwarding + raw TCP WebSocket proxy
 ├── setup/      # macOS setup/uninstall (darwin-only)
-│   ├── setup_darwin.go    # CA, keychain, resolver, LaunchAgent
+│   ├── setup_darwin.go    # CA, keychain, resolver, daemon hand-off to the app
 │   ├── setup_other.go     # Stub for non-macOS
 │   └── uninstall_darwin.go
 └── ssl/        # CA generation + per-domain cert cache
@@ -265,13 +271,15 @@ cmd/
 │   └── main.go
 └── gen-man/    # Man page generator
     └── main.go
+
+macos/          # Paw Proxy.app (Swift package, MenubarKit)
 ```
 
 ### Security Model
 
 **SSRF Prevention:** Upstream URLs validated to localhost only — `127.0.0.1`, `::1`, `localhost`. Prevents proxying to external or internal network hosts.
 
-**Route Name Validation:** Regex `^[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}$` ensures DNS-safe labels. Max 63 characters per DNS label.
+**Route Name Validation:** Regex `^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}$` (dots allow Compose names like `api.myapp`).
 
 **Directory Validation:** Must be absolute path (starts with `/`), no path traversal (`..` components rejected).
 
@@ -283,29 +291,7 @@ cmd/
 
 **Network Binding:** HTTP and HTTPS servers bind to `127.0.0.1` (loopback only).
 
-## Dashboard
-
-Visit `https://_paw.test` while the daemon is running to access the live dashboard.
-
-### Features
-
-- **Active Routes table:** Shows each route's name, upstream, working directory, uptime, request count, average latency, and error count
-- **Real-time Request Feed:** SSE-powered live stream of all proxied requests with method, host, path, status code, and latency
-- **Route filtering:** Click any route row to filter the feed to that route's requests
-- **Pause/Resume:** Pause the live feed to inspect entries
-
-### Dashboard API
-
-The dashboard is served by the daemon when a request arrives for `_paw.test`. It exposes these endpoints:
-
-- `GET /` — Dashboard HTML (embedded static files)
-- `GET /api/routes` — JSON array of route stats (name, upstream, dir, uptime, requests, avgMs, errors)
-- `GET /api/stats` — JSON object with version and uptime
-- `GET /events` — SSE stream of new requests (JSON-encoded RequestEntry per event)
-
-### Architecture
-
-The dashboard uses a ring buffer (`Metrics`) to store the last 1000 requests. SSE subscribers receive new entries via non-blocking channel fan-out. Static files (HTML, CSS, JS) are embedded in the binary via `//go:embed`. The `_paw.test` hostname is intercepted in `daemon.handleRequest()` before metrics recording to prevent feedback loops.
+**Privacy:** No telemetry, analytics or update checks over the network. The CA private key is never logged or exported. Only setup and uninstall need sudo.
 
 ## Unix Socket API
 
@@ -321,7 +307,7 @@ Request:
 ```
 
 Validation:
-- `name`: matches `^[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}$`
+- `name`: matches `^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}$`
 - `upstream`: must be localhost (127.0.0.1, ::1, or localhost)
 - `dir`: must be absolute path, no traversal
 
@@ -367,6 +353,10 @@ Response 200:
 {"status": "ok", "version": "1.2.0", "uptime": "2h15m30s"}
 ```
 
+### POST /notifications and GET /notifications?after=<cursor>
+
+`up` reports route events (project live / stopped) with POST; the menu bar app reads them with GET, which also returns a per-boot `epoch`. The cursor is only valid within one epoch.
+
 ### Curl Examples
 
 ```
@@ -392,14 +382,14 @@ curl --unix-socket ~/Library/Application\ Support/paw-proxy/paw-proxy.sock \
 ### Quick Diagnostics
 
 ```
-paw-proxy doctor    # Run all 6 checks
+paw-proxy doctor    # DNS, socket, daemon and TLS checks
 paw-proxy status    # Daemon status and routes
 paw-proxy logs -f   # Follow daemon logs
 ```
 
 ### Setup Fails with Permission Error
 
-Cause: Setup modifies `/etc/resolver`, system keychain, and LaunchAgents.
+Cause: Setup modifies `/etc/resolver` and the keychain.
 Fix: Run with sudo: `sudo paw-proxy setup`
 
 ### Certificate Not Trusted in Browser
@@ -422,16 +412,13 @@ sudo paw-proxy setup
 
 ### "Daemon Not Running" Error
 
-Cause: LaunchAgent not loaded or daemon crashed.
+Cause: The background item is off, waiting for approval, or the daemon crashed. The menu bar panel names which.
 Diagnose:
 ```
-launchctl list | grep paw-proxy
+paw-proxy status
 paw-proxy logs
 ```
-Fix: Re-run `sudo paw-proxy setup` or manually load LaunchAgent:
-```
-launchctl load ~/Library/LaunchAgents/com.alexcatdad.paw-proxy.plist
-```
+Fix: Use the panel's action (Turn On Proxy, Open Login Items, Restart Proxy), run `paw-proxy restart`, or re-run `sudo paw-proxy setup`.
 
 ### Port 80 or 443 Already in Use
 
@@ -462,18 +449,18 @@ Fix: Restart `up` or check daemon logs for heartbeat errors.
 
 ### Route Name Conflict
 
-Cause: Another `up` instance registered the same name.
-Fix: Use a different name: `up -n myapp2 bun dev`
+Cause: Another `up` instance registered the same name from a different directory.
+Behaviour: `up` falls back to the directory name (e.g. `myapp-feat-auth.test`). Use `-n` to pick a name yourself: `up -n myapp2 bun dev`
 
-### WebSocket Disconnects After 1 Hour
+### WebSocket Closes After an Hour Idle
 
-Cause: Proxy sets a 1-hour absolute deadline on WebSocket connections (known limitation).
-Workaround: Reconnect from client side. Tracked as GitHub issue #22.
+Cause: WebSocket connections close after 1 hour with no data in either direction (idle timeout).
+Fix: Reconnect from the client, or send periodic pings.
 
-### SSE Connections Die After 60 Seconds
+### Long Streaming Responses Are Cut After 2 Minutes
 
-Cause: HTTPS server has 60-second WriteTimeout (known limitation).
-Workaround: None currently. Tracked as GitHub issue #24.
+Cause: The HTTPS server has a 2-minute write timeout per response, which also applies to server-sent events.
+Fix: Let the client reconnect (EventSource does this automatically).
 
 ### NODE_EXTRA_CA_CERTS Not Working
 
@@ -484,13 +471,16 @@ Fix: Always start Node.js via `up`: `up node server.js`
 
 ### Prerequisites
 
-- Go 1.24+ (matches go.mod)
+- Go 1.27.3 (matches go.mod), Swift 6 / Xcode for the app, Task
 - macOS for integration tests
-- Single external dependency: `github.com/miekg/dns v1.1.72`
+- Single external Go dependency: `github.com/miekg/dns`
 
 ### Build and Test
 
 ```
+# Full local gate (what CI runs)
+task check
+
 # Build
 go build -o paw-proxy ./cmd/paw-proxy
 go build -o up ./cmd/up
@@ -534,7 +524,7 @@ go run ./cmd/gen-man
 | `~/Library/Application Support/paw-proxy/paw-proxy.sock` | Unix socket (mode 0600) |
 | `~/Library/Logs/paw-proxy.log` | Daemon log file |
 | `/etc/resolver/test` | macOS DNS resolver for .test TLD |
-| `~/Library/LaunchAgents/com.alexcatdad.paw-proxy.plist` | LaunchAgent plist |
+| `Paw Proxy.app/Contents/Library/LaunchAgents/com.alexcatdad.paw-proxy.daemon.plist` | Daemon background item (registered by the app) |
 
 ## Resources
 

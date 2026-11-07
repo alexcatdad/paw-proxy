@@ -80,6 +80,11 @@ tasks:
     cmds:
       - swift test -Xswiftc -warnings-as-errors
 
+  screenshots:
+    desc: Render the website's panel and Settings screenshots from fixture data into docs/screenshots/
+    cmds:
+      - PAWPROXY_SCREENSHOTS="{{.ROOT_DIR}}/docs/screenshots" swift test --package-path macos --filter writesWebsiteScreenshotsWhenAsked
+
   macos:package-test:
     desc: Test package-app.sh, validate-bundle.sh and dev builds (ad-hoc signed, temp dirs)
     cmds:

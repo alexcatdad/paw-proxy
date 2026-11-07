@@ -1,708 +1,220 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>paw-proxy — Stop Fighting Localhost</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Paw Proxy: trusted HTTPS for local dev servers</title>
 
-    <!-- SEO -->
-    <meta name="description" content="Named HTTPS domains for every local dev server. No more port conflicts, no more localhost confusion. Just prefix with &quot;up&quot;.">
-    <meta name="keywords" content="HTTPS, local development, macOS, proxy, SSL, TLS, localhost, dev server, port conflicts, paw-proxy">
+    <meta name="description" content="Paw Proxy gives each local dev server its own trusted https://name.test address. Put up in front of the command you already run; a menu bar app shows which projects are live. macOS 13+, Apple silicon.">
     <meta name="author" content="alexcatdad">
     <meta name="robots" content="index, follow">
     <meta name="color-scheme" content="light dark">
     <link rel="canonical" href="https://alexcatdad.github.io/paw-proxy/">
-    <meta name="theme-color" content="#09090b" media="(prefers-color-scheme: dark)">
-    <meta name="theme-color" content="#faf9f7" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#EEF0F3" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#17191E" media="(prefers-color-scheme: dark)">
 
-    <!-- Open Graph -->
-    <meta property="og:title" content="paw-proxy — Stop Fighting Localhost">
-    <meta property="og:description" content="Named HTTPS domains for every local dev server. No more port conflicts, no more localhost confusion. Just prefix with &quot;up&quot;.">
+    <meta property="og:title" content="Paw Proxy: trusted HTTPS for local dev servers">
+    <meta property="og:description" content="Run up bun dev and open https://myapp.test. A local CA, .test DNS and a reverse proxy, with a menu bar app that shows your routes.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://alexcatdad.github.io/paw-proxy/">
     <meta property="og:image" content="https://alexcatdad.github.io/paw-proxy/og-image.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="paw-proxy: Stop fighting localhost">
-    <meta property="og:site_name" content="paw-proxy">
+    <meta property="og:image:alt" content="The Paw Proxy menu bar panel listing myapp.test and other local routes, beside the headline of the site">
+    <meta property="og:site_name" content="Paw Proxy">
     <meta property="og:locale" content="en_US">
-
-    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="paw-proxy — Stop Fighting Localhost">
-    <meta name="twitter:description" content="Named HTTPS domains for every local dev server. No more port conflicts, no more localhost confusion. Just prefix with &quot;up&quot;.">
+    <meta name="twitter:title" content="Paw Proxy: trusted HTTPS for local dev servers">
+    <meta name="twitter:description" content="Run up bun dev and open https://myapp.test. A local CA, .test DNS and a reverse proxy, with a menu bar app that shows your routes.">
     <meta name="twitter:image" content="https://alexcatdad.github.io/paw-proxy/og-image.png">
-    <meta name="twitter:image:alt" content="paw-proxy: Stop fighting localhost">
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
+    <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
-
-    <!-- LLM discoverability -->
     <link rel="alternate" type="text/plain" href="llms.txt" title="LLM-friendly summary">
     <link rel="alternate" type="text/plain" href="llms-full.txt" title="LLM-friendly full reference">
 
-    <!-- JSON-LD Structured Data -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..700&display=swap">
+    <link rel="stylesheet" href="styles.css">
+
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
-        "name": "paw-proxy",
-        "description": "Named HTTPS domains for local development. Stop fighting port conflicts — get https://myapp.test working in seconds with zero configuration.",
+        "name": "Paw Proxy",
+        "alternateName": "paw-proxy",
+        "description": "Trusted https://name.test addresses for local dev servers on macOS: a local CA, .test DNS, a reverse proxy, the up command and a menu bar app.",
         "url": "https://alexcatdad.github.io/paw-proxy/",
         "applicationCategory": "DeveloperApplication",
-        "operatingSystem": "macOS",
+        "operatingSystem": "macOS 13 or later (Apple silicon)",
         "license": "https://github.com/alexcatdad/paw-proxy/blob/main/LICENSE",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
         "author": { "@type": "Person", "name": "alexcatdad", "url": "https://github.com/alexcatdad" },
         "codeRepository": "https://github.com/alexcatdad/paw-proxy",
-        "programmingLanguage": "Go",
-        "softwareRequirements": "macOS",
-        "keywords": ["HTTPS", "local development", "macOS", "proxy", "SSL", "TLS", "dev server", "port conflicts"]
+        "screenshot": "https://alexcatdad.github.io/paw-proxy/screenshots/panel-light.png"
     }
     </script>
-
-    <!-- Theme detection (in head to prevent FOUC) -->
-    <script>
-        if (localStorage.theme === 'light' ||
-            (!localStorage.theme && window.matchMedia('(prefers-color-scheme: light)').matches)) {
-            document.documentElement.classList.remove('dark');
-        }
-    </script>
-
-    <!-- Tailwind CSS (compiled) -->
-    <link rel="stylesheet" href="styles.css">
-
-    <!-- Fonts: Instrument Serif (display), DM Sans (body), JetBrains Mono (code) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700&family=Familjen+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-
-    <style>
-        /* ─── Dark mode (flagship) ─── */
-        :root {
-            --bg-base: #09090b;
-            --bg-surface: #18181b;
-            --bg-terminal: #0c0c0e;
-            --text-primary: #fafafa;
-            --text-secondary: #a1a1aa;
-            --text-muted: #52525b;
-            --border: #27272a;
-            --border-accent: #f97316;
-            --accent: #f97316;
-            --accent-glow: rgba(249, 115, 22, 0.15);
-            --terminal-glow: rgba(249, 115, 22, 0.04);
-            --terminal-text: #fafafa;
-            --terminal-muted: #71717a;
-            --grain-opacity: 0.03;
-        }
-
-        /* ─── Light mode ─── */
-        :root:not(.dark) {
-            --bg-base: #faf9f7;
-            --bg-surface: #f4f3f0;
-            --bg-terminal: #1c1917;
-            --text-primary: #1c1917;
-            --text-secondary: #57534e;
-            --text-muted: #a8a29e;
-            --border: #e7e5e4;
-            --border-accent: #ea580c;
-            --accent: #ea580c;
-            --accent-glow: rgba(234, 88, 12, 0.08);
-            --terminal-glow: rgba(0, 0, 0, 0.02);
-            --terminal-text: #e7e5e4;
-            --terminal-muted: #78716c;
-            --grain-opacity: 0.02;
-        }
-
-        /* ─── Base ─── */
-        * { box-sizing: border-box; }
-
-        body {
-            font-family: 'DM Sans', system-ui, sans-serif;
-            background: var(--bg-base);
-            color: var(--text-primary);
-            transition: background-color 0.4s ease, color 0.4s ease;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-
-        /* ─── Grain texture overlay ─── */
-        body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            z-index: 9999;
-            pointer-events: none;
-            opacity: var(--grain-opacity);
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-            background-repeat: repeat;
-            background-size: 256px;
-        }
-
-        /* ─── Typography ─── */
-        .font-display {
-            font-family: 'Familjen Grotesk', system-ui, sans-serif;
-        }
-
-        .font-body {
-            font-family: 'DM Sans', system-ui, sans-serif;
-        }
-
-        /* ─── Hero glow ─── */
-        .hero-glow {
-            position: absolute;
-            width: 600px;
-            height: 400px;
-            top: -100px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: radial-gradient(ellipse at center, var(--accent-glow) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        /* ─── Terminal blocks ─── */
-        .terminal-block {
-            background: var(--bg-terminal);
-            color: var(--terminal-text);
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            overflow-x: auto;
-            box-shadow: 0 0 40px var(--terminal-glow), 0 4px 16px rgba(0,0,0,0.2);
-        }
-
-        /* Inside terminals, --text-muted and --text-primary should stay readable
-           against the dark background regardless of light/dark mode */
-        .terminal-block [style*="--text-muted"] { color: var(--terminal-muted) !important; }
-        .terminal-block [style*="--text-primary"] { color: var(--terminal-text) !important; }
-        .terminal-block [style*="--text-secondary"] { color: var(--terminal-text) !important; }
-
-        .terminal-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-        }
-
-        /* ─── Beat section styling ─── */
-        .beat-section {
-            position: relative;
-        }
-
-        .beat-label {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.6875rem;
-            font-weight: 500;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            color: var(--accent);
-            margin-bottom: 1.25rem;
-        }
-
-        .beat-prose {
-            border-left: 2px solid var(--border);
-            padding-left: 1.5rem;
-            transition: border-color 0.3s ease;
-        }
-
-        .beat-prose:hover {
-            border-left-color: var(--accent);
-        }
-
-        /* ─── Feature list ─── */
-        .feature-item {
-            position: relative;
-            padding-left: 1.25rem;
-            margin-bottom: 1rem;
-        }
-
-        .feature-item::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0.5rem;
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: var(--accent);
-        }
-
-        /* ─── Accent helpers ─── */
-        .text-accent-var { color: var(--accent); }
-
-        /* ─── Animations ─── */
-        @keyframes blink {
-            50% { opacity: 0; }
-        }
-        .cursor-blink {
-            animation: blink 1s step-end infinite;
-        }
-
-        @keyframes fade-up {
-            from {
-                opacity: 0;
-                transform: translateY(32px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .hero-animate {
-            opacity: 0;
-            animation: fade-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-        }
-
-        .hero-animate-1 { animation-delay: 0s; }
-        .hero-animate-2 { animation-delay: 0.12s; }
-        .hero-animate-3 { animation-delay: 0.24s; }
-        .hero-animate-4 { animation-delay: 0.4s; }
-        .hero-animate-5 { animation-delay: 0.55s; }
-
-        /* Scroll-triggered fade-in */
-        .fade-in {
-            opacity: 0;
-            transform: translateY(24px);
-            transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-        }
-        .fade-in.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        /* ─── Prior art pills ─── */
-        .prior-art-link {
-            color: var(--text-muted);
-            border: 1px solid var(--border);
-            border-radius: 999px;
-            padding: 0.5rem 1.25rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-            transition: color 0.2s ease, border-color 0.2s ease;
-            text-decoration: none;
-            font-family: 'DM Sans', system-ui, sans-serif;
-        }
-        .prior-art-link:hover {
-            color: var(--accent);
-            border-color: var(--accent);
-        }
-
-        /* ─── Copy button ─── */
-        .copy-btn {
-            font-family: 'DM Sans', system-ui, sans-serif;
-            cursor: pointer;
-            transition: color 0.2s ease, border-color 0.2s ease;
-        }
-        .copy-btn:hover {
-            border-color: var(--accent) !important;
-            color: var(--text-secondary) !important;
-        }
-
-        /* ─── Install CTA ─── */
-        .install-cta {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            transition: border-color 0.2s ease;
-        }
-        .install-cta:hover {
-            border-color: var(--accent);
-        }
-
-        /* ─── Divider ─── */
-        .section-divider {
-            width: 48px;
-            height: 2px;
-            background: var(--border);
-            margin: 0 auto;
-        }
-    </style>
 </head>
-<body class="min-h-screen">
-    <!-- Theme Toggle -->
-    <div class="fixed top-6 right-6 z-50">
-        <button id="theme-toggle" class="p-2.5 rounded-full flex items-center justify-center" style="background: var(--bg-surface); border: 1px solid var(--border); transition: border-color 0.2s ease;" aria-label="Toggle theme" onmouseenter="this.style.borderColor='var(--accent)'" onmouseleave="this.style.borderColor='var(--border)'">
-            <svg class="w-4 h-4 hidden dark:block text-amber-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/>
-            </svg>
-            <svg class="w-4 h-4 block dark:hidden" style="color: var(--text-secondary)" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
-            </svg>
-        </button>
-    </div>
+<body>
+<a class="skip" href="#main">Skip to content</a>
 
-    <div class="max-w-3xl mx-auto px-6 pt-24 pb-16 md:pt-32">
-
-        <!-- ═══════════════════════════════════════════ -->
-        <!-- Beat 1 — Hero                              -->
-        <!-- ═══════════════════════════════════════════ -->
-        <header class="text-center mb-36 relative">
-            <div class="hero-glow"></div>
-
-            <div class="hero-animate hero-animate-1 inline-flex items-center gap-2.5 mb-10 relative z-10">
-                <span class="text-3xl">🐾</span>
-                <span class="font-mono text-sm font-medium tracking-wider" style="color: var(--text-muted)">paw-proxy</span>
-            </div>
-
-            <h1 class="font-display text-5xl md:text-7xl tracking-tight mb-6 hero-animate hero-animate-2 relative z-10" style="color: var(--text-primary); line-height: 1.05;">
-                Stop fighting<br>localhost.
-            </h1>
-
-            <p class="text-lg md:text-xl mb-14 max-w-lg mx-auto leading-relaxed hero-animate hero-animate-3 font-body relative z-10" style="color: var(--text-secondary)">
-                Named HTTPS domains for every local dev server.<br class="hidden sm:inline"> Zero config.
-            </p>
-
-            <!-- Hero terminal -->
-            <div class="terminal-block max-w-sm mx-auto mb-10 hero-animate hero-animate-4 relative z-10">
-                <div class="flex items-center gap-2 px-4 py-2.5" style="border-bottom: 1px solid var(--border)">
-                    <div class="flex gap-1.5">
-                        <div class="terminal-dot" style="background: #ef4444"></div>
-                        <div class="terminal-dot" style="background: #f59e0b"></div>
-                        <div class="terminal-dot" style="background: #22c55e"></div>
-                    </div>
-                </div>
-                <div class="p-4 font-mono text-sm text-left">
-                    <div class="flex items-center gap-2">
-                        <span style="color: #22c55e">❯</span>
-                        <span>up npm run dev</span>
-                    </div>
-                    <div class="flex items-center gap-2 mt-1">
-                        <span class="text-accent-var font-semibold">→ https://myapp.test</span>
-                        <span style="color: #22c55e; font-weight: 700">✓</span>
-                        <span class="inline-block w-2 h-4 rounded-sm cursor-blink" style="background: var(--accent)"></span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Install CTA -->
-            <div class="hero-animate hero-animate-5 relative z-10">
-                <div class="install-cta inline-flex items-center gap-3 font-mono text-sm px-5 py-3">
-                    <span style="color: var(--text-muted)">$</span>
-                    <span style="color: var(--text-primary)">brew install --cask alexcatdad/tap/paw-proxy</span>
-                    <button class="copy-btn ml-1 text-xs font-semibold px-3 py-1 rounded-md" style="background: var(--bg-base); border: 1px solid var(--border); color: var(--text-muted)" data-code="brew install --cask alexcatdad/tap/paw-proxy">Copy</button>
-                </div>
-            </div>
-        </header>
-
-        <!-- ═══════════════════════════════════════════ -->
-        <!-- Beat 2 — The Pain: Port Conflicts          -->
-        <!-- ═══════════════════════════════════════════ -->
-        <section class="mb-28 fade-in beat-section">
-            <div class="beat-label">The problem</div>
-            <div class="grid md:grid-cols-2 gap-10 items-start">
-                <div class="beat-prose">
-                    <h2 class="font-display text-3xl md:text-4xl mb-5" style="color: var(--text-primary); line-height: 1.15;">
-                        Three projects.<br>One port.
-                    </h2>
-                    <p class="leading-relaxed mb-4 font-body" style="color: var(--text-secondary)">
-                        You have three Next.js projects. All of them want port 3000. The second one detects it's taken and silently moves to 3001.
-                    </p>
-                    <p class="leading-relaxed mb-4 font-body" style="color: var(--text-secondary)">
-                        Your OAuth callback is hardcoded to <code class="font-mono text-xs px-1.5 py-0.5 rounded" style="background: var(--bg-surface)">localhost:3000</code>. Your test fixtures expect it. Your env files point to it.
-                    </p>
-                    <p class="leading-relaxed font-body" style="color: var(--text-secondary)">
-                        You've been debugging the wrong app for 20 minutes.
-                    </p>
-                </div>
-                <div class="terminal-block">
-                    <div class="flex items-center gap-2 px-4 py-2.5" style="border-bottom: 1px solid var(--border)">
-                        <div class="flex gap-1.5">
-                            <div class="terminal-dot" style="background: #ef4444"></div>
-                            <div class="terminal-dot" style="background: #f59e0b"></div>
-                            <div class="terminal-dot" style="background: #22c55e"></div>
-                        </div>
-                    </div>
-                    <div class="p-4 font-mono text-sm text-left leading-relaxed">
-                        <div><span style="color: #22c55e">❯</span> npm run dev <span style="color: var(--text-muted)"># project-a</span></div>
-                        <div>→ localhost:<span style="color: #22c55e">3000</span></div>
-                        <div class="mt-3"><span style="color: #22c55e">❯</span> npm run dev <span style="color: var(--text-muted)"># project-b</span></div>
-                        <div style="color: #f59e0b">⚠ port 3000 in use, using 3001</div>
-                        <div>→ localhost:<span style="color: #f59e0b">3001</span></div>
-                        <div class="mt-3"><span style="color: #22c55e">❯</span> open http://localhost:3001/auth/callback</div>
-                        <div style="color: #ef4444">✗ OAuth error: redirect_uri_mismatch</div>
-                        <div style="color: var(--text-muted)">&nbsp; expected: http://localhost:3000/auth/callback</div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- ═══════════════════════════════════════════ -->
-        <!-- Beat 3 — The Pain: Worktree Confusion      -->
-        <!-- ═══════════════════════════════════════════ -->
-        <section class="mb-28 fade-in beat-section">
-            <div class="beat-label">It gets worse</div>
-            <div class="grid md:grid-cols-2 gap-10 items-start">
-                <div class="beat-prose">
-                    <h2 class="font-display text-3xl md:text-4xl mb-5" style="color: var(--text-primary); line-height: 1.15;">
-                        Same project. Two branches.<br>No idea which is which.
-                    </h2>
-                    <p class="leading-relaxed mb-4 font-body" style="color: var(--text-secondary)">
-                        You're using git worktrees to run two branches of the same project side by side. Both register as "MyApp" on localhost. Both look identical in the browser tab.
-                    </p>
-                    <p class="leading-relaxed font-body" style="color: var(--text-secondary)">
-                        You just spent 10 minutes testing code that hasn't changed — because you're hitting the wrong instance.
-                    </p>
-                </div>
-                <div class="terminal-block">
-                    <div class="flex items-center gap-2 px-4 py-2.5" style="border-bottom: 1px solid var(--border)">
-                        <div class="flex gap-1.5">
-                            <div class="terminal-dot" style="background: #ef4444"></div>
-                            <div class="terminal-dot" style="background: #f59e0b"></div>
-                            <div class="terminal-dot" style="background: #22c55e"></div>
-                        </div>
-                    </div>
-                    <div class="p-4 font-mono text-sm text-left leading-relaxed">
-                        <div style="color: var(--text-muted)"># ~/myapp (main branch)</div>
-                        <div><span style="color: #22c55e">❯</span> npm run dev → localhost:3000</div>
-                        <div class="mt-3" style="color: var(--text-muted)"># ~/myapp-feat-auth (feature branch)</div>
-                        <div><span style="color: #22c55e">❯</span> npm run dev → localhost:3001</div>
-                        <div class="mt-3" style="color: var(--text-muted)"># two browser tabs, both say "MyApp"</div>
-                        <div style="color: var(--text-muted)"># ...which branch is this again?</div>
-                        <div style="color: var(--text-muted)"># you refresh, nothing changed</div>
-                        <div style="color: #ef4444"># because you're hitting the wrong one</div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- ═══════════════════════════════════════════ -->
-        <!-- Beat 4 — The Insight                       -->
-        <!-- ═══════════════════════════════════════════ -->
-        <section class="mb-28 fade-in beat-section">
-            <div class="beat-label">The insight</div>
-            <div class="grid md:grid-cols-2 gap-10 items-start">
-                <div class="beat-prose">
-                    <h2 class="font-display text-3xl md:text-4xl mb-5" style="color: var(--text-primary); line-height: 1.15;">
-                        The problem isn't ports.<br>It's identity.
-                    </h2>
-                    <p class="leading-relaxed mb-4 font-body" style="color: var(--text-secondary)">
-                        <code class="font-mono text-xs px-1.5 py-0.5 rounded" style="background: var(--bg-surface)">localhost:3000</code> doesn't tell you <em>what</em> you're running. A named domain does.
-                    </p>
-                    <p class="leading-relaxed font-body" style="color: var(--text-secondary)">
-                        And once you have names, HTTPS comes free — real trusted certificates, no browser warnings, OAuth callbacks that just work.
-                    </p>
-                </div>
-                <div class="terminal-block">
-                    <div class="flex items-center gap-2 px-4 py-2.5" style="border-bottom: 1px solid var(--border)">
-                        <div class="flex gap-1.5">
-                            <div class="terminal-dot" style="background: #ef4444"></div>
-                            <div class="terminal-dot" style="background: #f59e0b"></div>
-                            <div class="terminal-dot" style="background: #22c55e"></div>
-                        </div>
-                    </div>
-                    <div class="p-4 font-mono text-sm text-left leading-relaxed">
-                        <div style="color: var(--text-muted)"># ports tell you nothing</div>
-                        <div>localhost:3000 &nbsp;→ <span style="color: var(--text-muted)">???</span></div>
-                        <div>localhost:3001 &nbsp;→ <span style="color: var(--text-muted)">???</span></div>
-                        <div>localhost:3002 &nbsp;→ <span style="color: var(--text-muted)">???</span></div>
-                        <div class="mt-3" style="color: var(--text-muted)"># names tell you everything</div>
-                        <div><span style="color: #22c55e">myapp.test</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; → myapp (main)</div>
-                        <div><span style="color: #22c55e">myapp-feat-auth.test</span> → feature branch</div>
-                        <div><span style="color: #22c55e">api.shop.test</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; → shop's API</div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- ═══════════════════════════════════════════ -->
-        <!-- Beat 5 — The Solution                      -->
-        <!-- ═══════════════════════════════════════════ -->
-        <section class="mb-28 fade-in beat-section">
-            <div class="beat-label">The fix</div>
-            <div class="grid md:grid-cols-2 gap-10 items-start">
-                <div class="beat-prose">
-                    <h2 class="font-display text-3xl md:text-4xl mb-5" style="color: var(--text-primary); line-height: 1.15;">
-                        Just prefix with <code class="font-mono text-accent-var">"up"</code>.
-                    </h2>
-                    <p class="leading-relaxed mb-6 font-body" style="color: var(--text-secondary)">
-                        paw-proxy gives every dev server a named HTTPS domain. It handles DNS, certificates, port allocation, and worktree conflicts automatically. Zero config files. Zero nginx. Zero mkcert.
-                    </p>
-                    <div>
-                        <div class="feature-item">
-                            <div class="font-semibold mb-0.5 text-sm" style="color: var(--text-primary)">Auto SSL</div>
-                            <div class="text-sm font-body" style="color: var(--text-muted)">Trusted certificates generated on-the-fly.</div>
-                        </div>
-                        <div class="feature-item">
-                            <div class="font-semibold mb-0.5 text-sm" style="color: var(--text-primary)">WebSocket &amp; HMR</div>
-                            <div class="text-sm font-body" style="color: var(--text-muted)">Hot module reload just works over HTTPS.</div>
-                        </div>
-                        <div class="feature-item">
-                            <div class="font-semibold mb-0.5 text-sm" style="color: var(--text-primary)">Docker Compose</div>
-                            <div class="text-sm font-body" style="color: var(--text-muted)">Auto-discovers services → <code class="font-mono text-xs">service.project.test</code></div>
-                        </div>
-                        <div class="feature-item">
-                            <div class="font-semibold mb-0.5 text-sm" style="color: var(--text-primary)">Worktree Aware</div>
-                            <div class="text-sm font-body" style="color: var(--text-muted)">Automatic fallback when domains collide.</div>
-                        </div>
-                        <div class="feature-item">
-                            <div class="font-semibold mb-0.5 text-sm" style="color: var(--text-primary)">Menu-Bar App</div>
-                            <div class="text-sm font-body" style="color: var(--text-muted)">Routes at a glance, a status badge, opt-in &ldquo;project is live&rdquo; notifications.</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="terminal-block">
-                    <div class="flex items-center gap-2 px-4 py-2.5" style="border-bottom: 1px solid var(--border)">
-                        <div class="flex gap-1.5">
-                            <div class="terminal-dot" style="background: #ef4444"></div>
-                            <div class="terminal-dot" style="background: #f59e0b"></div>
-                            <div class="terminal-dot" style="background: #22c55e"></div>
-                        </div>
-                    </div>
-                    <div class="p-4 font-mono text-sm text-left leading-relaxed">
-                        <div style="color: var(--text-muted)"># any dev server</div>
-                        <div><span style="color: #22c55e">❯</span> up npm run dev</div>
-                        <div><span class="text-accent-var font-semibold">→ https://myapp.test</span> <span style="color: #22c55e; font-weight: 700">✓</span></div>
-                        <div class="mt-3" style="color: var(--text-muted)"># docker compose — every service gets a domain</div>
-                        <div><span style="color: #22c55e">❯</span> up docker compose up</div>
-                        <div><span class="text-accent-var font-semibold">→ https://frontend.shop.test</span> <span style="color: #22c55e; font-weight: 700">✓</span></div>
-                        <div><span class="text-accent-var font-semibold">→ https://api.shop.test</span> <span style="color: #22c55e; font-weight: 700">✓</span></div>
-                        <div class="mt-3" style="color: var(--text-muted)"># worktrees — automatic conflict resolution</div>
-                        <div><span style="color: #22c55e">❯</span> up npm run dev <span style="color: var(--text-muted)"># ~/myapp-feat-auth</span></div>
-                        <div style="color: #f59e0b">⚠ myapp.test in use</div>
-                        <div><span class="text-accent-var font-semibold">→ https://myapp-feat-auth.test</span> <span style="color: #22c55e; font-weight: 700">✓</span></div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <div class="section-divider mb-28 fade-in"></div>
-
-        <!-- ═══════════════════════════════════════════ -->
-        <!-- Beat 6 — How It Works                      -->
-        <!-- ═══════════════════════════════════════════ -->
-        <section class="mb-28 fade-in">
-            <div class="text-center mb-10">
-                <div class="beat-label">How it works</div>
-                <h2 class="font-display text-3xl md:text-4xl" style="color: var(--text-primary)">Three moving parts</h2>
-            </div>
-
-            <div class="terminal-block max-w-2xl mx-auto">
-                <div class="p-6 md:p-8 font-mono text-xs sm:text-sm overflow-x-auto whitespace-pre leading-relaxed" style="color: var(--text-secondary)">
-┌─────────────┐     ┌──────────────────┐     ┌─────────────┐
-│   <span style="color: var(--accent)" class="font-bold">Browser</span>   │────▶│   <span style="color: #22c55e" class="font-bold">paw-proxy</span>      │────▶│  Dev Server │
-│             │     │   <span style="color: var(--text-muted)">port 443</span>       │     │  <span style="color: var(--text-muted)">dynamic</span>    │
-└─────────────┘     └──────────────────┘     └─────────────┘
-       │                     │
-       │              ┌──────┴──────┐
-       │              │  <span style="color: #22c55e" class="font-bold">DNS Server</span> │  *.test → 127.0.0.1
-       │              │  <span style="color: var(--text-muted)">port 9353</span>  │
-       │              └─────────────┘
-       │
-       └──── <span style="color: var(--accent)" class="font-bold">https://myapp.test</span> ✓ Trusted SSL</div>
-            </div>
-            <p class="text-center text-sm mt-4" style="color: var(--text-muted)">DNS advertises IPv4 loopback only, matching the proxy listeners. Browsers on dual-stack hosts use the A record.</p>
-        </section>
-
-        <!-- ═══════════════════════════════════════════ -->
-        <!-- Install                                    -->
-        <!-- ═══════════════════════════════════════════ -->
-        <section class="mb-28 fade-in">
-            <div class="text-center mb-10">
-                <div class="beat-label">Get started</div>
-                <h2 class="font-display text-3xl md:text-4xl" style="color: var(--text-primary)">Up and running in 30 seconds</h2>
-            </div>
-
-            <div class="space-y-3 max-w-lg mx-auto">
-                <div class="terminal-block">
-                    <div class="flex items-center justify-between px-4 py-2.5" style="border-bottom: 1px solid var(--border)">
-                        <span class="text-xs font-mono font-medium" style="color: var(--text-muted)">1 — install</span>
-                        <button class="copy-btn text-xs font-semibold py-1 px-3 rounded-md" style="background: var(--bg-base); border: 1px solid var(--border); color: var(--text-muted)" data-code="brew install --cask alexcatdad/tap/paw-proxy">Copy</button>
-                    </div>
-                    <div class="p-4 font-mono text-sm" style="color: var(--text-primary)">brew install --cask alexcatdad/tap/paw-proxy</div>
-                </div>
-
-                <div class="terminal-block">
-                    <div class="flex items-center justify-between px-4 py-2.5" style="border-bottom: 1px solid var(--border)">
-                        <span class="text-xs font-mono font-medium" style="color: var(--text-muted)">2 — setup (once)</span>
-                        <button class="copy-btn text-xs font-semibold py-1 px-3 rounded-md" style="background: var(--bg-base); border: 1px solid var(--border); color: var(--text-muted)" data-code="sudo paw-proxy setup">Copy</button>
-                    </div>
-                    <div class="p-4 font-mono text-sm" style="color: var(--text-primary)">sudo paw-proxy setup</div>
-                </div>
-
-                <div class="terminal-block">
-                    <div class="flex items-center justify-between px-4 py-2.5" style="border-bottom: 1px solid var(--border)">
-                        <span class="text-xs font-mono font-medium" style="color: var(--text-muted)">3 — use it</span>
-                        <button class="copy-btn text-xs font-semibold py-1 px-3 rounded-md" style="background: var(--bg-base); border: 1px solid var(--border); color: var(--text-muted)" data-code="up npm run dev">Copy</button>
-                    </div>
-                    <div class="p-4 font-mono text-sm" style="color: var(--text-primary)">up npm run dev</div>
-                </div>
-            </div>
-        </section>
-
-        <!-- ═══════════════════════════════════════════ -->
-        <!-- Prior Art                                  -->
-        <!-- ═══════════════════════════════════════════ -->
-        <section class="mb-16 fade-in">
-            <div class="text-center mb-8">
-                <div class="beat-label">Prior art</div>
-                <h2 class="font-display text-2xl md:text-3xl mb-2" style="color: var(--text-primary)">Standing on giants' shoulders</h2>
-                <p class="text-sm font-body" style="color: var(--text-muted)">We modernized the wheel, didn't reinvent it.</p>
-            </div>
-
-            <div class="flex flex-wrap justify-center gap-3">
-                <a href="https://github.com/FiloSottile/mkcert" target="_blank" rel="noopener" class="prior-art-link">🔐 mkcert</a>
-                <a href="https://github.com/puma/puma-dev" target="_blank" rel="noopener" class="prior-art-link">🐆 puma-dev</a>
-                <a href="https://pow.cx/" target="_blank" rel="noopener" class="prior-art-link">⚡ pow</a>
-                <a href="https://github.com/typicode/hotel" target="_blank" rel="noopener" class="prior-art-link">🏨 hotel</a>
-                <a href="https://caddyserver.com/" target="_blank" rel="noopener" class="prior-art-link">🔷 caddy</a>
-            </div>
-        </section>
-    </div>
-
-    <!-- Footer -->
-    <footer class="py-10" style="border-top: 1px solid var(--border)">
-        <div class="max-w-3xl mx-auto px-6 text-center">
-            <div class="flex flex-wrap justify-center gap-6 mb-6">
-                <a href="https://github.com/alexcatdad/paw-proxy" class="font-medium text-sm font-body transition-colors" style="color: var(--text-muted)" onmouseenter="this.style.color='var(--accent)'" onmouseleave="this.style.color='var(--text-muted)'">GitHub</a>
-                <a href="https://github.com/alexcatdad/paw-proxy/releases" class="font-medium text-sm font-body transition-colors" style="color: var(--text-muted)" onmouseenter="this.style.color='var(--accent)'" onmouseleave="this.style.color='var(--text-muted)'">Releases</a>
-                <a href="https://github.com/alexcatdad/paw-proxy/issues" class="font-medium text-sm font-body transition-colors" style="color: var(--text-muted)" onmouseenter="this.style.color='var(--accent)'" onmouseleave="this.style.color='var(--text-muted)'">Issues</a>
-                <a href="https://github.com/alexcatdad/paw-proxy/blob/main/LICENSE" class="font-medium text-sm font-body transition-colors" style="color: var(--text-muted)" onmouseenter="this.style.color='var(--accent)'" onmouseleave="this.style.color='var(--text-muted)'">MIT License</a>
-            </div>
-            <p class="text-sm font-body" style="color: var(--text-muted)">
-                Built with 🐾 by <a href="https://github.com/alexcatdad" class="text-accent-var font-semibold" style="text-decoration: none;" onmouseenter="this.style.textDecoration='underline'" onmouseleave="this.style.textDecoration='none'">alexcatdad</a>
-            </p>
+<header class="menubar">
+    <div class="wrap">
+        <p class="menubar-app">Paw Proxy</p>
+        <div class="menubar-items" aria-hidden="true">
+            <span class="menubar-item menubar-extra">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.25"/><path d="M8 1.75v12.5A6.25 6.25 0 0 0 8 1.75Z" fill="currentColor" stroke="none"/></svg>
+            </span>
+            <span class="menubar-item menubar-extra">
+                <svg width="17" height="13" viewBox="0 0 17 13" fill="currentColor"><path d="M8.5 2.2c2.4 0 4.6.9 6.3 2.5l1.2-1.3A10.6 10.6 0 0 0 8.5.4 10.6 10.6 0 0 0 1 3.4l1.2 1.3A9 9 0 0 1 8.5 2.2Z"/><path d="M8.5 5.6c1.5 0 2.9.6 4 1.6l1.2-1.3a7.6 7.6 0 0 0-10.4 0l1.2 1.3c1.1-1 2.5-1.6 4-1.6Z"/><path d="M8.5 9c.6 0 1.2.2 1.6.6L8.5 11.4 6.9 9.6c.4-.4 1-.6 1.6-.6Z"/></svg>
+            </span>
+            <span class="menubar-item menubar-glyph"><img src="img/tray-glyph.png" width="18" height="18" alt=""></span>
+            <span class="menubar-clock"><span class="day">Sat 7 Nov </span>09:41</span>
         </div>
-    </footer>
+    </div>
+</header>
 
-    <script>
-        // Theme toggle (detection already ran in <head> to prevent FOUC)
-        const toggle = document.getElementById('theme-toggle');
-        const html = document.documentElement;
+<div class="hero">
+    <div class="wrap">
+        <div class="hero-text">
+            <h1>Paw Proxy gives each local dev server its own trusted https://name.test address.</h1>
+            <p class="lede">Put <code>up</code> in front of the command you already run. The menu bar shows which projects are live.</p>
+            <div class="install">
+                <code id="install-cmd">brew install --cask alexcatdad/tap/paw-proxy</code>
+                <button class="copy" type="button" data-copy="install-cmd">Copy</button>
+            </div>
+            <p class="hero-after">Then run <code>sudo paw-proxy setup</code> once. macOS 13 or later, Apple silicon.</p>
+        </div>
+        <div class="hero-panel">
+            <picture>
+                <source srcset="screenshots/panel-dark.png" media="(prefers-color-scheme: dark)">
+                <img src="screenshots/panel-light.png" width="404" height="604"
+                     alt="The Paw Proxy menu bar panel. A green check says Running, 4 routes. Setup, background item and daemon each show a green check. The routes list shows api.myapp.test, docs.test greyed out, myapp-feat-auth.test and myapp.test, each with its local port, project folder and last heartbeat. Below are Restart proxy, Open logs, Turn proxy off, Settings and Quit.">
+            </picture>
+        </div>
+    </div>
+</div>
 
-        toggle.addEventListener('click', () => {
-            html.classList.toggle('dark');
-            localStorage.theme = html.classList.contains('dark') ? 'dark' : 'light';
-        });
+<main id="main" class="wrap">
+<div class="column">
 
-        // Fade-in on scroll
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('visible');
-                    observer.unobserve(entry.target);
-                }
-            });
-        }, { threshold: 0.1, rootMargin: '-40px' });
+    <section aria-labelledby="up">
+        <h2 id="up">Run your dev server with up</h2>
+        <p>Keep your usual command and put <code>up</code> in front of it. It finds a free port, hands it to your server as <code>PORT</code>, and registers a name with the paw-proxy daemon:</p>
+<div class="terminal" role="region" aria-label="Terminal example" tabindex="0"><span class="prompt">~/code/myapp $ </span>up bun dev
+<span class="out">🔗 Mapping https://myapp.test -> localhost:52814...
+🚀 Project is live at: https://myapp.test
+------------------------------------------------</span></div>
+        <p>Open <code>https://myapp.test</code> in any browser. The name comes from <code>package.json</code>, or the folder name when there is none; <code>up -n api bun dev</code> picks your own. Stop the server and the route goes away. <code>up</code> works with anything that reads <code>PORT</code>: <code>npm run dev</code>, <code>yarn dev</code>, <code>next dev</code>, <code>rails server</code>.</p>
 
-        document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+        <h3>How myapp.test gets HTTPS</h3>
+        <ol>
+            <li>A local DNS server answers every <code>*.test</code> name with 127.0.0.1.</li>
+            <li>The proxy on port 443 asks a local certificate authority, trusted in your keychain during setup, for a certificate for that name. It is made on the first request.</li>
+            <li>The request goes to the port <code>up</code> registered. WebSockets pass through, so hot reload keeps working.</li>
+        </ol>
+        <p><code>up</code> also sets <code>APP_URL</code>, <code>APP_DOMAIN</code>, <code>HTTPS=true</code> and <code>NODE_EXTRA_CA_CERTS</code>, so OAuth callbacks and server-side fetches can use the real address.</p>
 
-        // Copy buttons
-        document.querySelectorAll('.copy-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const original = btn.textContent;
-                try {
-                    await navigator.clipboard.writeText(btn.dataset.code);
-                    btn.textContent = 'Copied!';
-                    btn.style.color = '#22c55e';
-                    setTimeout(() => { btn.textContent = original; btn.style.color = ''; }, 2000);
-                } catch (err) {
-                    btn.textContent = 'Failed';
-                    btn.style.color = '#ef4444';
-                    setTimeout(() => { btn.textContent = original; btn.style.color = ''; }, 2000);
-                }
-            });
-        });
-    </script>
+        <h3>Worktrees and Docker Compose</h3>
+        <p>When a second checkout of the same project asks for a name already in use, <code>up</code> falls back to the folder name, so <code>~/code/myapp-feat-auth</code> becomes <code>myapp-feat-auth.test</code>. Wrap <code>docker compose up</code> and every service with a published port gets its own name:</p>
+<div class="terminal" role="region" aria-label="Docker Compose example" tabindex="0"><span class="prompt">~/code/myapp $ </span>up docker compose up
+<span class="out">Mapping https://frontend.myapp.test -> localhost:3000...
+Mapping https://api.myapp.test -> localhost:8080...
+2 services live:
+   https://frontend.myapp.test
+   https://api.myapp.test</span></div>
+
+        <h3>From the terminal</h3>
+        <dl class="commands">
+            <dt>paw-proxy status</dt>
+            <dd>Whether the daemon runs, and every route with its upstream.</dd>
+            <dt>paw-proxy logs -f</dt>
+            <dd>Follows requests as they arrive.</dd>
+            <dt>paw-proxy doctor</dt>
+            <dd>Checks DNS and the HTTPS handshake on every address a .test name resolves to.</dd>
+            <dt>paw-proxy restart</dt>
+            <dd>Restarts the daemon, for example after an upgrade.</dd>
+        </dl>
+    </section>
+
+    <section aria-labelledby="panel">
+        <h2 id="panel">What the panel tells you</h2>
+        <p>The header says whether the proxy is running and how many routes it holds. When something needs you, it says what, and the paw in the menu bar carries a badge until it is fixed.</p>
+        <p>Under it, three rows cover the moving parts: setup (the local CA and DNS), the background item macOS has to allow, and the daemon with its version and uptime. Green is fine, yellow waits on you, red is broken.</p>
+        <p>Routes lists every name with the port it forwards to and the project folder. Click one to open it in your browser. A greyed-out route has not had a heartbeat from <code>up</code> for a while and will expire if it stays quiet.</p>
+    </section>
+
+    <section aria-labelledby="settings">
+        <h2 id="settings">Settings</h2>
+        <figure>
+            <picture>
+                <source srcset="screenshots/settings-dark.png" media="(prefers-color-scheme: dark)">
+                <img class="shot-settings" src="screenshots/settings-light.png" width="524" height="495"
+                     alt="The Paw Proxy Settings window. Notifications: Notify me when projects go live and Play a sound, both off. Startup: Launch at login. About: version 2026.11.07.1 and a link to GitHub.">
+            </picture>
+        </figure>
+        <p>Notifications are off until you turn on <em>Notify me when projects go live</em>; macOS asks for permission then. They come from Paw Proxy itself when <code>up</code> brings a project online or stops it, stay silent unless you also turn on <em>Play a sound</em>, and clicking one opens the project. <em>Launch at login</em> keeps the paw in the menu bar after a restart.</p>
+    </section>
+
+    <section aria-labelledby="install">
+        <h2 id="install">Install</h2>
+        <ol>
+            <li>Install the app and both commands with Homebrew:<br><code>brew install --cask alexcatdad/tap/paw-proxy</code></li>
+            <li>Run setup once: <code>sudo paw-proxy setup</code>. It creates the local CA and trusts it, adds the <code>.test</code> resolver and hands the daemon to Paw Proxy. Restart your browser afterwards so it sees the new CA.</li>
+            <li>Open Paw Proxy. If macOS asks, allow it under System Settings › General › Login Items; the panel says when that is needed.</li>
+        </ol>
+        <figure>
+            <picture>
+                <source srcset="screenshots/panel-setup-dark.png" media="(prefers-color-scheme: dark)">
+                <img class="shot-panel" src="screenshots/panel-setup-light.png" width="404" height="494"
+                     alt="The panel before setup: a red Setup needed header asks you to run sudo paw-proxy setup, and a Copy Setup Command button copies it.">
+            </picture>
+        </figure>
+        <p>Requires macOS 13 or later on Apple silicon. Upgrade with <code>brew upgrade --cask paw-proxy</code>; the panel offers <em>Restart to finish update</em> until the daemon runs the new version. Firefox keeps its own certificate store: <code>brew install nss</code>, then run setup again.</p>
+        <p class="note">To remove everything: <code>sudo paw-proxy uninstall</code>, then <code>brew uninstall --cask paw-proxy</code>.</p>
+    </section>
+
+    <section aria-labelledby="never">
+        <h2 id="never">What it never does</h2>
+        <ul>
+            <li>Listen beyond your Mac. The proxy, DNS server and API stay on loopback or a private socket, and routes can only point at localhost.</li>
+            <li>Share the CA's private key. It stays readable only by you in <code>~/Library/Application Support/paw-proxy/</code> and is never logged or exported.</li>
+            <li>Ask for your password outside setup and uninstall, the only steps that need <code>sudo</code>.</li>
+            <li>Send telemetry, analytics or update checks over the network.</li>
+            <li>Notify you unless you turned notifications on.</li>
+        </ul>
+    </section>
+
+</div>
+</main>
+
+<footer class="site-footer">
+    <div class="wrap">
+        <h2>More small menu bar apps</h2>
+        <ul class="family">
+            <li><img src="img/pr-nanny.png" width="40" height="40" alt=""><div><a href="https://alexcatdad.github.io/pr-nanny/">PR Nanny</a><span>Watches your GitHub pull requests.</span></div></li>
+            <li><img src="img/usb-boop.png" width="40" height="40" alt=""><div><a href="https://alexcatdad.github.io/usb-boop/">usb-boop</a><span>Shows the link speed of your USB devices.</span></div></li>
+        </ul>
+        <p class="legal">Paw Proxy is open source under the MIT licence. Source, issues and releases on <a href="https://github.com/alexcatdad/paw-proxy">GitHub</a>.</p>
+    </div>
+</footer>
+
+<script>
+document.querySelectorAll("[data-copy]").forEach(function (button) {
+    button.addEventListener("click", function () {
+        var text = document.getElementById(button.dataset.copy).textContent;
+        var done = function () {
+            button.textContent = "Copied";
+            setTimeout(function () { button.textContent = "Copy"; }, 1600);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, function () { button.textContent = "Select and copy"; });
+        } else {
+            button.textContent = "Select and copy";
+        }
+    });
+});
+</script>
 </body>
 </html>
