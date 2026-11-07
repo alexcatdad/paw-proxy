@@ -28,7 +28,7 @@ struct MenuView: View {
                 }
                 OpenSettingsButton()
             }
-            VersionFooter()
+            VersionFooter(bundle: model.bundle)
         }
         .onAppear { model.refresh() }
     }

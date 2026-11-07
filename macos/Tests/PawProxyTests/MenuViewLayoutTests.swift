@@ -91,3 +91,100 @@ private func render(_ view: some View, width: CGFloat, appearance: NSAppearance.
 }
 
 private struct RenderError: Error {}
+
+// MARK: Website screenshots
+
+/// A registered, approved daemon agent that never calls SMAppService.
+private struct FixtureRegistrar: Registrar {
+    var state: RegistrationState
+    func register() throws {}
+    func unregister() throws {}
+    func openLoginItems() {}
+}
+
+/// A login item that never touches the real ones. Off: offscreen windows are
+/// never key, so a switched-on toggle would draw in the inactive grey.
+private struct FixtureLoginItem: LoginItem {
+    var isEnabled: Bool { false }
+    func setEnabled(_ enabled: Bool) throws {}
+}
+
+/// An app bundle on disk whose Info.plist carries a release version, so the
+/// panel footer and Settings show one instead of the test runner's.
+private func fixtureBundle(version: String) throws -> Bundle {
+    let app = FileManager.default.temporaryDirectory
+        .appendingPathComponent("paw-proxy-screenshots-\(UUID().uuidString)/Paw Proxy.app", isDirectory: true)
+    let contents = app.appendingPathComponent("Contents", isDirectory: true)
+    try FileManager.default.createDirectory(at: contents, withIntermediateDirectories: true)
+    let info: [String: Any] = [
+        "CFBundleIdentifier": "com.alexcatdad.paw-proxy.screenshots", "CFBundleShortVersionString": version,
+        "CFBundleVersion": version,
+    ]
+    try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
+        .write(to: contents.appendingPathComponent("Info.plist"))
+    return try #require(Bundle(url: app))
+}
+
+/// A release build's model with made-up projects, for the website. Never the
+/// owner's real routes: everything here is fixture data.
+@MainActor
+private func screenshotModel(setupComplete: Bool = true) throws -> AppModel {
+    let paths = Paths(home: FileManager.default.temporaryDirectory.appendingPathComponent("paw-proxy-screenshots"))
+    let registrar = FixtureRegistrar(state: setupComplete ? .enabled : .notRegistered)
+    let launchctl = SystemLaunchctl()
+    let services = Services(
+        paths: paths, isDevelopment: false, registrar: registrar, launchctl: launchctl,
+        loginItem: FixtureLoginItem(), agent: DaemonAgent(paths: paths, registrar: registrar, launchctl: launchctl))
+    let version = "2026.1107.1"
+    let model = AppModel(
+        services: services, notificationCenter: AllowedCenter(), startsPolling: false,
+        bundle: try fixtureBundle(version: version))
+    guard setupComplete else {
+        model.apply(health: nil, routes: [], setupComplete: false)
+        return model
+    }
+    let now = Date()
+    func route(_ name: String, _ port: Int, _ dir: String, seconds: TimeInterval) -> Route {
+        Route(
+            name: name, upstream: "localhost:\(port)", dir: "/Users/dev/code/\(dir)",
+            registered: now.addingTimeInterval(-3600), lastHeartbeat: now.addingTimeInterval(-seconds))
+    }
+    model.apply(
+        health: Health(status: "ok", version: version, build: version, uptime: "3h12m5s"),
+        routes: [
+            route("myapp", 3000, "myapp", seconds: 1),
+            route("api.myapp", 8080, "myapp", seconds: 4),
+            route("myapp-feat-auth", 3001, "myapp-feat-auth", seconds: 9),
+            route("docs", 4321, "docs", seconds: 24),  // past half the timeout: drawn as stale
+        ],
+        setupComplete: true)
+    return model
+}
+
+/// Writes the website's screenshots when `PAWPROXY_SCREENSHOTS=<dir>` is set
+/// (`task screenshots`): the panel running and before setup, and Settings,
+/// each in light and dark.
+@MainActor
+@Test func writesWebsiteScreenshotsWhenAsked() throws {
+    guard let dir = ProcessInfo.processInfo.environment["PAWPROXY_SCREENSHOTS"] else { return }
+    let output = URL(fileURLWithPath: dir, isDirectory: true)
+    try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+    let running = try screenshotModel()
+    let setup = try screenshotModel(setupComplete: false)
+    for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+        let shots: [(String, Data?)] = [
+            ("panel", PanelSnapshot.png(of: MenuView(model: running), appearance: appearance)),
+            ("panel-setup", PanelSnapshot.png(of: MenuView(model: setup), appearance: appearance)),
+            (
+                "settings",
+                PanelSnapshot.png(
+                    of: SettingsView(model: running), width: MenubarMetrics.settingsWidth,
+                    chrome: .window(title: "Paw Proxy Settings"), appearance: appearance)
+            ),
+        ]
+        for (file, png) in shots {
+            let data = try #require(png, "rendering \(file)-\(name) failed")
+            try data.write(to: output.appendingPathComponent("\(file)-\(name).png"))
+        }
+    }
+}

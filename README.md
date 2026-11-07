@@ -28,14 +28,25 @@ up npm run dev  # → https://myapp.test ✓
 - **Conflict resolution** - Automatic fallback when a domain is already in use (great for git worktrees)
 - **Menu-bar app** - Routes at a glance, a status badge when something needs attention, and opt-in "project is live" notifications
 
+<p align="center">
+  <picture>
+    <source srcset="docs/screenshots/panel-dark.png" media="(prefers-color-scheme: dark)">
+    <img src="docs/screenshots/panel-light.png" width="404" alt="The Paw Proxy menu bar panel: running with four routes, each with its local port, project folder and last heartbeat">
+  </picture>
+</p>
+
 ## Installation
+
+Requires macOS 13 or later on Apple silicon.
 
 ```bash
 brew install --cask alexcatdad/tap/paw-proxy
 
-# Run setup (creates CA, configures DNS, installs daemon)
+# Run setup once (creates and trusts the CA, configures DNS, hands the daemon to Paw Proxy.app)
 sudo paw-proxy setup
 ```
+
+Restart your browser after setup so it picks up the new CA. If macOS asks, allow Paw Proxy under System Settings › General › Login Items; the menu bar panel says when that is needed. Upgrade with `brew upgrade --cask paw-proxy`; the panel offers *Restart to finish update* until the daemon runs the new version.
 
 ## Usage
 
@@ -83,6 +94,10 @@ up docker compose -f compose.prod.yml up
 ### Seeing what is routed
 
 `paw-proxy status` lists registered routes and their upstreams; `paw-proxy logs -f` follows requests as they arrive. Paw Proxy.app shows the same routes in the menu bar: click one to open it, and the paw icon carries a badge whenever setup, the daemon or an update needs attention. (The `https://_paw.test` web dashboard has been retired.)
+
+<p align="center">
+  <img src="docs/screenshots/settings-light.png" width="524" alt="Paw Proxy Settings: Notify me when projects go live and Play a sound, both off; Launch at login; version and GitHub link">
+</p>
 
 To hear when a project comes up, turn on **Notify me when projects go live** in Paw Proxy's Settings. It is off by default; macOS asks for permission when you turn it on. Notifications are silent unless you also turn on **Play a sound**, come from Paw Proxy.app (never `osascript`), and clicking one opens the project's `https://<name>.test` URL.
 
@@ -137,9 +152,10 @@ up -n staging bun dev
 | Command | Description |
 |---------|-------------|
 | `setup` | Configure DNS, CA, and install daemon (requires sudo) |
-| `uninstall` | Remove all paw-proxy components |
+| `uninstall` | Remove all paw-proxy components (requires sudo) |
 | `status` | Show daemon status and registered routes |
 | `restart` | Restart the daemon (e.g. after an upgrade) |
+| `logs` | Show daemon logs (`-f` follows) |
 | `doctor` | Query DNS and verify HTTPS TLS on every advertised/system-resolved address, independently of backend availability |
 | `run` | Run daemon in foreground (for launchd) |
 | `version` | Show version |
@@ -174,7 +190,7 @@ Firefox uses its own certificate store. Install NSS:
 
 ```bash
 brew install nss
-paw-proxy setup  # Re-run to update Firefox
+sudo paw-proxy setup  # Re-run to update Firefox
 ```
 
 ### "Daemon not running" error
@@ -194,7 +210,8 @@ Stop any other web servers (nginx, Apache, etc.) before running setup.
 ## Uninstall
 
 ```bash
-paw-proxy uninstall
+sudo paw-proxy uninstall
+brew uninstall --cask paw-proxy
 ```
 
 ## Development
@@ -203,6 +220,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md).
 
 ```bash
 task check   # lint, build, race tests, coverage floors, Swift tests, govulncheck (what CI runs)
+task screenshots   # re-render docs/screenshots from fixture data (no real routes)
 
 # Integration tests (changes system state; requires setup)
 sudo ./paw-proxy setup

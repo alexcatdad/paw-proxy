@@ -1,31 +1,32 @@
-# paw-proxy
+# Paw Proxy (paw-proxy)
 
-> Zero-config HTTPS proxy for local macOS development. Provides automatic HTTPS for .test domains with trusted certificates, DNS resolution, and reverse proxying — no per-project configuration needed.
+> Zero-config HTTPS for local macOS development: every dev server gets a trusted https://<name>.test address. A local CA, .test DNS and a reverse proxy, the `up` command, and a menu bar app (Paw Proxy.app) that shows your routes. macOS 13 or later, Apple silicon.
 
-paw-proxy eliminates the friction of local HTTPS development. It runs a daemon that handles DNS resolution (`*.test` → `127.0.0.1`), generates trusted TLS certificates on demand, and reverse-proxies HTTPS traffic to your dev server's local port.
-
-Two binaries: `paw-proxy` (daemon and management CLI) and `up` (dev server wrapper). Run `up bun dev` and your app is instantly available at `https://myapp.test`.
+The `paw-proxy` daemon resolves `*.test` to `127.0.0.1`, issues trusted TLS certificates on demand, and reverse-proxies HTTPS traffic to your dev server's local port. `up` wraps your dev command: it picks a free port, sets `PORT`, registers the name and keeps it alive with heartbeats. Run `up bun dev` and your app is at `https://myapp.test`. Both commands ship inside Paw Proxy.app, which runs the daemon as its background item.
 
 ## Installation
 
-- [Homebrew install and setup](https://github.com/alexcatdad/paw-proxy#installation): `brew install --cask alexcatdad/tap/paw-proxy && sudo paw-proxy setup`
-- [Build from source](https://github.com/alexcatdad/paw-proxy#development): Clone, `go build`, and `sudo ./paw-proxy setup`
+- [Homebrew install and setup](https://github.com/alexcatdad/paw-proxy#installation): `brew install --cask alexcatdad/tap/paw-proxy`, then `sudo paw-proxy setup` once
+- Upgrade: `brew upgrade --cask paw-proxy`; uninstall: `sudo paw-proxy uninstall`, then `brew uninstall --cask paw-proxy`
 
 ## Usage
 
-- [Quick start and examples](https://github.com/alexcatdad/paw-proxy#usage): `up bun dev`, `up -n myapp npm run dev`
+- [Quick start and examples](https://github.com/alexcatdad/paw-proxy#usage): `up bun dev`, `up -n myapp npm start`
+- [Docker Compose](https://github.com/alexcatdad/paw-proxy#docker-compose): `up docker compose up` gives each service with a published port `https://<service>.<project>.test`
+- [Git worktrees](https://github.com/alexcatdad/paw-proxy#git-worktrees): a name already in use falls back to the directory name
 - [Environment variables](https://github.com/alexcatdad/paw-proxy#up): PORT, APP_DOMAIN, APP_URL, HTTPS, NODE_EXTRA_CA_CERTS
-- [Command reference](https://github.com/alexcatdad/paw-proxy#commands): setup, uninstall, status, run, logs, doctor, version
-- [Live dashboard](https://github.com/alexcatdad/paw-proxy#dashboard): Real-time request feed and route stats at `https://_paw.test`
+- [Command reference](https://github.com/alexcatdad/paw-proxy#commands): setup, uninstall, status, restart, logs, doctor, run, version
+- Menu bar app: status, routes (click to open), a badge when something needs attention, and opt-in "project is live" notifications (Settings › Notify me when projects go live; silent unless Play a sound is on)
 
 ### CLI Quick Reference
 
 `paw-proxy` commands:
-- `sudo paw-proxy setup` — Generate CA, configure DNS, install daemon (requires sudo)
-- `paw-proxy status` — Show daemon status and active routes
-- `paw-proxy doctor` — Run 6 diagnostic checks (socket, daemon, DNS, CA, ports)
+- `sudo paw-proxy setup` — Generate and trust the CA, configure the .test resolver, register the daemon through Paw Proxy.app
+- `paw-proxy status` — Show daemon status and registered routes
+- `paw-proxy restart` — Restart the daemon (e.g. after an upgrade)
 - `paw-proxy logs [-f]` — Show or follow daemon logs
-- `paw-proxy uninstall` — Remove all components
+- `paw-proxy doctor` — Check socket, daemon, DNS answers, system resolution and HTTPS TLS
+- `sudo paw-proxy uninstall` — Remove all components
 
 `up` usage:
 - `up <command>` — Find free port, register route, set PORT env var, run command
@@ -34,35 +35,34 @@ Two binaries: `paw-proxy` (daemon and management CLI) and `up` (dev server wrapp
 
 ## Troubleshooting
 
-- [Common issues](https://github.com/alexcatdad/paw-proxy#troubleshooting): Certificate trust, daemon not running, port conflicts
+- [Common issues](https://github.com/alexcatdad/paw-proxy#troubleshooting): Firefox certificate trust, daemon not running, port conflicts
 - Run `paw-proxy doctor` for automated diagnostics
 - Logs at `~/Library/Logs/paw-proxy.log` or via `paw-proxy logs -f`
 
 ## Architecture
 
 - [README](https://github.com/alexcatdad/paw-proxy/blob/main/README.md): Overview and how-it-works diagram
-- [CLAUDE.md](https://github.com/alexcatdad/paw-proxy/blob/main/CLAUDE.md): Detailed architecture, code locations, coding conventions
+- [AGENTS.md](https://github.com/alexcatdad/paw-proxy/blob/main/AGENTS.md): Invariants, layout, build and verify
 - [Full LLM reference](https://alexcatdad.github.io/paw-proxy/llms-full.txt): Self-contained complete reference with API docs and troubleshooting
 
 ### Key Source Files
 
-- [dashboard.go](https://github.com/alexcatdad/paw-proxy/blob/main/internal/dashboard/dashboard.go): Web dashboard HTTP handlers, SSE streaming, embedded static files
 - [daemon.go](https://github.com/alexcatdad/paw-proxy/blob/main/internal/daemon/daemon.go): Main daemon lifecycle (DNS, HTTP, HTTPS, cleanup goroutines)
 - [routes.go](https://github.com/alexcatdad/paw-proxy/blob/main/internal/api/routes.go): Route registry with RWMutex, heartbeat timeout
 - [server.go](https://github.com/alexcatdad/paw-proxy/blob/main/internal/api/server.go): Unix socket API, input validation (SSRF prevention)
 - [proxy.go](https://github.com/alexcatdad/paw-proxy/blob/main/internal/proxy/proxy.go): HTTP forwarding and WebSocket proxy
 - [cert.go](https://github.com/alexcatdad/paw-proxy/blob/main/internal/ssl/cert.go): Certificate generation and LRU cache
-- [setup_darwin.go](https://github.com/alexcatdad/paw-proxy/blob/main/internal/setup/setup_darwin.go): macOS setup (CA, keychain, resolver, LaunchAgent)
+- [setup_darwin.go](https://github.com/alexcatdad/paw-proxy/blob/main/internal/setup/setup_darwin.go): macOS setup (CA, keychain, resolver, daemon hand-off to the app)
+- [macos/](https://github.com/alexcatdad/paw-proxy/tree/main/macos): Paw Proxy.app, the menu bar app (Swift, MenubarKit)
 
 ## Contributing
 
 - [Contribution guide](https://github.com/alexcatdad/paw-proxy/blob/main/CONTRIBUTING.md): Development setup and PR workflow
 - [Open issues](https://github.com/alexcatdad/paw-proxy/issues): Bug reports and feature requests
-- Build: `go build ./cmd/paw-proxy && go build ./cmd/up`
-- Test: `go test -v -race ./...`
+- Full local gate: `task check` (lint, build, race tests, coverage, Swift tests, govulncheck)
 
 ## Optional
 
-- [Homebrew tap repository](https://github.com/alexcatdad/homebrew-tap): Formula and tap configuration
+- [Homebrew tap repository](https://github.com/alexcatdad/homebrew-tap): Cask and tap configuration
 - [Changelog](https://github.com/alexcatdad/paw-proxy/blob/main/CHANGELOG.md): Release history
 - [Landing page](https://alexcatdad.github.io/paw-proxy/): Project website

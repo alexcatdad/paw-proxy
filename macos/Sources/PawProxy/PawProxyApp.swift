@@ -49,7 +49,8 @@ struct SettingsView: View {
                     SettingsNote("Dev builds never register a login item.")
                 }
             }
-            SettingsAboutSection(repository: URL(string: "https://github.com/alexcatdad/paw-proxy"))
+            SettingsAboutSection(
+                bundle: model.bundle, repository: URL(string: "https://github.com/alexcatdad/paw-proxy"))
         }
         // Start or stop polling the daemon's event queue with the toggle.
         .onChange(of: notify) { model.notificationsToggled($0) }

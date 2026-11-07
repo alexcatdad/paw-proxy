@@ -14,6 +14,7 @@ final class AppModel: ObservableObject {
     @Published var message: String?
 
     let isDevelopment: Bool
+    let bundle: Bundle
     let bundleVersion: String
     let bundleBuild: String
 
@@ -42,17 +43,20 @@ final class AppModel: ObservableObject {
     ///   - notificationCenter: Tests pass a fake; `UNUserNotificationCenter`
     ///     needs a real app bundle.
     ///   - startsPolling: Off in tests, which set the state they lay out.
+    ///   - bundle: Where the version shown in the panel and Settings comes
+    ///     from; the screenshot test passes a fixture bundle.
     init(
         services: Services = .live(),
         notificationCenter: any NotificationCenterClient = SystemNotificationCenter(),
-        startsPolling: Bool = true
+        startsPolling: Bool = true,
+        bundle: Bundle = .main
     ) {
         self.services = services
+        self.bundle = bundle
         notifier = RouteNotifications.notifier(center: notificationCenter)
-        let info = Bundle.main.infoDictionary ?? [:]
         isDevelopment = services.isDevelopment
-        bundleVersion = info["CFBundleShortVersionString"] as? String ?? "dev"
-        bundleBuild = info["CFBundleVersion"] as? String ?? ""
+        bundleVersion = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+        bundleBuild = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
         guard startsPolling else { return }
 
         timer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
