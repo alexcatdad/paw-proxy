@@ -72,20 +72,27 @@ struct RouteRowView: View {
     @ObservedObject var model: AppModel
 
     var body: some View {
-        ListRowButton(
-            row.host, subtitle: row.subtitle, value: row.heartbeatAge
-        ) { model.open(row) }
-        .opacity(row.isStale ? 0.5 : 1)
-        .help(
-            row.isStale
-                ? "No heartbeat recently — the route may be expiring." : "Open \(row.url?.absoluteString ?? row.host)"
-        )
-        .contextMenu {
-            Button("Open") { model.open(row) }
-            Button("Copy URL") { model.copyURL(row) }
-            if row.tailnetURL != nil {
-                Button("Copy Tailnet URL") { model.copyTailnetURL(row) }
+        VStack(alignment: .leading, spacing: 0) {
+            ListRowButton(
+                row.host, subtitle: row.subtitle, value: row.heartbeatAge
+            ) { model.open(row) }
+            .help(
+                row.isStale
+                    ? "No heartbeat recently — the route may be expiring."
+                    : "Open \(row.url?.absoluteString ?? row.host)"
+            )
+            .contextMenu {
+                Button("Open") { model.open(row) }
+                Button("Copy URL") { model.copyURL(row) }
+                if row.tailnetURL != nil {
+                    Button("Copy Tailnet URL") { model.copyTailnetURL(row) }
+                }
+            }
+            if let address = row.tailnetAddress {
+                ListRowButton(address, systemImage: "network", value: "Copy") { model.copyTailnetURL(row) }
+                    .help("Copy https://\(address)")
             }
         }
+        .opacity(row.isStale ? 0.5 : 1)
     }
 }
