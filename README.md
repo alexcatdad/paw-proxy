@@ -26,6 +26,7 @@ up npm run dev  # → https://myapp.test ✓
 - **Smart naming** - Uses package.json name or directory name
 - **Docker Compose** - Auto-discovers services and creates `service.project.test` routes
 - **Conflict resolution** - Automatic fallback when a domain is already in use (great for git worktrees)
+- **On your phone** - `up --tailnet` also serves the app to your other devices over Tailscale
 - **Menu-bar app** - Routes at a glance, a status badge when something needs attention, and opt-in "project is live" notifications
 
 <p align="center">
@@ -101,6 +102,18 @@ up docker compose -f compose.prod.yml up
 
 To hear when a project comes up, turn on **Notify me when projects go live** in Paw Proxy's Settings. It is off by default; macOS asks for permission when you turn it on. Notifications are silent unless you also turn on **Play a sound**, come from Paw Proxy.app (never `osascript`), and clicking one opens the project's `https://<name>.test` URL.
 
+### On your phone (Tailscale)
+
+`.test` names only work on your Mac. Add `--tailnet` to also open the app from any device on your [Tailscale](https://tailscale.com) tailnet, with a certificate that device already trusts:
+
+```bash
+up --tailnet npm run dev
+# 🚀 Project is live at: https://myapp.test
+# 📱 On your tailnet: https://my-mac.example.ts.net:23456
+```
+
+The port comes from the route name, so the URL stays the same every time you start that project. It needs the Tailscale app running with [HTTPS certificates](https://tailscale.com/docs/how-to/set-up-https-certificates) enabled; otherwise `up` prints why and carries on with `.test` only. The route is served to your tailnet only (Tailscale Serve, never Funnel) and is removed when `up` stops. Dev servers that check the `Host` header need the tailnet name allowed; your command gets it in `APP_TAILNET_URL`. Not available in Docker Compose mode.
+
 ### Git Worktrees
 
 Running multiple branches of the same project? paw-proxy handles it automatically. When two instances of `up` register the same name (e.g., from a shared `package.json`), the second instance falls back to its directory name:
@@ -130,6 +143,7 @@ up -n staging bun dev
 2. **SSL** - A trusted CA generates certificates for each domain on-the-fly
 3. **Proxy** - HTTPS requests are proxied to your dev server's local port
 4. **Auto-port** - `up` finds a free port and sets `PORT` environment variable
+5. **Tailnet (optional)** - with `up --tailnet`, the daemon asks the Tailscale CLI to serve that port to your tailnet; that traffic goes from Tailscale straight to your dev server
 
 ## Architecture
 
@@ -163,11 +177,12 @@ up -n staging bun dev
 ### up
 
 ```
-up [-n name] [--restart] <command> [args...]
+up [-n name] [--restart] [--tailnet] <command> [args...]
 
 Options:
   -n name    Custom domain name (default: package.json name or directory)
   --restart  Auto-restart on crash (non-zero exit, single-app mode only)
+  --tailnet  Also serve on your tailnet with Tailscale Serve (single-app mode only)
 
 Docker Compose mode:
   up docker compose up           Auto-discover services, register routes
@@ -179,6 +194,7 @@ Environment variables set for your command:
   APP_DOMAIN           - e.g., myapp.test (single-app mode)
   APP_URL              - e.g., https://myapp.test (single-app mode)
   HTTPS                - "true" (single-app mode)
+  APP_TAILNET_URL      - e.g., https://my-mac.example.ts.net:23456 (only while --tailnet is serving)
   NODE_EXTRA_CA_CERTS  - Path to CA cert (for Node.js HTTPS requests)
 ```
 

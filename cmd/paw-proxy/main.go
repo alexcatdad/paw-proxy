@@ -265,6 +265,7 @@ func cmdStatus() {
 		Dir           string    `json:"dir"`
 		Registered    time.Time `json:"registered"`
 		LastHeartbeat time.Time `json:"lastHeartbeat"`
+		TailnetURL    string    `json:"tailnetURL"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&routes); err != nil {
 		fmt.Printf("Routes: could not be read: %v\n", err)
@@ -279,6 +280,9 @@ func cmdStatus() {
 			age := time.Since(r.Registered).Round(time.Second)
 			fmt.Printf("  • %s.test -> %s (%s)\n", r.Name, r.Upstream, age)
 			fmt.Printf("    Dir: %s\n", r.Dir)
+			if r.TailnetURL != "" {
+				fmt.Printf("    Tailnet: %s\n", r.TailnetURL)
+			}
 		}
 	}
 

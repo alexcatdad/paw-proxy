@@ -19,6 +19,12 @@ All notable changes are recorded here. The format follows
 - Go 1.27.3; `github.com/miekg/dns` 1.1.73.
 
 ### Added
+- `up --tailnet` also serves the route on your tailnet through Tailscale Serve
+  at `https://<machine>.<tailnet>.ts.net:<port>`; the port is derived from the
+  route name, so the URL is stable. The command gets `APP_TAILNET_URL`,
+  `paw-proxy status` and the menu bar show the URL, and the daemon removes the
+  Serve route when the route ends. Without Tailscale it warns and serves
+  `.test` only.
 - Paw Proxy.app posts `up`'s "project is live" and "stopped" notifications
   when **Notify me when projects go live** is on (off by default, silent).
 

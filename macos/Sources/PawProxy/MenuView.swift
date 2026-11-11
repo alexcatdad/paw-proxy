@@ -73,8 +73,7 @@ struct RouteRowView: View {
 
     var body: some View {
         ListRowButton(
-            row.host, subtitle: row.project.isEmpty ? "→ \(row.target)" : "→ \(row.target) · \(row.project)",
-            value: row.heartbeatAge
+            row.host, subtitle: row.subtitle, value: row.heartbeatAge
         ) { model.open(row) }
         .opacity(row.isStale ? 0.5 : 1)
         .help(
@@ -84,6 +83,9 @@ struct RouteRowView: View {
         .contextMenu {
             Button("Open") { model.open(row) }
             Button("Copy URL") { model.copyURL(row) }
+            if row.tailnetURL != nil {
+                Button("Copy Tailnet URL") { model.copyTailnetURL(row) }
+            }
         }
     }
 }

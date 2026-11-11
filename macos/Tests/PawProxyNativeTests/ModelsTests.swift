@@ -40,3 +40,11 @@ import Testing
     #expect(p.log.path == "/Users/u/Library/Logs/paw-proxy.log")
     #expect(p.resolver().path == "/etc/resolver/test")
 }
+
+@Test func decodesTailnetURLWhenPresent() throws {
+    let json = Data(
+        #"[{"name":"shop","upstream":"localhost:3000","dir":"/src/shop","registered":"2026-11-03T19:00:00Z","lastHeartbeat":"2026-11-03T19:00:05Z","tailnetURL":"https://mac.example.ts.net:20001"}]"#
+            .utf8)
+    let routes = try DaemonJSON.decoder().decode([Route].self, from: json)
+    #expect(routes[0].tailnetURL == "https://mac.example.ts.net:20001")
+}

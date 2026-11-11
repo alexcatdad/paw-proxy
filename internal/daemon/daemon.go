@@ -25,6 +25,7 @@ import (
 	"github.com/alexcatdad/paw-proxy/internal/paths"
 	"github.com/alexcatdad/paw-proxy/internal/proxy"
 	"github.com/alexcatdad/paw-proxy/internal/ssl"
+	"github.com/alexcatdad/paw-proxy/internal/tailnet"
 )
 
 type Config struct {
@@ -59,6 +60,7 @@ type Daemon struct {
 	dnsServer *dns.Server
 	registry  *api.RouteRegistry
 	apiServer *api.Server
+	tailnet   *tailnet.Exposer
 	certCache *ssl.CertCache
 	proxy     *proxy.Proxy
 	logger    *slog.Logger
@@ -117,6 +119,8 @@ func New(config *Config) (*Daemon, error) {
 
 	// Create API server
 	apiServer := api.NewServer(config.SocketPath, registry)
+	tailnetRoutes := tailnet.New(filepath.Join(config.SupportDir, "tailnet.json"))
+	apiServer.SetTailnet(tailnetRoutes)
 
 	certCache := ssl.NewCertCache(ca, config.TLD)
 	certCache.SetLogger(logger)
@@ -126,6 +130,7 @@ func New(config *Config) (*Daemon, error) {
 		dnsServer: dnsServer,
 		registry:  registry,
 		apiServer: apiServer,
+		tailnet:   tailnetRoutes,
 		certCache: certCache,
 		proxy:     proxy.New(),
 		logger:    logger,
@@ -142,6 +147,9 @@ func (d *Daemon) Run() error {
 	defer cancel()
 
 	var wg sync.WaitGroup
+
+	// Remove tailnet routes an earlier run left behind (crash, power loss).
+	d.resetTailnet()
 
 	// Start DNS server
 	wg.Add(1)
@@ -260,6 +268,9 @@ func (d *Daemon) Run() error {
 
 	shutdownWg.Wait()
 
+	// No route outlives the daemon; a running `up` re-registers on restart.
+	d.resetTailnet()
+
 	// Clean up socket file
 	if err := os.Remove(d.config.SocketPath); err != nil && !os.IsNotExist(err) {
 		d.logger.Warn("socket cleanup failed", "error", err)
@@ -286,9 +297,21 @@ func (d *Daemon) cleanupRoutine(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			d.registry.Cleanup()
+			for _, route := range d.registry.Cleanup() {
+				if route.TailnetURL != "" {
+					d.withTailnetTimeout(func(ctx context.Context) { d.tailnet.Unexpose(ctx, route.Name) })
+				}
+			}
 		}
 	}
+}
+
+func (d *Daemon) resetTailnet() { d.withTailnetTimeout(d.tailnet.Reset) }
+
+func (d *Daemon) withTailnetTimeout(f func(context.Context)) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	f(ctx)
 }
 
 func redirectTarget(rawHost, requestURI, tld string) (string, bool) {

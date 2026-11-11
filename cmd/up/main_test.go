@@ -12,6 +12,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/alexcatdad/paw-proxy/internal/api"
 )
 
 func unixHostClient(t *testing.T, ts *httptest.Server) *http.Client {
@@ -142,7 +144,7 @@ func TestRegisterWithFallback(t *testing.T) {
 		defer server.Close()
 
 		client := unixHostClient(t, server)
-		name, err := registerWithFallback(client, "myapp", "localhost:3000", "/tmp/myapp")
+		name, _, err := registerWithFallback(client, "myapp", "localhost:3000", "/tmp/myapp", false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -169,7 +171,7 @@ func TestRegisterWithFallback(t *testing.T) {
 
 		client := unixHostClient(t, server)
 		// Dir basename "myapp-worktree" differs from name "myapp", so fallback kicks in
-		name, err := registerWithFallback(client, "myapp", "localhost:3000", "/tmp/myapp-worktree")
+		name, _, err := registerWithFallback(client, "myapp", "localhost:3000", "/tmp/myapp-worktree", false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -189,7 +191,7 @@ func TestRegisterWithFallback(t *testing.T) {
 
 		client := unixHostClient(t, server)
 		// Dir basename "myapp" matches name "myapp" — no fallback possible
-		_, err := registerWithFallback(client, "myapp", "localhost:3000", "/tmp/myapp")
+		_, _, err := registerWithFallback(client, "myapp", "localhost:3000", "/tmp/myapp", false)
 		if err == nil {
 			t.Fatal("expected error when directory name matches original name")
 		}
@@ -206,7 +208,7 @@ func TestRegisterWithFallback(t *testing.T) {
 
 		client := unixHostClient(t, server)
 		// Both "myapp" and fallback "myapp-worktree" get 409
-		_, err := registerWithFallback(client, "myapp", "localhost:3000", "/tmp/myapp-worktree")
+		_, _, err := registerWithFallback(client, "myapp", "localhost:3000", "/tmp/myapp-worktree", false)
 		if err == nil {
 			t.Fatal("expected error when fallback registration also fails")
 		}
@@ -222,7 +224,7 @@ func TestRegisterWithFallback(t *testing.T) {
 		defer server.Close()
 
 		client := unixHostClient(t, server)
-		_, err := registerWithFallback(client, "myapp", "localhost:3000", "/tmp/myapp-worktree")
+		_, _, err := registerWithFallback(client, "myapp", "localhost:3000", "/tmp/myapp-worktree", false)
 		if err == nil {
 			t.Fatal("expected error for 500 response")
 		}
@@ -260,4 +262,35 @@ func TestExtractConflictDir(t *testing.T) {
 			t.Errorf("extractConflictDir(nil) = %q, want %q", got, "")
 		}
 	})
+}
+
+func TestRegisterRouteTailnetReply(t *testing.T) {
+	tests := []struct {
+		name, body, wantLine string
+	}{
+		{"served", `{"tailnetURL":"https://mac.example.ts.net:20001"}`, "📱 On your tailnet: https://mac.example.ts.net:20001"},
+		{"fallback", `{"tailnetError":"tailscale is not running"}`, "⚠️  Tailnet unavailable: tailscale is not running. Using https://myapp.test only."},
+		{"older daemon", ``, "⚠️  Tailnet unavailable: the running daemon does not support it (run: paw-proxy restart). Using https://myapp.test only."},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var sent api.RegisterRequest
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_ = json.NewDecoder(r.Body).Decode(&sent)
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			defer server.Close()
+
+			reply, err := registerRoute(unixHostClient(t, server), "myapp", "localhost:3000", "/tmp/myapp", true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !sent.Tailnet {
+				t.Error("request did not ask for tailnet serving")
+			}
+			if got := tailnetLine(reply, "myapp"); got != tt.wantLine {
+				t.Errorf("line = %q, want %q", got, tt.wantLine)
+			}
+		})
+	}
 }

@@ -125,6 +125,13 @@ Mapping https://api.myapp.test -> localhost:8080...
    https://frontend.myapp.test
    https://api.myapp.test</span></div>
 
+        <h3>On your phone</h3>
+        <p><code>.test</code> names stop at your Mac. Add <code>--tailnet</code> and <code>up</code> also serves the project to your other devices over <a href="https://tailscale.com">Tailscale</a>, with a certificate they already trust:</p>
+<div class="terminal" role="region" aria-label="Tailnet example" tabindex="0"><span class="prompt">~/code/myapp $ </span>up --tailnet npm run dev
+<span class="out">🚀 Project is live at: https://myapp.test
+📱 On your tailnet: https://my-mac.example.ts.net:23456</span></div>
+        <p>The port comes from the project's name, so the address stays the same every time. Only your tailnet can reach it, and the address goes away when <code>up</code> stops. Without Tailscale, <code>up</code> says why and carries on with <code>.test</code>.</p>
+
         <h3>From the terminal</h3>
         <dl class="commands">
             <dt>paw-proxy status</dt>
@@ -142,7 +149,7 @@ Mapping https://api.myapp.test -> localhost:8080...
         <h2 id="panel">What the panel tells you</h2>
         <p>The header says whether the proxy is running and how many routes it holds. When something needs you, it says what, and the paw in the menu bar carries a badge until it is fixed.</p>
         <p>Under it, three rows cover the moving parts: setup (the local CA and DNS), the background item macOS has to allow, and the daemon with its version and uptime. Green is fine, yellow waits on you, red is broken.</p>
-        <p>Routes lists every name with the port it forwards to and the project folder. Click one to open it in your browser. A greyed-out route has not had a heartbeat from <code>up</code> for a while and will expire if it stays quiet.</p>
+        <p>Routes lists every name with the port it forwards to and the project folder. Click one to open it in your browser; a route started with <code>--tailnet</code> says so, and its menu copies the tailnet address. A greyed-out route has not had a heartbeat from <code>up</code> for a while and will expire if it stays quiet.</p>
     </section>
 
     <section aria-labelledby="settings">
@@ -178,7 +185,7 @@ Mapping https://api.myapp.test -> localhost:8080...
     <section aria-labelledby="never">
         <h2 id="never">What it never does</h2>
         <ul>
-            <li>Listen beyond your Mac. The proxy, DNS server and API stay on loopback or a private socket, and routes can only point at localhost.</li>
+            <li>Listen beyond your Mac unless you ask. The proxy, DNS server and API stay on loopback or a private socket, and routes can only point at localhost. Only <code>up --tailnet</code> shares a project, and only with your own tailnet, never the public internet.</li>
             <li>Share the CA's private key. It stays readable only by you in <code>~/Library/Application Support/paw-proxy/</code> and is never logged or exported.</li>
             <li>Ask for your password outside setup and uninstall, the only steps that need <code>sudo</code>.</li>
             <li>Send telemetry, analytics or update checks over the network.</li>

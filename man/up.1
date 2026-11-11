@@ -6,6 +6,7 @@ up \- Dev server wrapper — register routes with paw\-proxy and run commands
 .RB [ -n
 .IR name ]
 .RB [ \-\-restart ]
+.RB [ \-\-tailnet ]
 .I command
 .RI [ args... ]
 .SH DESCRIPTION
@@ -18,6 +19,9 @@ Custom domain name (default: package.json name or directory)
 .TP
 .B \-\-restart
 Auto\-restart on crash (non\-zero exit)
+.TP
+.B \-\-tailnet
+Also serve on your tailnet with Tailscale Serve (falls back to .test only)
 .SH ENVIRONMENT
 .TP
 .B PORT
@@ -31,6 +35,9 @@ Full URL, e.g. https://myapp.test
 .TP
 .B HTTPS
 Always "true"
+.TP
+.B APP_TAILNET_URL
+Tailnet URL, set only when \-\-tailnet is serving
 .TP
 .B NODE_EXTRA_CA_CERTS
 Path to CA cert (for Node.js HTTPS requests)
@@ -65,6 +72,14 @@ Auto\-restart on crash:
 .RS
 .nf
 $ up \-\-restart bun dev
+.fi
+.RE
+.PP
+Also open it from your phone over Tailscale:
+.PP
+.RS
+.nf
+$ up \-\-tailnet bun dev
 .fi
 .RE
 .SH SEE ALSO
