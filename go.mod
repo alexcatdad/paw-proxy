@@ -1,6 +1,6 @@
 module github.com/alexcatdad/paw-proxy
 
-go 1.27.3
+go 1.27.4
 
 require github.com/miekg/dns v1.1.73
 

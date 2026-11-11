@@ -471,7 +471,7 @@ Fix: Always start Node.js via `up`: `up node server.js`
 
 ### Prerequisites
 
-- Go 1.27.3 (matches go.mod), Swift 6 / Xcode for the app, Task
+- Go 1.27.4 (matches go.mod), Swift 6 / Xcode for the app, Task
 - macOS for integration tests
 - Single external Go dependency: `github.com/miekg/dns`
 
