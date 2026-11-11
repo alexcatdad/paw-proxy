@@ -16,7 +16,7 @@ All notable changes are recorded here. The format follows
   the shared panel layout and a Settings window.
 - CI is validation only, through `alexcatdad/ci-actions`; `task check` runs the
   same lint, build, test and security tasks locally.
-- Go 1.27.3; `github.com/miekg/dns` 1.1.73.
+- Go 1.27.4; `github.com/miekg/dns` 1.1.73.
 
 ### Added
 - `up --tailnet` also serves the route on your tailnet through Tailscale Serve
