@@ -12,11 +12,14 @@ public struct RouteRow: Equatable, Identifiable, Sendable {
     public var url: URL?
     public var tailnetURL: URL?
 
-    /// Second line of the row: target, project folder, and whether the route
-    /// is also on the tailnet.
+    /// Second line of the row: target and project folder.
     public var subtitle: String {
-        (["→ \(target)", project] + (tailnetURL == nil ? [] : ["tailnet"]))
-            .filter { !$0.isEmpty }.joined(separator: " · ")
+        ["→ \(target)", project].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+
+    /// The tailnet URL without its scheme, e.g. `my-mac.example.ts.net:23456`.
+    public var tailnetAddress: String? {
+        tailnetURL.map { Self.trimScheme($0.absoluteString) }
     }
 
     /// - Parameter timeout: the daemon's heartbeat timeout; rows older than
