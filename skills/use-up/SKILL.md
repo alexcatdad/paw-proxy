@@ -23,6 +23,7 @@ Every dev server command MUST be wrapped with `up`. This is how the user's envir
 6. **Tell the user their app is at `https://<name>.test`** — never say `http://localhost:XXXX`
 7. **Use `--restart` for crash-prone servers** — `up --restart <cmd>` auto-restarts on non-zero exit
 8. **For Docker Compose** — use `up docker compose up` instead of bare `docker compose up`
+9. **Use `--tailnet` when the app must open on another device** (phone, tablet) — `up --tailnet <cmd>` also serves it over Tailscale and prints that URL; if Tailscale is unavailable it prints a warning and `.test` still works (single-app mode only)
 
 ## Usage Patterns
 
@@ -72,6 +73,7 @@ Derive names from the subdirectory or package name.
 | `APP_URL` | `https://myapp.test` | Full HTTPS URL |
 | `HTTPS` | `true` | Signals HTTPS to frameworks |
 | `NODE_EXTRA_CA_CERTS` | `~/.paw-proxy/ca.crt` | Trust the paw-proxy CA |
+| `APP_TAILNET_URL` | `https://mac.example.ts.net:23456` | Tailnet URL; set only when `--tailnet` is serving |
 
 In Docker Compose mode, only `NODE_EXTRA_CA_CERTS` is set. Compose services use their own published ports.
 
@@ -83,6 +85,9 @@ If the auto-detected name is already registered (common with git worktrees runni
 
 After starting a single-app server:
 > "Your app is running at `https://myapp.test`"
+
+After starting with `--tailnet` (give the URL `up` printed after "On your tailnet"):
+> "Your app is running at `https://myapp.test`, and on your tailnet at `https://mac.example.ts.net:23456`"
 
 After starting Docker Compose:
 > "Your services are running at `https://frontend.myapp.test` and `https://api.myapp.test`"

@@ -43,6 +43,7 @@ func versionString(name string) string {
 var (
 	nameFlag         = flag.String("n", "", "Custom app name (default: from package.json or directory)")
 	restartFlag      = flag.Bool("restart", false, "Auto-restart on crash (non-zero exit)")
+	tailnetFlag      = flag.Bool("tailnet", false, "Also serve on your tailnet with Tailscale Serve")
 	showVersion      = flag.Bool("version", false, "Show version")
 	showVersionShort = flag.Bool("v", false, "")
 )
@@ -52,6 +53,7 @@ type routeState struct {
 	name     string
 	upstream string
 	dir      string
+	tailnet  bool
 }
 
 func newRouteState(name, dir string) *routeState {
@@ -120,6 +122,9 @@ func main() {
 	args := flag.Args()
 	dc := detectDockerCompose(args)
 	if dc.detected {
+		if *tailnetFlag {
+			fmt.Println("⚠️  --tailnet is not supported with Docker Compose; using .test only")
+		}
 		runDockerComposeMode(client, dc, args, caPath)
 		return
 	}
@@ -128,6 +133,7 @@ func main() {
 	name := determineName(*nameFlag)
 	dir, _ := os.Getwd()
 	state := newRouteState(name, dir)
+	state.tailnet = *tailnetFlag
 
 	// Setup cleanup (deregisters route from daemon)
 	cleanup := func() {
@@ -166,7 +172,7 @@ func main() {
 		}
 
 		// Register route (with automatic fallback to directory name on conflict)
-		finalName, err := registerWithFallback(client, name, upstream, dir)
+		finalName, reply, err := registerWithFallback(client, name, upstream, dir, *tailnetFlag)
 		if err != nil {
 			fmt.Printf("Error registering route: %v\n", err)
 			os.Exit(1)
@@ -183,6 +189,9 @@ func main() {
 		} else {
 			fmt.Printf("🔄 Restarting (previous exit code: %d)...\n", exitCode)
 		}
+		if *tailnetFlag {
+			fmt.Println(tailnetLine(reply, name))
+		}
 		fmt.Println("------------------------------------------------")
 
 		// Build command
@@ -197,6 +206,9 @@ func main() {
 			"HTTPS=true",
 			fmt.Sprintf("NODE_EXTRA_CA_CERTS=%s", caPath),
 		)
+		if reply.TailnetURL != "" {
+			cmd.Env = append(cmd.Env, "APP_TAILNET_URL="+reply.TailnetURL)
+		}
 
 		// Run child in its own process group so we can signal the entire group
 		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
@@ -322,7 +334,9 @@ func socketClient(socketPath string) *http.Client {
 				return net.Dial("unix", socketPath)
 			},
 		},
-		Timeout: 5 * time.Second,
+		// Longer than the daemon's tailnet timeout, so a slow Tailscale CLI
+		// still gets its answer back.
+		Timeout: 10 * time.Second,
 	}
 }
 
@@ -335,32 +349,46 @@ func (e *conflictError) Error() string {
 	return fmt.Sprintf("route conflict: already registered from %s", e.dir)
 }
 
-func registerRoute(client *http.Client, name, upstream, dir string) error {
-	body, _ := json.Marshal(map[string]string{
-		"name":     name,
-		"upstream": upstream,
-		"dir":      dir,
-	})
+// registerRoute registers a route. With tailnet set, the reply says whether
+// the daemon could also serve it on the tailnet; the route is registered
+// either way.
+func registerRoute(client *http.Client, name, upstream, dir string, tailnet bool) (api.RegisterResponse, error) {
+	var reply api.RegisterResponse
+	body, _ := json.Marshal(api.RegisterRequest{Name: name, Upstream: upstream, Dir: dir, Tailnet: tailnet})
 
 	resp, err := client.Post("http://unix/routes", "application/json", bytes.NewReader(body))
 	if err != nil {
-		return err
+		return reply, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusConflict {
 		var errResp map[string]string
 		_ = json.NewDecoder(resp.Body).Decode(&errResp)
-		return &conflictError{dir: errResp["existingDir"]}
+		return reply, &conflictError{dir: errResp["existingDir"]}
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp map[string]string
 		_ = json.NewDecoder(resp.Body).Decode(&errResp)
-		return fmt.Errorf("%s: %s", resp.Status, errResp["error"])
+		return reply, fmt.Errorf("%s: %s", resp.Status, errResp["error"])
 	}
 
-	return nil
+	// A daemon from before --tailnet answers with an empty body.
+	_ = json.NewDecoder(resp.Body).Decode(&reply)
+	return reply, nil
+}
+
+// tailnetLine is what `up --tailnet` prints about the tailnet for one start.
+func tailnetLine(reply api.RegisterResponse, name string) string {
+	if reply.TailnetURL != "" {
+		return "📱 On your tailnet: " + reply.TailnetURL
+	}
+	reason := reply.TailnetError
+	if reason == "" {
+		reason = "the running daemon does not support it (run: paw-proxy restart)"
+	}
+	return fmt.Sprintf("⚠️  Tailnet unavailable: %s. Using https://%s.test only.", reason, name)
 }
 
 func deregisterRoute(client *http.Client, name string) error {
@@ -418,7 +446,7 @@ func heartbeatWithInterval(ctx context.Context, client *http.Client, state *rout
 					log.Printf("warning: heartbeat route missing but no upstream available for %s", name)
 					continue
 				}
-				if err := registerRoute(client, name, upstream, dir); err != nil {
+				if _, err := registerRoute(client, name, upstream, dir, state.tailnet); err != nil {
 					log.Printf("warning: auto re-register failed: %v", err)
 					continue
 				}
@@ -441,28 +469,29 @@ func extractConflictDir(err error) string {
 
 // registerWithFallback attempts to register a route. On a name conflict, it
 // falls back to using the directory basename (if different from the original
-// name). Returns the final registered name.
-func registerWithFallback(client *http.Client, name, upstream, dir string) (string, error) {
-	err := registerRoute(client, name, upstream, dir)
+// name). Returns the final registered name and the daemon's tailnet reply.
+func registerWithFallback(client *http.Client, name, upstream, dir string, tailnet bool) (string, api.RegisterResponse, error) {
+	reply, err := registerRoute(client, name, upstream, dir, tailnet)
 	if err == nil {
-		return name, nil
+		return name, reply, nil
 	}
 
 	conflictDir := extractConflictDir(err)
 	if conflictDir == "" {
-		return "", err
+		return "", reply, err
 	}
 
 	dirName := sanitizeName(filepath.Base(dir))
 	if dirName == name {
-		return "", err
+		return "", reply, err
 	}
 
 	fmt.Printf("⚠️  %s.test already in use from %s\n", name, conflictDir)
 	fmt.Printf("   Using %s.test instead\n", dirName)
 
-	if err := registerRoute(client, dirName, upstream, dir); err != nil {
-		return "", err
+	reply, err = registerRoute(client, dirName, upstream, dir, tailnet)
+	if err != nil {
+		return "", reply, err
 	}
-	return dirName, nil
+	return dirName, reply, nil
 }

@@ -188,7 +188,7 @@ func runComposeConfig(composeFlags []string) ([]byte, error) {
 // registerComposeRoutes registers all compose routes with the daemon.
 func registerComposeRoutes(client *http.Client, routes []composeRoute, dir string) error {
 	for _, r := range routes {
-		if err := registerRoute(client, r.routeName, r.upstream, dir); err != nil {
+		if _, err := registerRoute(client, r.routeName, r.upstream, dir, false); err != nil {
 			return fmt.Errorf("registering %s: %w", r.routeName, err)
 		}
 	}
@@ -238,7 +238,7 @@ func heartbeatComposeWithInterval(ctx context.Context, client *http.Client, stat
 				_ = resp.Body.Close()
 
 				if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
-					if err := registerRoute(client, r.routeName, r.upstream, dir); err != nil {
+					if _, err := registerRoute(client, r.routeName, r.upstream, dir, false); err != nil {
 						log.Printf("warning: compose auto re-register failed for %s: %v", r.routeName, err)
 						continue
 					}

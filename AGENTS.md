@@ -6,7 +6,7 @@ Zero-config HTTPS for local development: `https://<name>.test` for any dev serve
 
 ## Invariants
 
-- Local only: the proxy, DNS and API listen on loopback or a 0600 unix socket. Upstreams are restricted to localhost (SSRF guard); route names, directories and request bodies are validated and size-limited.
+- Local first: the proxy, DNS and API listen on loopback or a 0600 unix socket. The only way off the Mac is `up --tailnet`: the daemon asks the Tailscale CLI to serve that route's port to the tailnet, never Funnel, falls back to `.test` on any failure, and removes only Serve routes it created. Upstreams are restricted to localhost (SSRF guard); route names, directories and request bodies are validated and size-limited.
 - The CA private key stays at 0600 in `~/Library/Application Support/paw-proxy/`; it is never logged, exported or sent anywhere. Setup and uninstall are the only privileged (`sudo`) operations.
 - Secrets live only in the macOS Keychain. No plaintext fallback, no secrets in logs.
 - Notifications are posted by the app bundle via MenubarKit: opt-in, permission requested from the user toggle, silent unless the user enables sound. Never `osascript`, `terminal-notifier` or a bare binary. `up` only reports route events to the daemon (`POST /notifications`); the app reads them with `GET /notifications?after=<cursor>`, which also returns a per-boot `epoch`; the cursor is only valid within one epoch.
@@ -17,7 +17,7 @@ Zero-config HTTPS for local development: `https://<name>.test` for any dev serve
 ## Layout
 
 - `macos/` — Swift package: `PawProxy` app target (UI glue), `PawProxyNative` library, tests. `macos/Scripts/` packages and validates `Paw Proxy.app`.
-- `cmd/paw-proxy`, `cmd/up` — the two Go binaries. `internal/` — API and route registry (`api`), daemon, DNS, proxy, TLS (`ssl`), setup, paths.
+- `cmd/paw-proxy`, `cmd/up` — the two Go binaries. `internal/` — API and route registry (`api`), daemon, DNS, proxy, TLS (`ssl`), `tailnet`, setup, paths.
 - `docs/` — GitHub Pages site (`docs/index.html`) and design notes (`docs/superpowers/`). User-facing product truth lives in `README.md` and `man/`.
 
 ## Build & verify

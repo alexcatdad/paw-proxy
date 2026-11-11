@@ -17,6 +17,8 @@ type Route struct {
 	Dir           string    `json:"dir"`
 	Registered    time.Time `json:"registered"`
 	LastHeartbeat time.Time `json:"lastHeartbeat"`
+	// TailnetURL is set while the route is also served on the tailnet.
+	TailnetURL string `json:"tailnetURL,omitempty"`
 }
 
 type ConflictError struct {
@@ -99,6 +101,15 @@ func (r *RouteRegistry) Lookup(name string) (Route, bool) {
 	return *route, true
 }
 
+// SetTailnetURL records the tailnet URL of a registered route.
+func (r *RouteRegistry) SetTailnetURL(name, url string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if route, ok := r.routes[name]; ok {
+		route.TailnetURL = url
+	}
+}
+
 // ExtractName extracts the route name from a host string like
 // "myapp.test", "frontend.myapp.test:443", etc. Strips port and .test suffix.
 func ExtractName(host string) string {
@@ -126,10 +137,10 @@ func (r *RouteRegistry) Heartbeat(name string) error {
 	return nil
 }
 
-// Cleanup removes routes whose heartbeat has expired. It uses a read-lock
-// to scan for expired routes, then upgrades to a write-lock only if
-// deletions are needed, reducing contention on the hot path.
-func (r *RouteRegistry) Cleanup() {
+// Cleanup removes routes whose heartbeat has expired and returns them. It
+// uses a read-lock to scan for expired routes, then upgrades to a write-lock
+// only if deletions are needed, reducing contention on the hot path.
+func (r *RouteRegistry) Cleanup() []Route {
 	r.mu.RLock()
 	cutoff := time.Now().Add(-r.timeout)
 	var expired []string
@@ -141,18 +152,21 @@ func (r *RouteRegistry) Cleanup() {
 	r.mu.RUnlock()
 
 	if len(expired) == 0 {
-		return
+		return nil
 	}
 
+	var removed []Route
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for _, name := range expired {
 		// Re-check under write lock in case a heartbeat arrived between
 		// releasing the read lock and acquiring the write lock.
 		if route, ok := r.routes[name]; ok && route.LastHeartbeat.Before(cutoff) {
+			removed = append(removed, *route)
 			delete(r.routes, name)
 		}
 	}
+	return removed
 }
 
 // List returns copies of all registered routes.

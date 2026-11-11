@@ -30,13 +30,18 @@ public struct Route: Codable, Equatable, Sendable {
     public var dir: String
     public var registered: Date
     public var lastHeartbeat: Date
+    /// Set while `up --tailnet` is serving the route on the tailnet.
+    public var tailnetURL: String?
 
-    public init(name: String, upstream: String, dir: String, registered: Date, lastHeartbeat: Date) {
+    public init(
+        name: String, upstream: String, dir: String, registered: Date, lastHeartbeat: Date, tailnetURL: String? = nil
+    ) {
         self.name = name
         self.upstream = upstream
         self.dir = dir
         self.registered = registered
         self.lastHeartbeat = lastHeartbeat
+        self.tailnetURL = tailnetURL
     }
 }
 

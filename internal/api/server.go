@@ -24,6 +24,17 @@ var Version = "dev"
 // inside the macOS app; empty for standalone builds. Set via -ldflags.
 var Build = ""
 
+// tailnetTimeout bounds the Tailscale CLI calls made for one request, so a
+// stuck Tailscale never holds a registration open.
+const tailnetTimeout = 6 * time.Second
+
+// Tailnet serves routes on the user's tailnet. The daemon supplies
+// internal/tailnet; nil means tailnet serving is unavailable.
+type Tailnet interface {
+	Expose(ctx context.Context, name, upstream string) (url string, err error)
+	Unexpose(ctx context.Context, name string)
+}
+
 // Max request body size (1MB)
 const maxRequestBodySize = 1024 * 1024
 
@@ -38,7 +49,11 @@ type Server struct {
 	startTime  time.Time
 
 	notifications *NotificationQueue
+	tailnet       Tailnet
 }
+
+// SetTailnet enables `tailnet: true` registrations. Call it before Start.
+func (s *Server) SetTailnet(t Tailnet) { s.tailnet = t }
 
 func NewServer(socketPath string, registry *RouteRegistry) *Server {
 	s := &Server{
@@ -101,6 +116,16 @@ type RegisterRequest struct {
 	Name     string `json:"name"`
 	Upstream string `json:"upstream"`
 	Dir      string `json:"dir"`
+	// Tailnet asks the daemon to also serve the route on the tailnet.
+	Tailnet bool `json:"tailnet,omitempty"`
+}
+
+// RegisterResponse is the body of a successful registration that asked for
+// tailnet serving. The route is registered either way: TailnetError says why
+// it is reachable at its .test name only.
+type RegisterResponse struct {
+	TailnetURL   string `json:"tailnetURL,omitempty"`
+	TailnetError string `json:"tailnetError,omitempty"`
 }
 
 // validateRouteName ensures route names are safe for DNS, filesystem, and shell use
@@ -209,7 +234,28 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	if !req.Tailnet {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	var resp RegisterResponse
+	if s.tailnet == nil {
+		resp.TailnetError = "tailnet serving is not available"
+	} else {
+		ctx, cancel := context.WithTimeout(r.Context(), tailnetTimeout)
+		defer cancel()
+		url, err := s.tailnet.Expose(ctx, req.Name, req.Upstream)
+		if err != nil {
+			resp.TailnetError = err.Error()
+		} else {
+			resp.TailnetURL = url
+			s.registry.SetTailnetURL(req.Name, url)
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		log.Printf("api: failed to encode register response: %v", err)
+	}
 }
 
 func (s *Server) handleDeregister(w http.ResponseWriter, r *http.Request) {
@@ -220,7 +266,13 @@ func (s *Server) handleDeregister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	route, _ := s.registry.Lookup(name)
 	if s.registry.Deregister(name) {
+		if route.TailnetURL != "" && s.tailnet != nil {
+			ctx, cancel := context.WithTimeout(r.Context(), tailnetTimeout)
+			defer cancel()
+			s.tailnet.Unexpose(ctx, name)
+		}
 		w.WriteHeader(http.StatusOK)
 	} else {
 		jsonError(w, "not found", http.StatusNotFound)

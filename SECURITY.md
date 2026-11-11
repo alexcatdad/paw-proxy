@@ -26,8 +26,12 @@ certificates your Mac trusts, so its trust surface is:
   `~/Library/Application Support/paw-proxy/ca.key` with 0600 permissions and is
   never logged or sent anywhere. Anyone who can read it can mint certificates
   your Mac trusts, so keep it private.
-- **Local only.** The proxy and DNS bind to 127.0.0.1. The control API is a
+- **Local first.** The proxy and DNS bind to 127.0.0.1. The control API is a
   unix socket created with 0600 permissions. Never expose them to a network.
+  The one way off your Mac is `up --tailnet`: the daemon asks the Tailscale
+  CLI to serve that route's port to your tailnet (`tailscale serve`, never
+  Funnel), refuses a port that Funnel or another live service uses, and
+  removes only the Serve routes it created.
 - **Input validation.** Route names follow a DNS-safe pattern, upstreams must
   be localhost or loopback (SSRF guard), directories must be absolute and
   clean, and route notifications carry only validated route names, never

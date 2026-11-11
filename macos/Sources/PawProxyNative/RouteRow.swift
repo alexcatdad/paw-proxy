@@ -10,6 +10,14 @@ public struct RouteRow: Equatable, Identifiable, Sendable {
     public var heartbeatAge: String
     public var isStale: Bool
     public var url: URL?
+    public var tailnetURL: URL?
+
+    /// Second line of the row: target, project folder, and whether the route
+    /// is also on the tailnet.
+    public var subtitle: String {
+        (["→ \(target)", project] + (tailnetURL == nil ? [] : ["tailnet"]))
+            .filter { !$0.isEmpty }.joined(separator: " · ")
+    }
 
     /// - Parameter timeout: the daemon's heartbeat timeout; rows older than
     ///   half of it are shown as stale (the route is about to expire).
@@ -22,6 +30,7 @@ public struct RouteRow: Equatable, Identifiable, Sendable {
         heartbeatAge = Self.formatAge(age)
         isStale = age > timeout / 2
         url = URL(string: "https://\(host)")
+        tailnetURL = route.tailnetURL.flatMap(URL.init(string:))
     }
 
     public static func rows(_ routes: [Route], now: Date, tld: String = "test", timeout: TimeInterval = 30)

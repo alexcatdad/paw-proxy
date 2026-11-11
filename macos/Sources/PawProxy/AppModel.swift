@@ -231,6 +231,10 @@ final class AppModel: ObservableObject {
         if let url = row.url { copy(url.absoluteString) }
     }
 
+    func copyTailnetURL(_ row: RouteRow) {
+        if let url = row.tailnetURL { copy(url.absoluteString) }
+    }
+
     func openLogs() {
         NSWorkspace.shared.open(paths.log)
     }
