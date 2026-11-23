@@ -261,4 +261,4 @@ We didn't reinvent the wheel — we just modernized it for modern dev workflows 
 
 ## License
 
-MIT
+MIT (see LICENSE)
